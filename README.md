@@ -100,3 +100,23 @@ Buka **http://localhost:3000**
 | `Kunci API Gemini belum dikonfigurasi` | Cek isi `.env.local`, pastikan `GEMINI_API_KEY` terisi |
 | Redirect loop di `/latihan/sesi-demo` | Login dulu di `/masuk` sebelum mengakses halaman latihan |
 | Popup download PDF diblokir | Izinkan popup untuk `localhost:3000` di browser |
+
+---
+
+## 🚀 Panduan Deploy (Vercel)
+
+Karena menggunakan Next.js, project ini paling mudah di-deploy ke **Vercel**. Tidak perlu ubah kode apa pun, Vercel akan otomatis mengenali project ini. Namun, ada 2 hal wajib yang harus dikonfigurasi:
+
+### 1. Set Environment Variables di Vercel
+Vercel butuh kredensial dari `.env.local` untuk membangun aplikasi:
+- Buka Project di Vercel → **Settings** → **Environment Variables**.
+- Tambahkan ketiga kunci ini beserta nilainya:
+  - `NEXT_PUBLIC_SUPABASE_URL`
+  - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+  - `GEMINI_API_KEY`
+
+### 2. Daftarkan Domain Vercel ke Supabase
+Agar fitur Auth (Login/Daftar) tidak diblokir di production:
+- Buka Dashboard Supabase → **Authentication** → **URL Configuration**.
+- Ganti **Site URL** menjadi domain Vercel kamu (contoh: `https://thinksy.vercel.app`).
+- Tambahkan domain Vercel kamu ke bagian **Redirect URLs**.
