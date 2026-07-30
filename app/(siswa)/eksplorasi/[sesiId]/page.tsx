@@ -5,7 +5,7 @@ export default function ModeEksplorasiPage({ params }: { params: { sesiId: strin
         <h1 className="text-xl font-bold text-slate-800">Mode Eksplorasi (Soal Kurasi AI) #{params?.sesiId}</h1>
       </div>
       <div className="w-full md:w-2/5 p-6 bg-slate-50">
-        <h2 className="text-lg font-bold text-primary">Tutor AI Sokratik 🤖</h2>
+        <h2 className="text-lg font-bold text-primary">thinksy AI 🤖</h2>
       </div>
     </main>
   );

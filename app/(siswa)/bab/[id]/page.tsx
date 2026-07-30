@@ -147,6 +147,7 @@ export default async function DetailBabPage({
           {/* Right Column: Socratic AI Tutor Widget (4 cols) */}
           <div className="lg:col-span-4 sticky top-20">
             <TutorChat
+              key={selectedMateri?.id}
               materiJudul={selectedMateri?.judul}
               materiKonten={selectedMateri?.konten_markdown}
             />

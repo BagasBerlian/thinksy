@@ -195,6 +195,32 @@ ALTER TABLE percakapan_tutor ENABLE ROW LEVEL SECURITY;
 ALTER TABLE log_ai           ENABLE ROW LEVEL SECURITY;
 
 -- RLS: profil
+CREATE OR REPLACE FUNCTION public.check_user_role(role_to_check peran)
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profil
+    WHERE id = auth.uid() AND peran = role_to_check
+  );
+$$;
+
+CREATE OR REPLACE FUNCTION public.check_staff_sekolah_match(sekolah_id_to_check UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profil
+    WHERE id = auth.uid() AND peran IN ('guru', 'admin_sekolah') AND sekolah_id = sekolah_id_to_check
+  );
+$$;
+
 CREATE POLICY "profil: baca profil sendiri"
   ON profil FOR SELECT USING (auth.uid() = id);
 
@@ -203,14 +229,11 @@ CREATE POLICY "profil: update profil sendiri"
 
 CREATE POLICY "profil: super_admin lihat semua"
   ON profil FOR SELECT
-  USING (EXISTS (SELECT 1 FROM profil p WHERE p.id = auth.uid() AND p.peran = 'super_admin'));
+  USING (public.check_user_role('super_admin'));
 
-CREATE POLICY "profil: admin_sekolah lihat sekolahnya"
+CREATE POLICY "profil: staff_sekolah lihat sekolahnya"
   ON profil FOR SELECT
-  USING (EXISTS (
-    SELECT 1 FROM profil p
-    WHERE p.id = auth.uid() AND p.peran = 'admin_sekolah' AND p.sekolah_id = profil.sekolah_id
-  ));
+  USING (public.check_staff_sekolah_match(sekolah_id));
 
 -- RLS: sekolah
 CREATE POLICY "sekolah: user login bisa baca"

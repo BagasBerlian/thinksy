@@ -39,15 +39,15 @@ export default async function SiswaDashboardPage() {
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 sm:px-6 py-3.5">
           <div className="flex items-center space-x-3">
-            <div className="h-10 w-10 rounded-xl bg-[#193446] flex items-center justify-center font-bold text-[#E9C77B] shadow-md">
-              <GraduationCap className="w-6 h-6" />
+            <div className="h-10 w-10 rounded-xl bg-[#193446] flex items-center justify-center font-bold text-[#E9C77B] shadow-md border border-[#E9C77B]/20">
+              <BrainCircuit className="w-5 h-5 text-[#E9C77B]" />
             </div>
             <div>
-              <span className="font-extrabold text-[#193446] block text-base leading-tight">
-                Matematika Kelas 8
+              <span className="font-extrabold text-[#193446] block text-lg leading-none tracking-tight">
+                think<span className="text-[#E9C77B] bg-gradient-to-r from-amber-500 to-[#E9C77B] bg-clip-text text-transparent">sy</span>
               </span>
-              <span className="text-xs text-slate-500 font-medium">
-                Portal Siswa Multi-Tenant
+              <span className="text-[10px] text-slate-500 font-bold block mt-0.5 uppercase tracking-wider">
+                Matematika Kelas 8
               </span>
             </div>
           </div>

@@ -11,6 +11,7 @@ import {
   Loader2,
   CheckCircle,
   User,
+  BrainCircuit,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -25,15 +26,15 @@ export default function DaftarPage() {
 
       <div className="relative w-full max-w-md space-y-6">
         {/* Branding */}
-        <div className="text-center space-y-3">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#E9C77B]/20 border border-[#E9C77B]/30 shadow-inner">
-            <GraduationCap className="w-8 h-8 text-[#E9C77B]" />
+        <div className="text-center space-y-2">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#E9C77B]/30 to-[#E9C77B]/10 border border-[#E9C77B]/30 shadow-md mb-2">
+            <BrainCircuit className="w-8 h-8 text-[#E9C77B] animate-pulse" />
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            Aplikasi Pembelajaran AI
+          <h1 className="text-4xl font-extrabold tracking-tight text-white flex items-center justify-center gap-1 font-sans">
+            think<span className="text-[#E9C77B] bg-gradient-to-r from-[#E9C77B] to-amber-300 bg-clip-text text-transparent">sy</span>
           </h1>
-          <p className="text-xs sm:text-sm text-slate-300">
-            Platform Pembelajaran Mandiri Matematika Kelas 8 (Multi-Tenant)
+          <p className="text-xs sm:text-sm text-slate-300/90 font-medium">
+            AI-Powered Math Learning Assistant (Kelas 8)
           </p>
         </div>
 

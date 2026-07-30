@@ -28,7 +28,7 @@ export default function TutorChat({
       id: "welcome",
       role: "assistant",
       content:
-        "Halo! Saya **Tutor AI Sokratik** 🤖. Silakan tanyakan hal yang belum kamu pahami tentang materi ini. Saya akan membantumu memahami langkah demi langkah!",
+        "Halo! Saya **thinksy AI** 🤖. Silakan tanyakan hal yang belum kamu pahami tentang materi ini. Saya akan membantumu memahami langkah demi langkah!",
     },
   ]);
   const [input, setInput] = useState("");
@@ -110,8 +110,8 @@ export default function TutorChat({
           </div>
           <div>
             <h3 className="text-xs font-bold text-[#E9C77B] flex items-center gap-1">
-              <Sparkles className="w-3 h-3" />
-              Tutor AI Sokratik
+              <Sparkles className="w-3 h-3 animate-spin" style={{ animationDuration: '3s' }} />
+              thinksy AI
             </h3>
             <p className="text-[10px] text-slate-300">
               Panduan Step-by-Step Tanpa Kunci Jawaban

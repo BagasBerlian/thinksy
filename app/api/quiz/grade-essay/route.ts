@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import Anthropic from "@anthropic-ai/sdk";
 
 export async function POST(req: Request) {
   try {
@@ -31,17 +30,17 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { sesiId, jawabanList = [] } = body;
 
-    if (!sesiId) {
+    const isValidUUID = (str: string) =>
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+
+    if (!sesiId || !isValidUUID(sesiId)) {
       return NextResponse.json(
-        { error: "ID Sesi tidak valid." },
+        { error: "ID Sesi tidak valid. Pastikan sesi sudah dibuat dengan benar sebelum mengumpulkan jawaban." },
         { status: 400 }
       );
     }
 
-    const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
-    const anthropic = anthropicApiKey
-      ? new Anthropic({ apiKey: anthropicApiKey })
-      : null;
+    const geminiApiKey = process.env.GEMINI_API_KEY;
 
     const evaluationResults: any[] = [];
     let totalScoreSum = 0;
@@ -99,12 +98,12 @@ export async function POST(req: Request) {
           umpanBalik: isBenar ? "Benar" : "Salah",
         });
       } else if (soalData.tipe_soal === "esai") {
-        // Auto-grade Essay using Anthropic AI
+        // Auto-grade Essay using Google Gemini AI
         let nilai = 75;
         let isBenar = true;
         let umpanBalik = "Jawaban esai telah dicatat.";
 
-        if (anthropic && jawabanTeks) {
+        if (geminiApiKey && jawabanTeks) {
           const evalPrompt = `Kamu adalah Penilai/Evaluator Otomatis Esai Matematika SMP Kelas 8.
 Tugasmu adalah memberikan evaluasi yang objektif, akurat, dan konstruktif.
 
@@ -126,14 +125,27 @@ WAJIB MENGEMBALIKAN FORMAT JSON SAJA (TANPA TEKS LAIN):
 }`;
 
           try {
-            const aiRes = await anthropic.messages.create({
-              model: "claude-3-5-sonnet-20241022",
-              max_tokens: 600,
-              messages: [{ role: "user", content: evalPrompt }],
+            const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`;
+            const apiResponse = await fetch(geminiUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contents: [{ role: "user", parts: [{ text: evalPrompt }] }],
+                generationConfig: {
+                  responseMimeType: "application/json",
+                  temperature: 0.2,
+                  maxOutputTokens: 600
+                }
+              })
             });
 
-            const rawText =
-              aiRes.content[0]?.type === "text" ? aiRes.content[0].text : "{}";
+            if (!apiResponse.ok) {
+              const errorText = await apiResponse.text();
+              throw new Error(`Gemini API Error: ${errorText}`);
+            }
+
+            const responseData = await apiResponse.json();
+            const rawText = responseData.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
 
             const cleanedJsonText = rawText
               .replace(/```json/g, "")
@@ -147,8 +159,8 @@ WAJIB MENGEMBALIKAN FORMAT JSON SAJA (TANPA TEKS LAIN):
 
             // Log AI Token usage
             if (sekolahId) {
-              const inputTokens = aiRes.usage.input_tokens || 0;
-              const outputTokens = aiRes.usage.output_tokens || 0;
+              const inputTokens = responseData.usageMetadata?.promptTokenCount || 0;
+              const outputTokens = responseData.usageMetadata?.candidatesTokenCount || 0;
               await supabase.from("log_ai").insert({
                 sekolah_id: sekolahId,
                 pengguna_id: user.id,
@@ -156,11 +168,11 @@ WAJIB MENGEMBALIKAN FORMAT JSON SAJA (TANPA TEKS LAIN):
                 prompt_tokens: inputTokens,
                 completion_tokens: outputTokens,
                 total_tokens: inputTokens + outputTokens,
-                biaya_usd: (inputTokens * 3 + outputTokens * 15) / 1000000,
+                biaya_usd: (inputTokens * 0.075 + outputTokens * 0.3) / 1000000,
               });
             }
           } catch (e) {
-            console.error("Error calling Anthropic for essay grading:", e);
+            console.error("Error calling Gemini for essay grading:", e);
           }
         }
 

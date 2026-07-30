@@ -9,7 +9,7 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Aplikasi Pembelajaran AI - Matematika Kelas 8",
+  title: "thinksy - Pendamping Belajar Matematika Kelas 8",
   description: "Platform pembelajaran mandiri berbasis AI Multi-Tenant",
 };
 
