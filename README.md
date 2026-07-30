@@ -1,36 +1,102 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🧠 thinksy — Platform Belajar Matematika Berbasis AI
 
-## Getting Started
+Platform pembelajaran Matematika Kelas 8 SMP dengan asisten AI Sokratik (**thinksy AI**) yang membimbing siswa langkah demi langkah tanpa memberikan jawaban secara langsung.
 
-First, run the development server:
+---
+
+## ⚡ Quick Setup (Untuk Pemilik / Collaborator)
+
+### Prasyarat
+- Node.js v20+
+- Akun [Supabase](https://supabase.com) (project sudah ada)
+- Google Gemini API Key dari [aistudio.google.com](https://aistudio.google.com/apikey)
+
+---
+
+### Step 1 — Clone & Install
+
+```bash
+git clone https://github.com/<username>/thinksy.git
+cd thinksy
+npm install
+```
+
+---
+
+### Step 2 — Buat File `.env.local`
+
+Buat file `.env.local` di root project (sejajar `package.json`):
+
+```env
+# Supabase — dari Settings → API di dashboard Supabase
+NEXT_PUBLIC_SUPABASE_URL=https://xxxxxxxxxxxxxxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGci...
+
+# Google Gemini AI — dari aistudio.google.com/apikey
+GEMINI_API_KEY=AIzaSy...
+```
+
+> ⚠️ File ini **tidak ikut di-push** (sudah di `.gitignore`). Harus dibuat manual di setiap mesin.
+
+---
+
+### Step 3 — Setup Database Supabase (Sekali Saja)
+
+1. Buka **Supabase Dashboard → SQL Editor → New Query**
+2. Paste isi file **`schema.sql`** → klik **Run**
+3. *(Opsional)* Paste isi file **`seed.sql`** → klik **Run** (untuk data contoh soal & materi)
+
+**Nonaktifkan konfirmasi email untuk development:**
+- Supabase Dashboard → **Authentication → Settings** → matikan **Enable email confirmations**
+
+---
+
+### Step 4 — Jalankan
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Buka **http://localhost:3000**
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Step 5 — Buat Akun Admin
 
-## Learn More
+1. Daftar di `/daftar`
+2. Di Supabase → **Table Editor → profil** → ubah kolom `peran` akun kamu menjadi `super_admin`
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🗂️ Halaman Utama
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| URL | Deskripsi |
+|---|---|
+| `/dashboard` | Dashboard siswa |
+| `/bab/[id]` | Belajar materi + Thinksy AI |
+| `/latihan/sesi-demo` | Latihan soal + Thinksy AI |
+| `/quiz/sesi-demo` | Kuis mandiri (tanpa AI) |
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 🛠️ Tech Stack
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| | |
+|---|---|
+| Framework | Next.js 16 (App Router + Turbopack) |
+| Database & Auth | Supabase (PostgreSQL + RLS) |
+| AI | Google Gemini 2.5 Flash |
+| Styling | Tailwind CSS v4 |
+| Math | KaTeX |
+| Language | TypeScript |
+
+---
+
+## ❗ Troubleshooting
+
+| Error | Solusi |
+|---|---|
+| `infinite recursion in policy "profil"` | Jalankan ulang `schema.sql` di SQL Editor |
+| `Kunci API Gemini belum dikonfigurasi` | Cek isi `.env.local`, pastikan `GEMINI_API_KEY` terisi |
+| Redirect loop di `/latihan/sesi-demo` | Login dulu di `/masuk` sebelum mengakses halaman latihan |
+| Popup download PDF diblokir | Izinkan popup untuk `localhost:3000` di browser |
