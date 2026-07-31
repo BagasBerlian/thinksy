@@ -1,3 +1,3 @@
-import AIQuestionGeneratorPage from "../../buat-soal/page";
+import AIQuestionGeneratorPage from "../../../buat-soal/page";
 
 export default AIQuestionGeneratorPage;
