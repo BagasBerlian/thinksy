@@ -4,6 +4,37 @@
 -- ============================================================================
 
 -- ============================================================
+-- STEP 0: HAPUS SEMUA TABEL, TYPE, DAN FUNGSI YANG ADA (JIKA ADA)
+-- ============================================================
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users CASCADE;
+DROP FUNCTION IF EXISTS public.handle_new_user CASCADE;
+DROP FUNCTION IF EXISTS public.check_user_role CASCADE;
+DROP FUNCTION IF EXISTS public.check_staff_sekolah_match CASCADE;
+
+DROP TABLE IF EXISTS log_ai CASCADE;
+DROP TABLE IF EXISTS percakapan_tutor CASCADE;
+DROP TABLE IF EXISTS jawaban CASCADE;
+DROP TABLE IF EXISTS sesi CASCADE;
+DROP TABLE IF EXISTS opsi_soal CASCADE;
+DROP TABLE IF EXISTS soal CASCADE;
+DROP TABLE IF EXISTS materi CASCADE;
+DROP TABLE IF EXISTS bab CASCADE;
+DROP TABLE IF EXISTS anggota_kelas CASCADE;
+DROP TABLE IF EXISTS kelas CASCADE;
+DROP TABLE IF EXISTS profil CASCADE;
+DROP TABLE IF EXISTS sekolah CASCADE;
+
+DROP TYPE IF EXISTS peran CASCADE;
+DROP TYPE IF EXISTS tipe_soal CASCADE;
+DROP TYPE IF EXISTS tingkat_soal CASCADE;
+DROP TYPE IF EXISTS status_soal CASCADE;
+DROP TYPE IF EXISTS sumber_konten CASCADE;
+DROP TYPE IF EXISTS status_sesi CASCADE;
+DROP TYPE IF EXISTS tipe_sesi CASCADE;
+DROP TYPE IF EXISTS fitur_ai CASCADE;
+
+-- ============================================================
 -- STEP 1: BUAT ENUM TYPES
 -- ============================================================
 
