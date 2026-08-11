@@ -48,9 +48,9 @@ export async function registerAction(prevState: any, formData: FormData) {
   const namaLengkap = formData.get("nama_lengkap") as string;
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
-  const konfirmasiPassword = formData.get("konfirmasi_password") as string;
+  const peranInput = formData.get("peran") as string;
 
-  if (!namaLengkap || !email || !password || !konfirmasiPassword) {
+  if (!namaLengkap || !email || !password) {
     return { error: "Semua kolom wajib diisi." };
   }
 
@@ -62,9 +62,9 @@ export async function registerAction(prevState: any, formData: FormData) {
     return { error: "Kata sandi minimal 8 karakter." };
   }
 
-  if (password !== konfirmasiPassword) {
-    return { error: "Konfirmasi kata sandi tidak cocok." };
-  }
+  // Validate peran
+  const validPeran = ["super_admin", "admin_sekolah", "guru", "siswa"];
+  const peran = validPeran.includes(peranInput) ? peranInput : "siswa";
 
   const supabase = await createClient();
 
@@ -74,6 +74,7 @@ export async function registerAction(prevState: any, formData: FormData) {
     options: {
       data: {
         nama_lengkap: namaLengkap.trim(),
+        peran: peran,
       },
     },
   });
@@ -118,6 +119,18 @@ export async function registerAction(prevState: any, formData: FormData) {
   // Cek jika email sudah terdaftar (Supabase kadang tidak return error, tapi identities kosong)
   if (authData.user.identities && authData.user.identities.length === 0) {
     return { error: "Email ini sudah terdaftar. Silakan masuk atau gunakan email lain." };
+  }
+
+  // Coba update peran secara langsung ke tabel profil jika pengguna langsung terautentikasi (email confirmation mati)
+  if (authData.user) {
+    try {
+      await supabase
+        .from("profil")
+        .update({ peran })
+        .eq("id", authData.user.id);
+    } catch (e) {
+      console.warn("Direct profile update failed (this is normal if email confirmation is required):", e);
+    }
   }
 
   // Jika Supabase memerlukan konfirmasi email

@@ -1,172 +1,317 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState, Suspense } from "react";
 import { registerAction } from "../actions";
+import { createClient } from "@/lib/supabase/client";
 import {
-  UserPlus,
-  GraduationCap,
-  Lock,
+  User,
   Mail,
-  AlertCircle,
+  Lock,
+  School,
+  ShieldCheck,
+  GraduationCap,
+  Apple,
+  Eye,
+  EyeOff,
   Loader2,
   CheckCircle,
-  User,
-  BrainCircuit,
+  AlertCircle,
+  ArrowRight,
 } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
-export default function DaftarPage() {
+type RoleType = "admin_sekolah" | "super_admin" | "siswa" | "guru";
+
+function DaftarForm() {
   const [state, formAction, isPending] = useActionState(registerAction, null);
+  const [selectedRole, setSelectedRole] = useState<RoleType>("siswa");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isGitHubLoading, setIsGitHubLoading] = useState(false);
+
+  const searchParams = useSearchParams();
+  const oauthError = searchParams.get("error");
+
+  const handleSocialLogin = async (provider: "google" | "github") => {
+    if (provider === "google") {
+      setIsGoogleLoading(true);
+    } else {
+      setIsGitHubLoading(true);
+    }
+
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: `${window.location.origin}/api/auth/callback`,
+        },
+      });
+
+      if (error) {
+        throw error;
+      }
+    } catch (err: any) {
+      console.error(`Gagal memulai autentikasi ${provider}:`, err);
+      setIsGoogleLoading(false);
+      setIsGitHubLoading(false);
+    }
+  };
+
+  const isAnyLoading = isPending || isGoogleLoading || isGitHubLoading;
+
+  const roles = [
+    { id: "admin_sekolah" as RoleType, label: "Admin Sekolah", icon: School },
+    { id: "super_admin" as RoleType, label: "Super Admin", icon: ShieldCheck },
+    { id: "siswa" as RoleType, label: "Siswa", icon: GraduationCap },
+    { id: "guru" as RoleType, label: "Guru", icon: Apple },
+  ];
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#193446] via-[#162e3e] to-[#0f1e29] p-4 sm:p-6 lg:p-8">
-      {/* Ambient background glow */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#E9C77B]/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[#193446]/30 rounded-full blur-3xl pointer-events-none" />
-
-      <div className="relative w-full max-w-md space-y-6">
-        {/* Branding */}
-        <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#E9C77B]/30 to-[#E9C77B]/10 border border-[#E9C77B]/30 shadow-md mb-2">
-            <BrainCircuit className="w-8 h-8 text-[#E9C77B] animate-pulse" />
-          </div>
-          <h1 className="text-4xl font-extrabold tracking-tight text-white flex items-center justify-center gap-1 font-sans">
-            think<span className="text-[#E9C77B] bg-gradient-to-r from-[#E9C77B] to-amber-300 bg-clip-text text-transparent">sy</span>
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-300/90 font-medium">
-            AI-Powered Math Learning Assistant (Kelas 8)
-          </p>
+    <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-slate-100/80 w-full max-w-[400px] mt-6 space-y-5">
+      {(state?.error || oauthError) && (
+        <div className="flex items-center gap-3 p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs">
+          <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
+          <span>{state?.error || oauthError}</span>
         </div>
+      )}
 
-        {/* Form Container */}
-        <div className="bg-white/95 backdrop-blur-md rounded-2xl p-6 sm:p-8 shadow-2xl border border-white/20 space-y-6">
-          <div className="border-b border-slate-100 pb-4">
-            <h2 className="text-lg font-bold text-[#193446] flex items-center gap-2">
-              <UserPlus className="w-5 h-5 text-[#E9C77B]" />
-              Buat Akun Baru
-            </h2>
-            <p className="text-xs text-slate-500 mt-1">
-              Daftarkan akun siswa Anda untuk mulai belajar.
-            </p>
+      {state?.success && (
+        <div className="flex items-start gap-3 p-3.5 rounded-xl bg-green-50 border border-green-200 text-green-700 text-xs">
+          <CheckCircle className="w-4 h-4 shrink-0 text-green-500 mt-0.5" />
+          <span>{state.message}</span>
+        </div>
+      )}
+
+      {!state?.success && (
+        <form action={formAction} className="space-y-4">
+          {/* Hidden Role Input */}
+          <input type="hidden" name="peran" value={selectedRole} />
+
+          {/* Role Selection Container */}
+          <div className="space-y-1.5">
+            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+              Pilih Peran
+            </label>
+            <div className="grid grid-cols-4 gap-1.5 p-1.5 bg-slate-50 border border-slate-100 rounded-2xl">
+              {roles.map((role) => {
+                const IconComponent = role.icon;
+                const isSelected = selectedRole === role.id;
+                return (
+                  <button
+                    key={role.id}
+                    type="button"
+                    disabled={isAnyLoading}
+                    onClick={() => setSelectedRole(role.id)}
+                    className={`flex flex-col items-center justify-center gap-1.5 py-2 px-1 rounded-xl text-center transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed select-none ${
+                      isSelected
+                        ? "bg-[#0B1A2E] text-white shadow-[0_4px_12px_rgba(11,26,46,0.15)]"
+                        : "text-slate-400 hover:text-slate-600 hover:bg-slate-100/50"
+                    }`}
+                  >
+                    <IconComponent className={`w-5 h-5 ${isSelected ? "text-white" : "text-slate-400"}`} />
+                    <span
+                      className={`text-[8px] font-bold leading-tight ${
+                        isSelected ? "text-white" : "text-slate-500"
+                      }`}
+                    >
+                      {role.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          {/* Error State */}
-          {state?.error && (
-            <div className="flex items-center gap-3 p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs sm:text-sm">
-              <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
-              <span>{state.error}</span>
+          {/* Full Name */}
+          <div className="space-y-1.5">
+            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+              Nama Lengkap
+            </label>
+            <div className="relative flex items-center">
+              <User className="w-5 h-5 text-slate-400 absolute left-4" />
+              <input
+                type="text"
+                name="nama_lengkap"
+                required
+                minLength={3}
+                disabled={isAnyLoading}
+                placeholder="Nama lengkap Anda"
+                className="w-full pl-12 pr-4 py-3 bg-slate-50/50 hover:bg-slate-50 border border-slate-200/60 focus:border-slate-300 focus:bg-white rounded-xl text-sm text-slate-800 placeholder-slate-400/80 focus:outline-none transition-all duration-200 disabled:opacity-60"
+              />
             </div>
-          )}
+          </div>
 
-          {/* Success State */}
-          {state?.success && (
-            <div className="flex items-start gap-3 p-3.5 rounded-xl bg-green-50 border border-green-200 text-green-700 text-xs sm:text-sm">
-              <CheckCircle className="w-4 h-4 shrink-0 text-green-500 mt-0.5" />
-              <span>{state.message}</span>
+          {/* Email Address */}
+          <div className="space-y-1.5">
+            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+              Alamat Email
+            </label>
+            <div className="relative flex items-center">
+              <Mail className="w-5 h-5 text-slate-400 absolute left-4" />
+              <input
+                type="email"
+                name="email"
+                required
+                disabled={isAnyLoading}
+                placeholder="nama@email.com"
+                className="w-full pl-12 pr-4 py-3 bg-slate-50/50 hover:bg-slate-50 border border-slate-200/60 focus:border-slate-300 focus:bg-white rounded-xl text-sm text-slate-800 placeholder-slate-400/80 focus:outline-none transition-all duration-200 disabled:opacity-60"
+              />
             </div>
-          )}
+          </div>
 
-          {!state?.success && (
-            <form action={formAction} className="space-y-4">
-              {/* Nama Lengkap */}
-              <div className="space-y-1.5">
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                  Nama Lengkap
-                </label>
-                <div className="relative">
-                  <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    name="nama_lengkap"
-                    required
-                    minLength={3}
-                    placeholder="Nama lengkap Anda"
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#193446] focus:border-transparent transition bg-slate-50/50"
-                  />
-                </div>
-              </div>
-
-              {/* Email */}
-              <div className="space-y-1.5">
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                  Email
-                </label>
-                <div className="relative">
-                  <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="email"
-                    name="email"
-                    required
-                    placeholder="nama@sekolah.sch.id"
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#193446] focus:border-transparent transition bg-slate-50/50"
-                  />
-                </div>
-              </div>
-
-              {/* Password */}
-              <div className="space-y-1.5">
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                  Kata Sandi
-                </label>
-                <div className="relative">
-                  <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="password"
-                    name="password"
-                    required
-                    minLength={8}
-                    placeholder="Minimal 8 karakter"
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#193446] focus:border-transparent transition bg-slate-50/50"
-                  />
-                </div>
-              </div>
-
-              {/* Konfirmasi Password */}
-              <div className="space-y-1.5">
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                  Konfirmasi Kata Sandi
-                </label>
-                <div className="relative">
-                  <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="password"
-                    name="konfirmasi_password"
-                    required
-                    minLength={8}
-                    placeholder="Ulangi kata sandi"
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#193446] focus:border-transparent transition bg-slate-50/50"
-                  />
-                </div>
-              </div>
-
+          {/* Password */}
+          <div className="space-y-1.5">
+            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+              Kata Sandi
+            </label>
+            <div className="relative flex items-center">
+              <Lock className="w-5 h-5 text-slate-400 absolute left-4" />
+              <input
+                type={showPassword ? "text" : "password"}
+                name="password"
+                required
+                minLength={8}
+                disabled={isAnyLoading}
+                placeholder="Minimal 8 karakter"
+                className="w-full pl-12 pr-12 py-3 bg-slate-50/50 hover:bg-slate-50 border border-slate-200/60 focus:border-slate-300 focus:bg-white rounded-xl text-sm text-slate-800 placeholder-slate-400/80 focus:outline-none transition-all duration-200 disabled:opacity-60"
+              />
               <button
-                type="submit"
-                disabled={isPending}
-                className="w-full mt-2 py-3 px-4 rounded-xl bg-[#193446] hover:bg-[#132836] text-[#E9C77B] font-bold text-sm shadow-md hover:shadow-lg transition flex items-center justify-center gap-2 disabled:opacity-75 disabled:cursor-not-allowed cursor-pointer"
+                type="button"
+                disabled={isAnyLoading}
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer flex items-center justify-center disabled:opacity-50"
               >
-                {isPending ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin text-[#E9C77B]" />
-                    <span>Mendaftarkan...</span>
-                  </>
-                ) : (
-                  <span>Daftar Sekarang</span>
-                )}
+                {showPassword ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
               </button>
-            </form>
-          )}
-
-          {/* Link ke Login */}
-          <div className="text-center pt-2 text-xs text-slate-500">
-            Sudah punya akun?{" "}
-            <Link
-              href="/masuk"
-              className="font-semibold text-[#193446] hover:text-[#E9C77B] transition-colors"
-            >
-              Masuk di sini
-            </Link>
+            </div>
           </div>
+
+          {/* Sign Up Button */}
+          <button
+            type="submit"
+            disabled={isAnyLoading}
+            className="w-full mt-2 py-3.5 bg-[#0B1A2E] hover:bg-[#12253F] text-white font-semibold text-sm rounded-xl transition-all duration-200 flex items-center justify-center gap-2 shadow-[0_4px_12px_rgba(11,26,46,0.1)] hover:shadow-[0_6px_20px_rgba(11,26,46,0.15)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          >
+            {isPending ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin text-white" />
+                <span>Mendaftarkan...</span>
+              </>
+            ) : (
+              <>
+                <span>Buat Akun</span>
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
+          </button>
+        </form>
+      )}
+
+      {/* Or Continue With Divider */}
+      <div className="relative flex py-2 items-center">
+        <div className="flex-grow border-t border-slate-100"></div>
+        <span className="flex-shrink mx-4 text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+          atau lanjutkan dengan
+        </span>
+        <div className="flex-grow border-t border-slate-100"></div>
+      </div>
+
+      {/* Social Logins */}
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          type="button"
+          disabled={isAnyLoading}
+          onClick={() => handleSocialLogin("google")}
+          className="flex items-center justify-center gap-2 py-2.5 px-4 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl text-xs font-semibold text-slate-700 shadow-sm transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isGoogleLoading ? (
+            <Loader2 className="w-4 h-4 animate-spin text-slate-500" />
+          ) : (
+            <svg className="w-4 h-4" viewBox="0 0 24 24">
+              <path
+                fill="#EA4335"
+                d="M12 5.04c1.66 0 3.2.57 4.38 1.69l3.27-3.27C17.67 1.53 14.98 1 12 1 7.35 1 3.37 3.67 1.39 7.56l3.89 3.02C6.2 7.74 8.87 5.04 12 5.04z"
+              />
+              <path
+                fill="#4285F4"
+                d="M23.49 12.27c0-.81-.07-1.59-.2-2.36H12v4.51h6.46c-.29 1.48-1.14 2.73-2.4 3.58l3.73 2.89c2.18-2.01 3.7-4.97 3.7-8.62z"
+              />
+              <path
+                fill="#FBBC05"
+                d="M5.28 14.78c-.25-.74-.39-1.53-.39-2.36s.14-1.62.39-2.36L1.39 7.04C.5 8.84 0 10.86 0 13s.5 4.16 1.39 5.96l3.89-3.18z"
+              />
+              <path
+                fill="#34A853"
+                d="M12 23c3.24 0 5.97-1.07 7.96-2.91l-3.73-2.89c-1.11.75-2.53 1.2-4.23 1.2-3.13 0-5.8-2.7-6.72-5.54l-3.89 3.02C3.37 20.33 7.35 23 12 23z"
+              />
+            </svg>
+          )}
+          <span>Google</span>
+        </button>
+        <button
+          type="button"
+          disabled={isAnyLoading}
+          onClick={() => handleSocialLogin("github")}
+          className="flex items-center justify-center gap-2 py-2.5 px-4 bg-[#24292F] hover:bg-[#1C2024] rounded-xl text-xs font-semibold text-white shadow-sm transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isGitHubLoading ? (
+            <Loader2 className="w-4 h-4 animate-spin text-white" />
+          ) : (
+            <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+              <path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.579.688.481C19.137 20.162 22 16.418 22 12c0-5.523-4.477-10-10-10z" />
+            </svg>
+          )}
+          <span>GitHub</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default function DaftarPage() {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[#F8FAFC] p-4 sm:p-6 lg:p-8">
+      <div className="w-full max-w-[400px] flex flex-col items-center">
+        {/* Branding Logo Container */}
+        <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-white shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-slate-100/80 mb-4">
+          <svg className="w-6 h-6 text-[#0B1A2E]" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+            <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" />
+            <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.4" />
+          </svg>
         </div>
+
+        {/* Brand Name */}
+        <h1 className="text-3xl font-bold text-[#0B1A2E] tracking-tight font-sans mb-1 text-center">
+          Thinksy
+        </h1>
+
+        {/* Subtitle */}
+        <p className="text-sm text-slate-500 max-w-[280px] text-center leading-relaxed mb-2">
+          Buat akun Thinksy Anda
+        </p>
+
+        {/* Form component */}
+        <Suspense fallback={
+          <div className="bg-white rounded-3xl p-8 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-slate-100 w-full max-w-[400px] mt-6 flex items-center justify-center">
+            <Loader2 className="w-6 h-6 animate-spin text-[#0B1A2E]" />
+          </div>
+        }>
+          <DaftarForm />
+        </Suspense>
+
+        {/* Footer */}
+        <p className="text-xs text-slate-500 font-medium text-center mt-6">
+          Sudah punya akun?
+          <Link
+            href="/masuk"
+            className="text-[#0B1A2E] font-semibold hover:underline ml-1"
+          >
+            Masuk
+          </Link>
+        </p>
       </div>
     </div>
   );

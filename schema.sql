@@ -198,7 +198,7 @@ BEGIN
   VALUES (
     NEW.id,
     COALESCE(NEW.raw_user_meta_data->>'nama_lengkap', NEW.email, 'Pengguna Baru'),
-    'siswa'
+    COALESCE((NEW.raw_user_meta_data->>'peran')::peran, 'siswa')
   );
   RETURN NEW;
 END;
