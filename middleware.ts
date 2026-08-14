@@ -75,6 +75,15 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
+    if (pathname === "/") {
+      const targetHome = getHomeForRole(peran);
+      if (targetHome !== "/") {
+        const url = request.nextUrl.clone();
+        url.pathname = targetHome;
+        return NextResponse.redirect(url);
+      }
+    }
+
     if (pathname.startsWith("/super") && peran !== "super_admin") {
       const url = request.nextUrl.clone();
       url.pathname = getHomeForRole(peran);
