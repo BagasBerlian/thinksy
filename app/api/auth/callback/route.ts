@@ -89,60 +89,71 @@ export async function GET(request: Request) {
     .eq("id", user.id)
     .single();
 
-  if (profilLama) {
-    // Profil sudah ada → langsung arahkan ke dashboard
-    console.log("Profil: ✅ sudah ada, peran =", profilLama.peran);
-    return NextResponse.redirect(`${origin}${getDashboardPath(profilLama.peran)}`);
-  }
+  let finalRole = profilLama?.peran;
 
-  // Profil belum ada → ini user baru via OAuth.
-  // Cek apakah ada undangan untuk email ini
-  const emailUser = user.email?.toLowerCase();
-  let peranBaru = "siswa"; // default
+  if (!finalRole) {
+    // Profil belum ada → ini user baru via OAuth.
+    // Cek apakah ada undangan untuk email ini
+    const emailUser = user.email?.toLowerCase();
+    let peranBaru = "siswa"; // default
+    let sekolahId: string | null = null;
 
-  if (emailUser) {
-    const { data: undangan } = await supabase
-      .from("undangan")
-      .select("id, peran")
-      .eq("email", emailUser)
-      .eq("digunakan", false)
-      .gt("kadaluarsa_pada", new Date().toISOString())
-      .order("dibuat_pada", { ascending: false })
-      .limit(1)
-      .single();
-
-    if (undangan) {
-      console.log("Undangan: ✅ ditemukan, peran =", undangan.peran);
-      peranBaru = undangan.peran;
-
-      // Tandai undangan sebagai sudah digunakan
-      await supabase
+    if (emailUser) {
+      const { data: undangan } = await supabase
         .from("undangan")
-        .update({ digunakan: true })
-        .eq("id", undangan.id);
-    } else {
-      console.log("Undangan: tidak ditemukan → default siswa");
+        .select("id, peran, sekolah_id")
+        .eq("email", emailUser)
+        .eq("digunakan", false)
+        .gt("kadaluarsa_pada", new Date().toISOString())
+        .order("dibuat_pada", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (undangan) {
+        console.log("Undangan: ✅ ditemukan, peran =", undangan.peran);
+        peranBaru = undangan.peran;
+        sekolahId = undangan.sekolah_id || null;
+
+        // Tandai undangan sebagai sudah digunakan
+        await supabase
+          .from("undangan")
+          .update({ digunakan: true })
+          .eq("id", undangan.id);
+      } else {
+        console.log("Undangan: tidak ditemukan → default siswa");
+      }
     }
+
+    // Buat profil baru
+    const namaLengkap =
+      user.user_metadata?.full_name ||
+      user.user_metadata?.name ||
+      user.email?.split("@")[0] ||
+      "Pengguna";
+
+    const { error: profilError } = await supabase.from("profil").insert({
+      id: user.id,
+      nama_lengkap: namaLengkap,
+      peran: peranBaru,
+      sekolah_id: sekolahId,
+    });
+
+    if (profilError) {
+      console.error("❌ Gagal buat profil:", profilError.message);
+    } else {
+      console.log("Profil: ✅ dibuat baru dengan peran =", peranBaru);
+    }
+
+    finalRole = peranBaru;
   }
 
-  // Buat profil baru
-  const namaLengkap =
-    user.user_metadata?.full_name ||
-    user.user_metadata?.name ||
-    user.email?.split("@")[0] ||
-    "Pengguna";
-
-  const { error: profilError } = await supabase.from("profil").insert({
-    id: user.id,
-    nama_lengkap: namaLengkap,
-    peran: peranBaru,
+  // Set cookie peran terikat dengan user ID
+  cookieStore.set("user_role", `${user.id}:${finalRole}`, {
+    httpOnly: true,
+    sameSite: "lax",
+    maxAge: 60 * 60 * 24, // 24 jam
+    path: "/",
   });
 
-  if (profilError) {
-    console.error("❌ Gagal buat profil:", profilError.message);
-  } else {
-    console.log("Profil: ✅ dibuat baru dengan peran =", peranBaru);
-  }
-
-  return NextResponse.redirect(`${origin}${getDashboardPath(peranBaru)}`);
+  return NextResponse.redirect(`${origin}${getDashboardPath(finalRole)}`);
 }

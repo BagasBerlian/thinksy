@@ -18,7 +18,7 @@ export async function POST(request: Request) {
 
   const { data: profilPemanggil } = await supabase
     .from("profil")
-    .select("peran, nama_lengkap")
+    .select("peran, nama_lengkap, sekolah_id")
     .eq("id", user.id)
     .single();
 
@@ -83,6 +83,7 @@ export async function POST(request: Request) {
       peran: "guru",
       dibuat_oleh: user.id,
       nama_yang_diundang: nama_lengkap.trim(),
+      sekolah_id: profilPemanggil.sekolah_id || null,
     })
     .select("id, email, kadaluarsa_pada")
     .single();

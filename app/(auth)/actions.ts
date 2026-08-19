@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 // Helper: tentukan path dashboard berdasarkan peran
@@ -42,31 +43,70 @@ export async function loginAction(prevState: any, formData: FormData) {
     return { error: "Gagal mendapatkan data akun." };
   }
 
+  const userId = authData.user.id;
+  const userEmail = authData.user.email?.toLowerCase();
+
   // Ambil peran dari tabel profil
   const { data: profil } = await supabase
     .from("profil")
-    .select("peran")
-    .eq("id", authData.user.id)
+    .select("peran, sekolah_id")
+    .eq("id", userId)
     .single();
 
-  // Jika profil belum ada (edge case: user OAuth yang belum lengkap), buat profil siswa
-  if (!profil) {
+  let resolvedPeran = profil?.peran;
+
+  // Jika profil belum ada di database, buat profil otomatis
+  if (!resolvedPeran) {
+    let peranBaru = "siswa";
+    let sekolahId: string | null = null;
+
+    if (userEmail) {
+      const { data: undangan } = await supabase
+        .from("undangan")
+        .select("id, peran, sekolah_id")
+        .eq("email", userEmail)
+        .eq("digunakan", false)
+        .gt("kadaluarsa_pada", new Date().toISOString())
+        .order("dibuat_pada", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (undangan) {
+        peranBaru = undangan.peran;
+        sekolahId = undangan.sekolah_id || null;
+        await supabase
+          .from("undangan")
+          .update({ digunakan: true })
+          .eq("id", undangan.id);
+      }
+    }
+
     const namaLengkap =
       authData.user.user_metadata?.full_name ||
       authData.user.user_metadata?.name ||
-      authData.user.email?.split("@")[0] ||
+      userEmail?.split("@")[0] ||
       "Pengguna";
 
     await supabase.from("profil").insert({
-      id: authData.user.id,
+      id: userId,
       nama_lengkap: namaLengkap,
-      peran: "siswa",
+      peran: peranBaru,
+      sekolah_id: sekolahId,
     });
 
-    redirect("/");
+    resolvedPeran = peranBaru;
   }
 
-  redirect(getDashboardPath(profil.peran));
+  // Set cookie peran terisolasi dengan user ID
+  const cookieStore = await cookies();
+  cookieStore.set("user_role", `${userId}:${resolvedPeran}`, {
+    httpOnly: true,
+    sameSite: "lax",
+    maxAge: 60 * 60 * 24, // 24 jam
+    path: "/",
+  });
+
+  redirect(getDashboardPath(resolvedPeran));
 }
 
 export async function registerAction(prevState: any, formData: FormData) {
@@ -88,14 +128,12 @@ export async function registerAction(prevState: any, formData: FormData) {
 
   const supabase = await createClient();
 
-  // Daftar ke Supabase Auth — peran SELALU siswa, tidak bisa dipilih sendiri
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email,
     password,
     options: {
       data: {
         nama_lengkap: namaLengkap.trim(),
-        // peran tidak disimpan di metadata — hanya di tabel profil
       },
     },
   });
@@ -134,28 +172,60 @@ export async function registerAction(prevState: any, formData: FormData) {
     return { error: "Gagal membuat akun. Silakan coba lagi." };
   }
 
-  // Cek apakah email sudah terdaftar sebelumnya (Supabase kadang tidak return error)
+  // Cek apakah email sudah terdaftar sebelumnya
   if (authData.user.identities && authData.user.identities.length === 0) {
     return { error: "Email ini sudah terdaftar. Silakan masuk atau gunakan email lain." };
   }
 
-  // Jika langsung terautentikasi (email confirmation dimatikan di Supabase),
-  // buat profil siswa di database
+  const emailNormalized = email.toLowerCase().trim();
+  let peranBaru = "siswa";
+  let sekolahId: string | null = null;
+
+  // Cek apakah ada undangan untuk email pendaftar ini
+  const { data: undangan } = await supabase
+    .from("undangan")
+    .select("id, peran, sekolah_id")
+    .eq("email", emailNormalized)
+    .eq("digunakan", false)
+    .gt("kadaluarsa_pada", new Date().toISOString())
+    .order("dibuat_pada", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (undangan) {
+    peranBaru = undangan.peran;
+    sekolahId = undangan.sekolah_id || null;
+    await supabase
+      .from("undangan")
+      .update({ digunakan: true })
+      .eq("id", undangan.id);
+  }
+
+  // Buat profil pengguna di database
   if (authData.session) {
     const { error: profilError } = await supabase.from("profil").upsert({
       id: authData.user.id,
       nama_lengkap: namaLengkap.trim(),
-      peran: "siswa", // selalu siswa saat daftar mandiri
+      peran: peranBaru,
+      sekolah_id: sekolahId,
     });
 
     if (profilError) {
       console.error("[REGISTER] Gagal membuat profil:", profilError.message);
     }
 
-    redirect("/"); // langsung ke dashboard siswa
+    // Set cookie peran terikat dengan user ID
+    const cookieStore = await cookies();
+    cookieStore.set("user_role", `${authData.user.id}:${peranBaru}`, {
+      httpOnly: true,
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24, // 24 jam
+      path: "/",
+    });
+
+    redirect(getDashboardPath(peranBaru));
   }
 
-  // Jika Supabase memerlukan konfirmasi email terlebih dahulu
   return {
     success: true,
     message:
@@ -166,5 +236,10 @@ export async function registerAction(prevState: any, formData: FormData) {
 export async function logoutAction() {
   const supabase = await createClient();
   await supabase.auth.signOut();
+
+  // Hapus cookie peran saat logout
+  const cookieStore = await cookies();
+  cookieStore.delete("user_role");
+
   redirect("/masuk");
 }

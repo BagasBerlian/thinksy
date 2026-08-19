@@ -50,21 +50,56 @@ export async function middleware(request: NextRequest) {
   }
 
   if (user) {
-    // Baca peran dari cookie (diisi oleh login/callback/set-peran)
-    // Jika tidak ada cookie, fetch dari DB satu kali lalu simpan ke cookie
+    // Format cookie: "userId:peran" untuk mencegah bentrok antar user pada browser yang sama
     const roleCookie = request.cookies.get("user_role")?.value;
+    let peran = "siswa";
+    let hasRoleFromCookie = false;
 
-    let peran = roleCookie;
+    if (roleCookie && roleCookie.includes(":")) {
+      const [cookieUserId, cookieRole] = roleCookie.split(":");
+      if (cookieUserId === user.id && cookieRole) {
+        peran = cookieRole;
+        hasRoleFromCookie = true;
+      }
+    }
 
-    if (!peran) {
+    // Jika cookie tidak cocok dengan user.id saat ini atau belum ada, query DB
+    if (!hasRoleFromCookie) {
       const { data: profil } = await supabase
         .from("profil")
         .select("peran")
         .eq("id", user.id)
         .single();
 
-      if (!profil) {
-        // Profil belum ada (sangat jarang) → buat otomatis sebagai siswa
+      if (profil?.peran) {
+        peran = profil.peran;
+      } else {
+        // Cek tabel undangan jika profil belum ada
+        const emailUser = user.email?.toLowerCase();
+        let peranBaru = "siswa";
+        let sekolahId: string | null = null;
+
+        if (emailUser) {
+          const { data: undangan } = await supabase
+            .from("undangan")
+            .select("id, peran, sekolah_id")
+            .eq("email", emailUser)
+            .eq("digunakan", false)
+            .gt("kadaluarsa_pada", new Date().toISOString())
+            .order("dibuat_pada", { ascending: false })
+            .limit(1)
+            .single();
+
+          if (undangan) {
+            peranBaru = undangan.peran;
+            sekolahId = undangan.sekolah_id || null;
+            await supabase
+              .from("undangan")
+              .update({ digunakan: true })
+              .eq("id", undangan.id);
+          }
+        }
+
         const namaLengkap =
           user.user_metadata?.full_name ||
           user.user_metadata?.name ||
@@ -74,16 +109,15 @@ export async function middleware(request: NextRequest) {
         await supabase.from("profil").insert({
           id: user.id,
           nama_lengkap: namaLengkap,
-          peran: "siswa",
+          peran: peranBaru,
+          sekolah_id: sekolahId,
         });
 
-        peran = "siswa";
-      } else {
-        peran = profil.peran;
+        peran = peranBaru;
       }
 
-      // Simpan ke cookie agar permintaan berikutnya tidak perlu query DB
-      supabaseResponse.cookies.set("user_role", peran, {
+      // Simpan ke cookie terikat dengan user.id
+      supabaseResponse.cookies.set("user_role", `${user.id}:${peran}`, {
         httpOnly: true,
         sameSite: "lax",
         maxAge: 60 * 60 * 24, // 24 jam
@@ -91,7 +125,7 @@ export async function middleware(request: NextRequest) {
       });
     }
 
-    const getHomeForRole = (role: string) => {
+    const getHomeForRole = (role?: string) => {
       switch (role) {
         case "super_admin":
           return "/super";
@@ -105,19 +139,20 @@ export async function middleware(request: NextRequest) {
       }
     };
 
-    // User sudah login tapi akses halaman auth → redirect ke dashboard
+    const targetDashboard = getHomeForRole(peran);
+
+    // User sudah login tapi akses halaman auth (/masuk atau /daftar) → redirect ke dashboardnya
     if (isAuthPage) {
       const url = request.nextUrl.clone();
-      url.pathname = getHomeForRole(peran);
+      url.pathname = targetDashboard;
       return NextResponse.redirect(url);
     }
 
-    // Redirect root "/" ke dashboard spesifik peran (kecuali siswa yang memang di "/")
+    // Redirect root "/" ke dashboard spesifik peran (jika bukan siswa)
     if (pathname === "/") {
-      const targetHome = getHomeForRole(peran);
-      if (targetHome !== "/") {
+      if (targetDashboard !== "/") {
         const url = request.nextUrl.clone();
-        url.pathname = targetHome;
+        url.pathname = targetDashboard;
         return NextResponse.redirect(url);
       }
     }
@@ -125,7 +160,7 @@ export async function middleware(request: NextRequest) {
     // Proteksi rute berdasarkan peran
     if (pathname.startsWith("/super") && peran !== "super_admin") {
       const url = request.nextUrl.clone();
-      url.pathname = getHomeForRole(peran);
+      url.pathname = targetDashboard;
       return NextResponse.redirect(url);
     }
 
@@ -134,7 +169,7 @@ export async function middleware(request: NextRequest) {
       !["admin_sekolah", "super_admin"].includes(peran)
     ) {
       const url = request.nextUrl.clone();
-      url.pathname = getHomeForRole(peran);
+      url.pathname = targetDashboard;
       return NextResponse.redirect(url);
     }
 
@@ -143,7 +178,7 @@ export async function middleware(request: NextRequest) {
       !["guru", "admin_sekolah", "super_admin"].includes(peran)
     ) {
       const url = request.nextUrl.clone();
-      url.pathname = getHomeForRole(peran);
+      url.pathname = targetDashboard;
       return NextResponse.redirect(url);
     }
   }
