@@ -499,7 +499,7 @@ export default function StudentDashboardClient({
                         POIN BELAJAR
                       </div>
                       <div className="text-sm font-extrabold text-[#0F172A]">
-                        {learningPoints.toLocaleString()} Poin
+                        {learningPoints.toLocaleString("id-ID")} Poin
                       </div>
                     </div>
                   </div>
@@ -929,7 +929,7 @@ export default function StudentDashboardClient({
                     {dailyStreak} Hari 🔥
                   </td>
                   <td className="p-4 text-right font-extrabold text-blue-600">
-                    {learningPoints.toLocaleString()} Pts
+                    {learningPoints.toLocaleString("id-ID")} Pts
                   </td>
                 </tr>
                 {Array.from({ length: 5 }, (_, i) => (
@@ -1139,7 +1139,7 @@ export default function StudentDashboardClient({
                   Total Poin
                 </div>
                 <div className="text-lg font-extrabold text-[#0F172A] mt-0.5">
-                  {learningPoints.toLocaleString()} Poin
+                  {learningPoints.toLocaleString("id-ID")} Poin
                 </div>
               </div>
 
