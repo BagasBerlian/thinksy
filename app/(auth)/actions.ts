@@ -3,6 +3,21 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
+// Helper: tentukan path dashboard berdasarkan peran
+function getDashboardPath(peran: string): string {
+  switch (peran) {
+    case "super_admin":
+      return "/super";
+    case "admin_sekolah":
+      return "/admin";
+    case "guru":
+      return "/guru";
+    case "siswa":
+    default:
+      return "/";
+  }
+}
+
 export async function loginAction(prevState: any, formData: FormData) {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
@@ -34,21 +49,30 @@ export async function loginAction(prevState: any, formData: FormData) {
     .eq("id", authData.user.id)
     .single();
 
-  const peran = profil?.peran || "siswa";
+  // Jika profil belum ada (edge case: user OAuth yang belum lengkap), buat profil siswa
+  if (!profil) {
+    const namaLengkap =
+      authData.user.user_metadata?.full_name ||
+      authData.user.user_metadata?.name ||
+      authData.user.email?.split("@")[0] ||
+      "Pengguna";
 
-  let targetPath = "/";
-  if (peran === "super_admin") targetPath = "/super";
-  else if (peran === "admin_sekolah") targetPath = "/admin";
-  else if (peran === "guru") targetPath = "/guru";
+    await supabase.from("profil").insert({
+      id: authData.user.id,
+      nama_lengkap: namaLengkap,
+      peran: "siswa",
+    });
 
-  redirect(targetPath);
+    redirect("/");
+  }
+
+  redirect(getDashboardPath(profil.peran));
 }
 
 export async function registerAction(prevState: any, formData: FormData) {
   const namaLengkap = formData.get("nama_lengkap") as string;
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
-  const peranInput = formData.get("peran") as string;
 
   if (!namaLengkap || !email || !password) {
     return { error: "Semua kolom wajib diisi." };
@@ -62,29 +86,24 @@ export async function registerAction(prevState: any, formData: FormData) {
     return { error: "Kata sandi minimal 8 karakter." };
   }
 
-  // Validate peran
-  const validPeran = ["super_admin", "admin_sekolah", "guru", "siswa"];
-  const peran = validPeran.includes(peranInput) ? peranInput : "siswa";
-
   const supabase = await createClient();
 
+  // Daftar ke Supabase Auth — peran SELALU siswa, tidak bisa dipilih sendiri
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email,
     password,
     options: {
       data: {
         nama_lengkap: namaLengkap.trim(),
-        peran: peran,
+        // peran tidak disimpan di metadata — hanya di tabel profil
       },
     },
   });
 
-  // Log error asli ke terminal untuk debugging
   if (authError) {
     console.error("[REGISTER ERROR]", {
       message: authError.message,
       status: authError.status,
-      code: (authError as any).code,
     });
 
     const msg = authError.message.toLowerCase();
@@ -108,41 +127,40 @@ export async function registerAction(prevState: any, formData: FormData) {
       return { error: "Database belum siap. Pastikan schema.sql sudah dijalankan di Supabase SQL Editor." };
     }
 
-    // Tampilkan error asli dari Supabase untuk diagnosa
-    return { error: `Gagal mendaftar: ${authError.message} (kode: ${authError.status ?? "unknown"})` };
+    return { error: `Gagal mendaftar: ${authError.message}` };
   }
 
   if (!authData.user) {
     return { error: "Gagal membuat akun. Silakan coba lagi." };
   }
 
-  // Cek jika email sudah terdaftar (Supabase kadang tidak return error, tapi identities kosong)
+  // Cek apakah email sudah terdaftar sebelumnya (Supabase kadang tidak return error)
   if (authData.user.identities && authData.user.identities.length === 0) {
     return { error: "Email ini sudah terdaftar. Silakan masuk atau gunakan email lain." };
   }
 
-  // Coba update peran secara langsung ke tabel profil jika pengguna langsung terautentikasi (email confirmation mati)
-  if (authData.user) {
-    try {
-      await supabase
-        .from("profil")
-        .update({ peran })
-        .eq("id", authData.user.id);
-    } catch (e) {
-      console.warn("Direct profile update failed (this is normal if email confirmation is required):", e);
+  // Jika langsung terautentikasi (email confirmation dimatikan di Supabase),
+  // buat profil siswa di database
+  if (authData.session) {
+    const { error: profilError } = await supabase.from("profil").upsert({
+      id: authData.user.id,
+      nama_lengkap: namaLengkap.trim(),
+      peran: "siswa", // selalu siswa saat daftar mandiri
+    });
+
+    if (profilError) {
+      console.error("[REGISTER] Gagal membuat profil:", profilError.message);
     }
+
+    redirect("/"); // langsung ke dashboard siswa
   }
 
-  // Jika Supabase memerlukan konfirmasi email
-  if (authData.user && !authData.session) {
-    return {
-      success: true,
-      message: "Pendaftaran berhasil! Silakan cek email Anda untuk konfirmasi akun sebelum masuk.",
-    };
-  }
-
-  // Jika langsung login (email confirmation dinonaktifkan di Supabase)
-  redirect("/masuk?registered=1");
+  // Jika Supabase memerlukan konfirmasi email terlebih dahulu
+  return {
+    success: true,
+    message:
+      "Pendaftaran berhasil! Silakan cek email Anda untuk konfirmasi akun sebelum masuk.",
+  };
 }
 
 export async function logoutAction() {

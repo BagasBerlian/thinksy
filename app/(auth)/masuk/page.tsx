@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, Suspense } from "react";
+import { useActionState, useState, Suspense, useEffect } from "react";
 import { loginAction } from "../actions";
 import { createClient } from "@/lib/supabase/client";
 import { Mail, Lock, AlertCircle, Loader2, CheckCircle, ArrowRight, Eye, EyeOff } from "lucide-react";
@@ -12,10 +12,64 @@ function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isGitHubLoading, setIsGitHubLoading] = useState(false);
+  const [isExchangingCode, setIsExchangingCode] = useState(false);
   
   const searchParams = useSearchParams();
   const justRegistered = searchParams.get("registered") === "1";
   const oauthError = searchParams.get("error");
+  const oauthCode = searchParams.get("code");
+
+  // Supabase mengirim ?code= ke /masuk alih-alih ke /api/auth/callback.
+  // Exchange code harus dilakukan di browser yang sama karena PKCE verifier
+  // ada di localStorage milik createBrowserClient (bukan cookies server).
+  useEffect(() => {
+    if (!oauthCode) return;
+    setIsExchangingCode(true);
+
+    const exchangeCode = async () => {
+      try {
+        const supabase = createClient();
+        const { data, error } = await supabase.auth.exchangeCodeForSession(oauthCode);
+
+        if (error) {
+          console.error("[masuk] Exchange error:", error.message);
+          window.location.replace("/masuk?error=" + encodeURIComponent(error.message));
+          return;
+        }
+
+        console.log("[masuk] Exchange berhasil, user:", data.user?.email);
+
+        // Cek profil user
+        const { data: profil } = await supabase
+          .from("profil")
+          .select("peran")
+          .eq("id", data.user!.id)
+          .single();
+
+        console.log("[masuk] Profil:", profil);
+
+        if (!profil) {
+          window.location.replace("/pilih-peran");
+          return;
+        }
+
+        const peran = profil.peran;
+        let targetPath = "/";
+        if (peran === "super_admin") targetPath = "/super";
+        else if (peran === "admin_sekolah") targetPath = "/admin";
+        else if (peran === "guru") targetPath = "/guru";
+
+        window.location.replace(targetPath);
+      } catch (err: any) {
+        console.error("[masuk] Exchange catch:", err);
+        window.location.replace("/masuk?error=" + encodeURIComponent("Terjadi kesalahan autentikasi."));
+      }
+    };
+
+    exchangeCode();
+  }, [oauthCode]);
+
+
 
   const handleSocialLogin = async (provider: "google" | "github") => {
     if (provider === "google") {
@@ -44,6 +98,19 @@ function LoginForm() {
   };
 
   const isAnyLoading = isPending || isGoogleLoading || isGitHubLoading;
+
+  // Tampilkan loading screen saat sedang memproses OAuth code
+  if (isExchangingCode) {
+    return (
+      <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-slate-100/80 w-full max-w-[400px] mt-6 flex flex-col items-center justify-center gap-4 min-h-[200px]">
+        <Loader2 className="w-8 h-8 text-slate-600 animate-spin" />
+        <div className="text-center">
+          <p className="text-sm font-semibold text-slate-800">Memverifikasi akun...</p>
+          <p className="text-xs text-slate-400 mt-1">Sebentar lagi Anda akan diarahkan ke dashboard</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-slate-100/80 w-full max-w-[400px] mt-6 space-y-5">

@@ -13,9 +13,11 @@
    - Application type: **Web application**
    - Name: `Thinksy`
    - **Authorized redirect URIs** → tambahkan:
+
      ```
      https://mtpnbviztquitgszrfel.supabase.co/auth/v1/callback
      ```
+
 6. Klik **Create** → Salin `Client ID` dan `Client Secret`
 
 ---
@@ -27,9 +29,11 @@
    - Application name: `Thinksy`
    - Homepage URL: `http://localhost:3000` (nanti ganti ke domain production)
    - **Authorization callback URL**:
+
      ```
      https://mtpnbviztquitgszrfel.supabase.co/auth/v1/callback
      ```
+
 3. Klik **Register application**
 4. Di halaman app, klik **Generate a new client secret**
 5. Salin `Client ID` dan `Client Secret`
@@ -42,12 +46,14 @@
 2. Pergi ke **Authentication → Providers**
 
 **Untuk Google:**
+
 - Temukan **Google** → toggle **Enable**
 - Paste `Client ID` dan `Client Secret` dari Step 1a
 - **Authorized Client IDs** (untuk mobile, optional)
 - Klik **Save**
 
 **Untuk GitHub:**
+
 - Temukan **GitHub** → toggle **Enable**
 - Paste `Client ID` dan `Client Secret` dari Step 1b
 - Klik **Save**
@@ -57,19 +63,22 @@
 ## STEP 3 — Tambahkan Site URL di Supabase
 
 Masih di Supabase Dashboard:
+
 1. Pergi ke **Authentication → URL Configuration**
 2. **Site URL** → `http://localhost:3000` (untuk development)
 3. **Redirect URLs** → tambahkan:
+
    ```
    http://localhost:3000/api/auth/callback
    ```
+
 4. Klik **Save**
 
 ---
 
 ## STEP 4 — Handle Profil untuk OAuth User
 
-Ini bagian penting! User yang login via Google/GitHub **tidak punya data `profil`** di tabel kamu karena mereka tidak melalui form `registerAction`. 
+Ini bagian penting! User yang login via Google/GitHub **tidak punya data `profil`** di tabel kamu karena mereka tidak melalui form `registerAction`.
 
 Kamu perlu tambahkan **Database Trigger** di Supabase agar profil otomatis dibuat. Buka **SQL Editor** di Supabase dan jalankan:
 
