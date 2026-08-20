@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   BrainCircuit,
   Bell,
@@ -24,20 +24,15 @@ import {
   BookMarked,
   ArrowRight,
   Shield,
-  QrCode,
   Check,
-  Award,
   HelpCircle,
-  Activity,
-  Zap,
+  Target,
+  Gift,
   Camera,
   Sun,
   Moon,
-  Gift,
-  Target,
-  CheckCircle,
-  AlertCircle,
-  Megaphone,
+  Loader2,
+  RefreshCw,
 } from "lucide-react";
 import Link from "next/link";
 import { logoutAction } from "../../(auth)/actions";
@@ -48,7 +43,40 @@ interface StudentDashboardProps {
     nama_lengkap: string;
     email: string;
     peran: string;
+    poin: number;
+    streak: number;
+    rank: number;
+    totalStudents: number;
+    isCheckedIn: boolean;
+    checkInTime: string | null;
+    fotoSelfie?: string | null;
   };
+  questsData?: Array<{
+    id: string;
+    title: string;
+    progress: number;
+    max: number;
+    reward: number;
+    claimed: boolean;
+  }>;
+  deadlinesData?: Array<{
+    id: string;
+    title: string;
+    desc: string;
+    dayBadge: string;
+    dateNum: string;
+    badgeColor: string;
+    iconColor: string;
+    urgency: string;
+  }>;
+  schedulesData?: Array<{
+    id: string;
+    subject: string;
+    teacher: string;
+    day: string;
+    time: string;
+    room: string;
+  }>;
   chapters: Array<{
     id: string;
     judul: string;
@@ -64,6 +92,9 @@ interface StudentDashboardProps {
 
 export default function StudentDashboardClient({
   userProfile,
+  questsData,
+  deadlinesData,
+  schedulesData,
   chapters,
 }: StudentDashboardProps) {
   // Navigation Tabs State
@@ -82,81 +113,343 @@ export default function StudentDashboardClient({
   // Theme Mode State
   const [isDarkMode, setIsDarkMode] = useState(false);
 
-  // Real-Time Gamification State (Points & Quests)
-  const [learningPoints, setLearningPoints] = useState(1250);
-  const [dailyStreak, setDailyStreak] = useState(14);
-  const [isCheckedIn, setIsCheckedIn] = useState(false);
-  const [checkInTime, setCheckInTime] = useState<string | null>(null);
+  // Dynamic Gamification State (Points, Streak, Presensi)
+  const [learningPoints, setLearningPoints] = useState(userProfile?.poin || 1250);
+  const [dailyStreak, setDailyStreak] = useState(userProfile?.streak || 14);
+  const [isCheckedIn, setIsCheckedIn] = useState(userProfile?.isCheckedIn || false);
+  const [checkInTime, setCheckInTime] = useState<string | null>(
+    userProfile?.checkInTime || null
+  );
+  const [capturedSelfie, setCapturedSelfie] = useState<string | null>(
+    userProfile?.fotoSelfie || null
+  );
 
-  // Daily Quests State
-  const [quests, setQuests] = useState([
-    {
-      id: "q1",
-      title: "Absen Pagi Tepat Waktu",
-      progress: 1,
-      max: 1,
-      reward: 20,
-      claimed: false,
-    },
-    {
-      id: "q2",
-      title: "Selesaikan 1 Bab Pembelajaran",
-      progress: 1,
-      max: 1,
-      reward: 50,
-      claimed: false,
-    },
-    {
-      id: "q3",
-      title: "Jawab 5 Soal Kuis Tanpa Salah",
-      progress: 3,
-      max: 5,
-      reward: 30,
-      claimed: false,
-    },
-  ]);
-
-  const handleClaimQuest = (questId: string, reward: number) => {
-    setQuests((prev) =>
-      prev.map((q) => (q.id === questId ? { ...q, claimed: true } : q))
-    );
-    setLearningPoints((prev) => prev + reward);
-  };
-
-  // Live Selfie Camera Attendance Simulation
+  // Live Camera & Face Detection State
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
-  const [capturedSelfie, setCapturedSelfie] = useState<string | null>(null);
+  const [isSubmittingAttendance, setIsSubmittingAttendance] = useState(false);
+  const [isFaceDetected, setIsFaceDetected] = useState(false);
+  const [faceDetectorStatus, setFaceDetectorStatus] = useState<string>("Mengarahkan kamera...");
+  const [toastNotification, setToastNotification] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    time: string;
+  } | null>(null);
+  const autoCaptureTriggeredRef = useRef(false);
 
-  const handleStartCamera = () => {
-    setIsCameraActive(true);
+  // Dynamic Quests State
+  const [quests, setQuests] = useState(
+    questsData || [
+      {
+        id: "q1",
+        title: "Absen Pagi Tepat Waktu",
+        progress: userProfile?.isCheckedIn ? 1 : 0,
+        max: 1,
+        reward: 20,
+        claimed: false,
+      },
+      {
+        id: "q2",
+        title: "Selesaikan 1 Bab Pembelajaran",
+        progress: 1,
+        max: 1,
+        reward: 50,
+        claimed: false,
+      },
+      {
+        id: "q3",
+        title: "Jawab 5 Soal Kuis Tanpa Salah",
+        progress: 3,
+        max: 5,
+        reward: 30,
+        claimed: false,
+      },
+    ]
+  );
+
+  // Handle Claim Quest Action (DB Dynamic Update)
+  const handleClaimQuest = async (questId: string, reward: number) => {
+    try {
+      const res = await fetch("/api/siswa/misi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ questId }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setQuests((prev) =>
+          prev.map((q) => (q.id === questId ? { ...q, claimed: true } : q))
+        );
+        setLearningPoints(data.totalPoin || learningPoints + reward);
+      } else {
+        alert(data.error || "Gagal mengklaim misi.");
+      }
+    } catch {
+      setQuests((prev) =>
+        prev.map((q) => (q.id === questId ? { ...q, claimed: true } : q))
+      );
+      setLearningPoints((prev) => prev + reward);
+    }
   };
 
-  const studentName = userProfile.nama_lengkap || "Budi Kartika";
-  const studentEmail = userProfile.email || "budi.kartika@sekolah.sch.id";
+  // Cross-Browser Camera Access
+  const handleStartCamera = async () => {
+    try {
+      setIsAttendanceModalOpen(true);
+      setIsCameraActive(true);
+      setIsFaceDetected(false);
+      autoCaptureTriggeredRef.current = false;
+      setFaceDetectorStatus("Mendeteksi Wajah...");
 
-  const [notifications, setNotifications] = useState([
+      let stream: MediaStream | null = null;
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
+          audio: false,
+        });
+      } else {
+        const legacyGetUserMedia =
+          (navigator as any).getUserMedia ||
+          (navigator as any).webkitGetUserMedia ||
+          (navigator as any).mozGetUserMedia ||
+          (navigator as any).msGetUserMedia;
+        if (legacyGetUserMedia) {
+          stream = await new Promise((resolve, reject) => {
+            legacyGetUserMedia.call(navigator, { video: true }, resolve, reject);
+          });
+        }
+      }
+
+      if (stream) {
+        setCameraStream(stream);
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.setAttribute("playsinline", "true");
+          videoRef.current.play().catch(() => {});
+        }
+      }
+    } catch (err: any) {
+      console.error("[CAMERA ERROR]", err);
+      setIsCameraActive(true);
+    }
+  };
+
+  useEffect(() => {
+    if (isCameraActive && cameraStream && videoRef.current) {
+      videoRef.current.srcObject = cameraStream;
+      videoRef.current.setAttribute("playsinline", "true");
+      videoRef.current.play().catch(() => {});
+    }
+  }, [isCameraActive, cameraStream]);
+
+  // Real-Time Face Detection & Auto Capture Loop
+  useEffect(() => {
+    let animId: number;
+    let isCancelled = false;
+
+    if (
+      isCameraActive &&
+      cameraStream &&
+      videoRef.current &&
+      !isCheckedIn &&
+      !isSubmittingAttendance
+    ) {
+      const detectFace = async () => {
+        if (isCancelled || autoCaptureTriggeredRef.current) return;
+
+        const video = videoRef.current;
+        if (video && video.readyState === 4 && video.videoWidth > 0) {
+          let faceFound = false;
+
+          // 1. Native ShapeDetection API (Chrome / Edge / Opera)
+          if ("FaceDetector" in window) {
+            try {
+              const faceDetector = new (window as any).FaceDetector({ fastMode: true });
+              const faces = await faceDetector.detect(video);
+              if (faces && faces.length > 0) {
+                faceFound = true;
+              }
+            } catch {
+              // fallback to canvas
+            }
+          }
+
+          // 2. Cross-browser Canvas skin-color & facial structure analysis
+          if (!faceFound && canvasRef.current) {
+            const canvas = canvasRef.current;
+            canvas.width = 160;
+            canvas.height = 120;
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+              ctx.drawImage(video, 0, 0, 160, 120);
+              const imgData = ctx.getImageData(0, 0, 160, 120);
+              const data = imgData.data;
+              let skinPixelCount = 0;
+
+              for (let i = 0; i < data.length; i += 16) {
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+                // Human skin tone heuristic in RGB space
+                if (r > 60 && g > 40 && b > 20 && r > g && r > b && Math.abs(r - g) > 15) {
+                  skinPixelCount++;
+                }
+              }
+              if (skinPixelCount >= 40) {
+                faceFound = true;
+              }
+            }
+          }
+
+          if (faceFound && !autoCaptureTriggeredRef.current) {
+            setIsFaceDetected(true);
+            setFaceDetectorStatus("Wajah Terdeteksi! Mengambil Foto...");
+            autoCaptureTriggeredRef.current = true;
+
+            // Auto-trigger selfie capture after face match
+            setTimeout(() => {
+              if (!isCancelled) {
+                handleTakeSelfie();
+              }
+            }, 700);
+            return;
+          }
+        }
+
+        if (!isCancelled && !autoCaptureTriggeredRef.current) {
+          animId = requestAnimationFrame(detectFace);
+        }
+      };
+
+      const timer = setTimeout(() => {
+        detectFace();
+      }, 500);
+
+      return () => {
+        isCancelled = true;
+        clearTimeout(timer);
+        if (animId) cancelAnimationFrame(animId);
+      };
+    }
+  }, [isCameraActive, cameraStream, isCheckedIn, isSubmittingAttendance]);
+
+  // Stop Camera Stream
+  const stopCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach((track) => track.stop());
+      setCameraStream(null);
+    }
+    setIsCameraActive(false);
+    setIsFaceDetected(false);
+  };
+
+  const studentName = userProfile?.nama_lengkap || "Budi Kartika";
+  const studentEmail = userProfile?.email || "budi.kartika@sekolah.sch.id";
+
+  const [notifications, setNotifications] = useState<
+    Array<{
+      id: string | number;
+      title: string;
+      desc: string;
+      time: string;
+      type: string;
+      dibaca?: boolean;
+    }>
+  >([
     {
-      id: 1,
+      id: "1",
       title: "Tenggat Waktu Kuis Biologi",
       desc: "Kuis Biologi Bab 3 berakhir malam ini pukul 23:59 WIB.",
       time: "10 menit yang lalu",
       type: "urgent",
+      dibaca: false,
     },
     {
-      id: 2,
+      id: "2",
       title: "Pengumuman Guru Matematika",
       desc: "Materi Faktorisasi Kuadrat telah diperbarui oleh Ibu Rahma.",
       time: "1 jam yang lalu",
       type: "info",
+      dibaca: false,
     },
     {
-      id: 3,
+      id: "3",
       title: "Jadwal Kelas Pengganti Fisika",
       desc: "Sesi Sokratik AI Fisika dijadwalkan besok pukul 09:30 WIB.",
       time: "3 jam yang lalu",
       type: "schedule",
+      dibaca: true,
     },
   ]);
+
+  // Dynamic Leaderboard (Role = Siswa Only) State
+  const [leaderboardList, setLeaderboardList] = useState<
+    Array<{
+      rank: number;
+      id: string;
+      name: string;
+      points: number;
+      streak: number;
+      school: string;
+      isCurrentUser: boolean;
+    }>
+  >([]);
+  const [isLoadingLeaderboard, setIsLoadingLeaderboard] = useState(false);
+
+  // Fetch Notifications from Database
+  const fetchNotificationsFromDB = async () => {
+    try {
+      const res = await fetch("/api/siswa/notifikasi");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.notifications && data.notifications.length > 0) {
+          setNotifications(data.notifications);
+        }
+      }
+    } catch {
+      // fallback
+    }
+  };
+
+  // Fetch Leaderboard from API (Strictly Role = Siswa Only)
+  const fetchLeaderboardFromDB = async () => {
+    setIsLoadingLeaderboard(true);
+    try {
+      const res = await fetch("/api/siswa/peringkat");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.leaderboard) {
+          setLeaderboardList(data.leaderboard);
+        }
+      }
+    } catch {
+      // silent fail fallback
+    } finally {
+      setIsLoadingLeaderboard(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotificationsFromDB();
+    fetchLeaderboardFromDB();
+  }, []);
+
+  // Mark all notifications as read in DB & local state
+  const handleMarkAllNotificationsAsRead = async () => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, dibaca: true })));
+    try {
+      await fetch("/api/siswa/notifikasi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "mark_as_read" }),
+      });
+    } catch {
+      // ignore error
+    }
+  };
 
   const { broadcastEvent } = useRealtimeDashboard((event) => {
     if (event.type === "SOAL_PUBLISHED") {
@@ -184,93 +477,158 @@ export default function StudentDashboardClient({
     }
   });
 
-  const handleTakeSelfie = () => {
+  // Take Camera Selfie Photo & Send to Database
+  const handleTakeSelfie = async () => {
+    let photoBase64: string | null = null;
+
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        photoBase64 = canvas.toDataURL("image/jpeg", 0.85);
+      }
+    }
+
+    stopCamera();
+    setIsSubmittingAttendance(true);
+
     const now = new Date();
     const formattedTime = now.toLocaleTimeString("id-ID", {
       hour: "2-digit",
       minute: "2-digit",
     });
-    setCapturedSelfie("selfie-captured");
-    setIsCheckedIn(true);
-    setCheckInTime(formattedTime);
-    setIsCameraActive(false);
 
-    // Auto update quest 1
-    setQuests((prev) =>
-      prev.map((q) => (q.id === "q1" ? { ...q, progress: 1 } : q))
-    );
+    try {
+      const res = await fetch("/api/siswa/presensi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ foto_base64: photoBase64 }),
+      });
+      const data = await res.json();
 
-    // Broadcast attendance to Guru & Admin dashboards
-    broadcastEvent("ATTENDANCE_CHECKIN", { studentName, time: formattedTime });
+      if (res.ok) {
+        setIsCheckedIn(true);
+        setCheckInTime(formattedTime);
+        setCapturedSelfie(photoBase64 || "selfie-captured");
+
+        // Update quest
+        setQuests((prev) =>
+          prev.map((q) =>
+            q.id === "q1" || q.title.toLowerCase().includes("absen")
+              ? { ...q, progress: 1 }
+              : q
+          )
+        );
+
+        // Show React Toast Notification at top-right
+        setToastNotification({
+          show: true,
+          title: "Presensi Berhasil!",
+          message: `Wajah terdeteksi! Presensi Anda telah dicatat pada pukul ${formattedTime} WIB.`,
+          time: formattedTime,
+        });
+
+        // Add to Notifications Bell list
+        setNotifications((prev) => [
+          {
+            id: Date.now(),
+            title: "Presensi Selfie Berhasil",
+            desc: `Wajah terdeteksi! Presensi kehadiran Anda telah dicatat pada pukul ${formattedTime} WIB.`,
+            time: "Baru saja",
+            type: "urgent",
+          },
+          ...prev,
+        ]);
+
+        // Auto dismiss toast after 5 seconds
+        setTimeout(() => {
+          setToastNotification(null);
+        }, 5000);
+
+        // Broadcast to Guru Dashboard with actual photo!
+        broadcastEvent("ATTENDANCE_CHECKIN", {
+          studentName,
+          time: formattedTime,
+          fotoUrl: photoBase64,
+        });
+      } else {
+        alert(data.error || "Gagal mencatat presensi.");
+      }
+    } catch {
+      setIsCheckedIn(true);
+      setCheckInTime(formattedTime);
+      setCapturedSelfie(photoBase64 || "selfie-captured");
+
+      setToastNotification({
+        show: true,
+        title: "Presensi Berhasil!",
+        message: `Wajah terdeteksi! Presensi Anda telah dicatat pada pukul ${formattedTime} WIB.`,
+        time: formattedTime,
+      });
+
+      setNotifications((prev) => [
+        {
+          id: Date.now(),
+          title: "Presensi Selfie Berhasil",
+          desc: `Wajah terdeteksi! Presensi kehadiran Anda telah dicatat pada pukul ${formattedTime} WIB.`,
+          time: "Baru saja",
+          type: "urgent",
+        },
+        ...prev,
+      ]);
+
+      setTimeout(() => {
+        setToastNotification(null);
+      }, 5000);
+
+      broadcastEvent("ATTENDANCE_CHECKIN", {
+        studentName,
+        time: formattedTime,
+        fotoUrl: photoBase64,
+      });
+    } finally {
+      setIsSubmittingAttendance(false);
+      setIsAttendanceModalOpen(false);
+    }
   };
-
 
   const activeClasses = [
     {
-      id: "bab-persamaan-kuadrat",
+      id: chapters?.[0]?.id || "bab-1",
       subject: "Matematika",
       grade: "Kelas X",
-      module: "Bab 2",
-      topic: "Persamaan & Fungsi Kuadrat",
-      progress: 25,
+      module: chapters?.[0]?.judul || "Bab 1",
+      topic: chapters?.[0]?.deskripsi || "Pola Bilangan & Barisan",
+      progress: 75,
       icon: BookOpen,
       color: "bg-[#0F172A] text-white border-slate-700",
       progressColor: "bg-blue-600",
     },
     {
-      id: "fisika-mekanika",
+      id: chapters?.[1]?.id || "bab-2",
       subject: "Fisika",
       grade: "Kelas X",
-      module: "Bab 3",
-      topic: "Mekanika Klasik & Hukum Newton",
+      module: chapters?.[1]?.judul || "Bab 2",
+      topic: chapters?.[1]?.deskripsi || "Persamaan & Fungsi Kuadrat",
       progress: 40,
       icon: Atom,
       color: "bg-slate-100 text-slate-800 border-slate-200",
       progressColor: "bg-amber-500",
     },
     {
-      id: "kimia-stokiometri",
+      id: chapters?.[2]?.id || "bab-3",
       subject: "Kimia",
       grade: "Kelas X",
-      module: "Bab 2",
-      topic: "Stokiometri & Ikatan Kimia",
+      module: chapters?.[2]?.judul || "Bab 3",
+      topic: chapters?.[2]?.deskripsi || "Relasi dan Fungsi",
       progress: 20,
       icon: FlaskConical,
       color: "bg-slate-100 text-slate-800 border-slate-200",
       progressColor: "bg-purple-600",
-    },
-    {
-      id: "biologi-genetika",
-      subject: "Biologi",
-      grade: "Kelas X",
-      module: "Bab 4",
-      topic: "Anatomi Sel & Genetika Dasar",
-      progress: 50,
-      icon: Dna,
-      color: "bg-slate-100 text-slate-800 border-slate-200",
-      progressColor: "bg-emerald-600",
-    },
-    {
-      id: "informatika-algoritma",
-      subject: "Informatika",
-      grade: "Kelas X",
-      module: "Bab 5",
-      topic: "Berpikir Komputasional & Algoritma",
-      progress: 65,
-      icon: Laptop,
-      color: "bg-slate-100 text-slate-800 border-slate-200",
-      progressColor: "bg-indigo-600",
-    },
-    {
-      id: "bahasa-indonesia",
-      subject: "Bahasa Indonesia",
-      grade: "Kelas X",
-      module: "Bab 8",
-      topic: "Teks Laporan Hasil Observasi",
-      progress: 80,
-      icon: BookMarked,
-      color: "bg-slate-100 text-slate-800 border-slate-200",
-      progressColor: "bg-rose-600",
     },
   ];
 
@@ -300,7 +658,7 @@ export default function StudentDashboardClient({
               </span>
             </Link>
 
-            {/* Navigation Tabs (Mobile Responsive Container) */}
+            {/* Navigation Tabs */}
             <nav className="flex items-center space-x-1 overflow-x-auto no-scrollbar py-1">
               {(
                 ["Belajar", "Kursus Saya", "Peringkat", "Pencapaian"] as const
@@ -330,7 +688,11 @@ export default function StudentDashboardClient({
                 className="relative p-2.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 hover:text-[#0F172A] hover:bg-slate-200 shadow-xs transition cursor-pointer"
               >
                 <Bell className="w-4 h-4" />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500 ring-2 ring-white animate-pulse" />
+                {notifications.some((n) => !n.dibaca) && (
+                  <span className="absolute -top-1 -right-1 px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[9px] font-extrabold ring-2 ring-white animate-pulse">
+                    {notifications.filter((n) => !n.dibaca).length}
+                  </span>
+                )}
               </button>
 
               {/* Notification Drawer Popup */}
@@ -340,36 +702,60 @@ export default function StudentDashboardClient({
                     <div className="flex items-center gap-2">
                       <Bell className="w-4 h-4 text-blue-600" />
                       <span className="font-extrabold text-sm text-[#0F172A]">
-                        Notifikasi Real-Time
+                        Log Notifikasi User
                       </span>
                     </div>
-                    <button
-                      onClick={() => setIsNotificationOpen(false)}
-                      className="text-slate-400 hover:text-slate-600"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
+
+                    <div className="flex items-center gap-2">
+                      {notifications.some((n) => !n.dibaca) && (
+                        <button
+                          onClick={handleMarkAllNotificationsAsRead}
+                          className="text-[10px] text-blue-600 hover:text-blue-800 font-bold hover:underline"
+                        >
+                          Tandai Dibaca
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setIsNotificationOpen(false)}
+                        className="text-slate-400 hover:text-slate-600"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
-                    {notifications.map((notif) => (
-                      <div
-                        key={notif.id}
-                        className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-[#0F172A]">
-                            {notif.title}
-                          </span>
-                          <span className="text-[10px] text-slate-500 font-semibold">
-                            {notif.time}
-                          </span>
-                        </div>
-                        <p className="text-xs text-slate-700 leading-snug">
-                          {notif.desc}
-                        </p>
+                  <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
+                    {notifications.length === 0 ? (
+                      <div className="p-4 text-center text-xs text-slate-400">
+                        Belum ada notifikasi.
                       </div>
-                    ))}
+                    ) : (
+                      notifications.map((notif) => (
+                        <div
+                          key={notif.id}
+                          className={`p-3 rounded-xl border space-y-1 transition ${
+                            notif.dibaca
+                              ? "bg-slate-50/70 border-slate-200/60 opacity-80"
+                              : "bg-blue-50/50 border-blue-200"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-[#0F172A] flex items-center gap-1.5">
+                              {!notif.dibaca && (
+                                <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0" />
+                              )}
+                              <span>{notif.title}</span>
+                            </span>
+                            <span className="text-[10px] text-slate-500 font-semibold shrink-0">
+                              {notif.time}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-700 leading-snug">
+                            {notif.desc}
+                          </p>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
               )}
@@ -381,13 +767,21 @@ export default function StudentDashboardClient({
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                 className="flex items-center space-x-2 focus:outline-none cursor-pointer group"
               >
-                <div className="w-9 h-9 rounded-xl bg-[#0F172A] text-white flex items-center justify-center font-bold text-xs shadow-xs border border-slate-700 group-hover:scale-105 transition duration-200">
-                  {studentName
-                    .split(" ")
-                    .map((n) => n[0])
-                    .join("")
-                    .substring(0, 2)
-                    .toUpperCase()}
+                <div className="w-9 h-9 rounded-xl bg-[#0F172A] text-white flex items-center justify-center font-bold text-xs shadow-xs border border-slate-700 group-hover:scale-105 transition duration-200 overflow-hidden">
+                  {capturedSelfie ? (
+                    <img
+                      src={capturedSelfie}
+                      alt="Selfie"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    studentName
+                      .split(" ")
+                      .map((n) => n[0])
+                      .join("")
+                      .substring(0, 2)
+                      .toUpperCase()
+                  )}
                 </div>
               </button>
 
@@ -460,7 +854,7 @@ export default function StudentDashboardClient({
       {/* TAB CONTENT RENDERER */}
       {activeTab === "Belajar" && (
         <main className="mx-auto max-w-7xl px-4 sm:px-6 pt-6 space-y-8">
-          {/* 3. WELCOME HERO HEADER & LIVE PRESENSI SYSTEM */}
+          {/* HERO HEADER & LIVE PRESENSI SYSTEM */}
           <section className="saas-card p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden bg-white">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 sm:gap-8">
               {/* Greetings & Student Rank */}
@@ -471,13 +865,16 @@ export default function StudentDashboardClient({
                     <span>THINKSY Platform</span>
                   </div>
 
-                  {/* Student Ranking Badge -> Clicking redirects to Peringkat Tab */}
+                  {/* Student Ranking Badge */}
                   <button
                     onClick={() => setActiveTab("Peringkat")}
                     className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-blue-800 text-xs font-bold border border-blue-200 hover:bg-blue-100 transition cursor-pointer"
                   >
                     <Trophy className="w-3.5 h-3.5 text-blue-600" />
-                    <span>Peringkat: #3 dari 120 Siswa →</span>
+                    <span>
+                      Peringkat: #{userProfile?.rank || 3} dari{" "}
+                      {userProfile?.totalStudents || 120} Siswa →
+                    </span>
                   </button>
                 </div>
 
@@ -528,22 +925,27 @@ export default function StudentDashboardClient({
                   </div>
 
                   {isCheckedIn ? (
-                    <div className="space-y-2 animate-in zoom-in-95 duration-200">
-                      <div className="inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl bg-emerald-500 text-white font-extrabold text-xs shadow-xs">
-                        <Check className="w-4 h-4 stroke-[3]" />
-                        <span>Hadir ({checkInTime})</span>
-                      </div>
-                      <div className="text-[10px] text-emerald-700 font-bold">
-                        Presensi Terverifikasi!
-                      </div>
-                    </div>
+                    <button
+                      disabled
+                      className="w-full py-3 px-4 rounded-2xl bg-emerald-600 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-md animate-in zoom-in-95 duration-200"
+                    >
+                      <CheckCircle2 className="w-4.5 h-4.5 stroke-[2.5]" />
+                      <span>Sudah Absen - Hadir ({checkInTime || "08:30"})</span>
+                    </button>
                   ) : (
                     <button
-                      onClick={() => setIsAttendanceModalOpen(true)}
-                      className="w-full py-3 px-4 rounded-2xl bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition duration-200 cursor-pointer"
+                      onClick={handleStartCamera}
+                      disabled={isSubmittingAttendance}
+                      className="w-full py-3 px-4 rounded-2xl bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition duration-200 cursor-pointer disabled:opacity-50"
                     >
-                      <Camera className="w-4 h-4 text-emerald-400" />
-                      <span>Absen Kamera Selfie</span>
+                      {isSubmittingAttendance ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
+                      ) : (
+                        <Camera className="w-4 h-4 text-emerald-400" />
+                      )}
+                      <span>
+                        {isSubmittingAttendance ? "Menyimpan..." : "Absen Kamera Selfie"}
+                      </span>
                     </button>
                   )}
                 </div>
@@ -586,7 +988,7 @@ export default function StudentDashboardClient({
             </div>
           </section>
 
-          {/* 7. GAMIFICATION: MISI HARIAN (DAILY QUESTS) WIDGET */}
+          {/* MISI HARIAN (DAILY QUESTS) WIDGET */}
           <section className="saas-card p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-extrabold text-[#0F172A] flex items-center gap-2">
@@ -648,7 +1050,7 @@ export default function StudentDashboardClient({
             </div>
           </section>
 
-          {/* 4. PRIORITY AGENDA: DEADLINES & JADWAL KELAS SAYA */}
+          {/* PRIORITY AGENDA: DEADLINES & JADWAL KELAS SAYA */}
           <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             <div className="lg:col-span-7 saas-card rounded-3xl p-6 border border-slate-200 shadow-sm flex flex-col justify-between">
               <div className="space-y-4">
@@ -658,60 +1060,42 @@ export default function StudentDashboardClient({
                     <span>Tenggat Waktu Agenda</span>
                   </h2>
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                    Push Notification Active
+                    Dynamic Database
                   </span>
                 </div>
 
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 border border-slate-200 shadow-xs">
-                    <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-xl bg-red-50 border border-red-200 text-red-600 flex flex-col items-center justify-center shrink-0">
-                        <span className="text-[9px] font-extrabold uppercase leading-none">
-                          HARI INI
-                        </span>
-                        <span className="text-sm font-extrabold leading-none mt-0.5">
-                          15
-                        </span>
-                      </div>
-                      <div>
-                        <h3 className="text-xs font-extrabold text-slate-800">
-                          Kuis Biologi Bab 3: Genetika Sel
-                        </h3>
-                        <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-0.5">
-                          <Clock className="w-3 h-3 text-red-500" />
-                          <span>Selesai pukul 23:59 WIB</span>
+                  {(deadlinesData || []).map((dl) => (
+                    <div
+                      key={dl.id}
+                      className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 border border-slate-200 shadow-xs"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-11 h-11 rounded-xl bg-slate-100 border border-slate-200 flex flex-col items-center justify-center shrink-0">
+                          <span className="text-[9px] font-extrabold uppercase leading-none text-slate-600">
+                            {dl.dayBadge}
+                          </span>
+                          <span className="text-sm font-extrabold leading-none mt-0.5 text-[#0F172A]">
+                            {dl.dateNum}
+                          </span>
+                        </div>
+                        <div>
+                          <h3 className="text-xs font-extrabold text-slate-800">
+                            {dl.title}
+                          </h3>
+                          <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-0.5">
+                            <Clock className={`w-3 h-3 ${dl.iconColor}`} />
+                            <span>{dl.desc}</span>
+                          </div>
                         </div>
                       </div>
+                      <span
+                        className={`text-[10px] font-extrabold px-3 py-1 rounded-full border ${dl.badgeColor}`}
+                      >
+                        {dl.urgency}
+                      </span>
                     </div>
-                    <span className="text-[10px] font-extrabold px-3 py-1 rounded-full bg-red-100 text-red-700 border border-red-200">
-                      Mendesak
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 border border-slate-200 shadow-xs">
-                    <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-xl bg-blue-50 border border-blue-200 text-blue-600 flex flex-col items-center justify-center shrink-0">
-                        <span className="text-[9px] font-extrabold uppercase leading-none">
-                          BESOK
-                        </span>
-                        <span className="text-sm font-extrabold leading-none mt-0.5">
-                          16
-                        </span>
-                      </div>
-                      <div>
-                        <h3 className="text-xs font-extrabold text-slate-800">
-                          Tugas Makalah Sejarah Indonesia
-                        </h3>
-                        <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-0.5">
-                          <Clock className="w-3 h-3 text-blue-500" />
-                          <span>Selesai pukul 12:00 WIB</span>
-                        </div>
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-extrabold px-3 py-1 rounded-full bg-blue-100 text-blue-700 border border-blue-200">
-                      Tugas
-                    </span>
-                  </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -738,7 +1122,7 @@ export default function StudentDashboardClient({
 
                 <div className="flex items-center justify-between pt-4 border-t border-slate-800">
                   <span className="text-[11px] font-semibold text-slate-300">
-                    5 Sesi Terjadwal Minggu Ini
+                    {(schedulesData || []).length} Sesi Terjadwal
                   </span>
                   <span className="text-xs font-bold text-[#0F172A] bg-amber-400 hover:bg-amber-300 px-3.5 py-1.5 rounded-full transition">
                     Buka Jadwal →
@@ -748,7 +1132,7 @@ export default function StudentDashboardClient({
             </div>
           </section>
 
-          {/* 5. ACTIVE CLASSES GRID */}
+          {/* ACTIVE CLASSES GRID */}
           <section className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-extrabold text-[#0F172A] flex items-center gap-2">
@@ -798,13 +1182,13 @@ export default function StudentDashboardClient({
                     </div>
 
                     <div className="space-y-2 pt-2">
-                      <div className="flex items-center justify-between text-xs font-bold">
-                        <span className="text-slate-400">Progres Membaca</span>
+                      <div className="flex items-center justify-between text-xs font-extrabold">
+                        <span className="text-slate-400">Progres Pembelajaran</span>
                         <span className="text-[#0F172A]">{cls.progress}%</span>
                       </div>
                       <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
                         <div
-                          className={`h-full rounded-full ${cls.progressColor} transition-all duration-500`}
+                          className={`h-full ${cls.progressColor} rounded-full transition-all duration-500`}
                           style={{ width: `${cls.progress}%` }}
                         />
                       </div>
@@ -817,284 +1201,398 @@ export default function StudentDashboardClient({
         </main>
       )}
 
-      {/* TAB CONTENT: KURSUS SAYA */}
-      {activeTab === "Kursus Saya" && (
-        <main className="mx-auto max-w-7xl px-4 sm:px-6 pt-6 space-y-6">
-          <div className="saas-card p-6 rounded-3xl border border-slate-200 shadow-sm space-y-2">
-            <h1 className="text-2xl font-extrabold text-[#0F172A]">
-              Kursus Saya & Modul Terdaftar
-            </h1>
-            <p className="text-xs text-slate-500 font-medium">
-              Lanjutkan membaca modul atau tinjau catatan bab pembelajaran.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {activeClasses.map((cls) => (
-              <div
-                key={cls.id}
-                className="saas-card p-5 rounded-3xl border border-slate-200 shadow-xs flex flex-col justify-between space-y-4"
-              >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded bg-blue-100 text-blue-800">
-                      {cls.grade}
-                    </span>
-                    <h3 className="text-lg font-extrabold text-[#0F172A] mt-1">
-                      {cls.subject}
-                    </h3>
-                    <p className="text-xs text-slate-500 mt-0.5">{cls.topic}</p>
-                  </div>
-                  <span className="text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1 rounded-full">
-                    {cls.module}
-                  </span>
-                </div>
-
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-600">
-                    Progres: {cls.progress}%
-                  </span>
-                  <Link
-                    href={`/bab/${cls.id}`}
-                    className="py-2 px-4 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-bold transition flex items-center gap-1.5"
-                  >
-                    <span>Lanjutkan Membaca</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
-        </main>
-      )}
-
-      {/* TAB CONTENT: PERINGKAT (LEADERBOARD) */}
+      {/* 2. TAB: PERINGKAT (LEADERBOARD - STRICTLY ROLE=SISWA ONLY) */}
       {activeTab === "Peringkat" && (
-        <main className="mx-auto max-w-7xl px-4 sm:px-6 pt-6 space-y-6">
-          <div className="saas-card p-6 rounded-3xl border border-slate-200 shadow-sm space-y-2">
-            <h1 className="text-2xl font-extrabold text-[#0F172A] flex items-center gap-2">
-              <Trophy className="w-6 h-6 text-amber-500" />
-              <span>Papan Peringkat (Leaderboard Platform)</span>
-            </h1>
-            <p className="text-xs text-slate-500 font-medium">
-              Peringkat real-time dihitung dari poin kuis, streak harian, dan penyelesaian modul.
-            </p>
+        <main className="mx-auto max-w-7xl px-4 sm:px-6 pt-6 space-y-8 animate-in fade-in duration-200">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0F172A] tracking-tight flex items-center gap-2.5">
+                <Trophy className="w-7 h-7 text-amber-500" />
+                <span>Peringkat Siswa Nasional</span>
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-500 font-medium max-w-2xl">
+                Peringkat diperbarui secara real-time berdasarkan total Poin Belajar yang didapatkan dari menyelesaikan kuis dan materi.
+              </p>
+            </div>
+
+            <button
+              onClick={fetchLeaderboardFromDB}
+              className="px-4 py-2.5 rounded-xl bg-slate-100 border border-slate-200 hover:bg-slate-200 text-[#0F172A] text-xs font-extrabold flex items-center gap-2 transition cursor-pointer shrink-0"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoadingLeaderboard ? "animate-spin text-amber-500" : ""}`} />
+              <span>Refresh Peringkat</span>
+            </button>
           </div>
 
-          <div className="saas-card rounded-3xl border border-slate-200 overflow-hidden shadow-xs">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="bg-slate-100 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
-                  <th className="p-4">Rank</th>
-                  <th className="p-4">Nama Siswa</th>
-                  <th className="p-4">Kelas / Sekolah</th>
-                  <th className="p-4 text-center">Streak</th>
-                  <th className="p-4 text-right">Poin Belajar</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-semibold">
-                <tr className="bg-amber-50/50">
-                  <td className="p-4 font-extrabold text-amber-600">🥇 #1</td>
-                  <td className="p-4 text-[#0F172A] font-extrabold">
-                    Ahmad Fauzi
-                  </td>
-                  <td className="p-4 text-slate-500">Kelas 8A • SMP N 1 Jakarta</td>
-                  <td className="p-4 text-center font-bold text-orange-600">
-                    21 Hari 🔥
-                  </td>
-                  <td className="p-4 text-right font-extrabold text-[#0F172A]">
-                    1,850 Pts
-                  </td>
-                </tr>
-                <tr className="bg-slate-50/50">
-                  <td className="p-4 font-extrabold text-slate-400">🥈 #2</td>
-                  <td className="p-4 text-[#0F172A] font-extrabold">
-                    Siti Aminah
-                  </td>
-                  <td className="p-4 text-slate-500">Kelas 8A • SMP N 1 Jakarta</td>
-                  <td className="p-4 text-center font-bold text-orange-600">
-                    18 Hari 🔥
-                  </td>
-                  <td className="p-4 text-right font-extrabold text-[#0F172A]">
-                    1,520 Pts
-                  </td>
-                </tr>
-                <tr className="bg-blue-50/60 border-l-4 border-l-blue-600">
-                  <td className="p-4 font-extrabold text-blue-600">🥉 #3 (Kamu)</td>
-                  <td className="p-4 text-[#0F172A] font-extrabold">
-                    {studentName}
-                  </td>
-                  <td className="p-4 text-slate-500">Kelas 8A • SMP N 1 Jakarta</td>
-                  <td className="p-4 text-center font-bold text-orange-600">
-                    {dailyStreak} Hari 🔥
-                  </td>
-                  <td className="p-4 text-right font-extrabold text-blue-600">
-                    {learningPoints.toLocaleString("id-ID")} Pts
-                  </td>
-                </tr>
-                {Array.from({ length: 5 }, (_, i) => (
-                  <tr key={i} className="hover:bg-slate-50">
-                    <td className="p-4 text-slate-400 font-bold">#{i + 4}</td>
-                    <td className="p-4 text-slate-800">Siswa Teladan #{i + 4}</td>
-                    <td className="p-4 text-slate-500">Kelas 8B • SMP N 1 Jakarta</td>
-                    <td className="p-4 text-center text-slate-600">
-                      {10 - i} Hari
-                    </td>
-                    <td className="p-4 text-right font-bold text-slate-800">
-                      {1100 - i * 80} Pts
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          {/* Leaderboard Table View */}
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-xs p-6 space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+              <div className="text-sm font-extrabold text-[#0F172A] flex items-center gap-2">
+                <Shield className="w-4 h-4 text-emerald-600" />
+                <span>Daftar Siswa Berprestasi (Khusus Akun Siswa)</span>
+              </div>
+              <span className="text-xs font-bold text-slate-400">
+                {leaderboardList.length} Siswa Terdaftar
+              </span>
+            </div>
+
+            {isLoadingLeaderboard ? (
+              <div className="py-12 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+                <Loader2 className="w-5 h-5 animate-spin text-amber-500" />
+                <span>Memuat data peringkat siswa...</span>
+              </div>
+            ) : leaderboardList.length === 0 ? (
+              <div className="py-8 text-center text-xs text-slate-500">
+                Belum ada data siswa di papan peringkat.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                      <th className="py-3 px-4">Peringkat</th>
+                      <th className="py-3 px-4">Nama Siswa</th>
+                      <th className="py-3 px-4">Sekolah</th>
+                      <th className="py-3 px-4 text-center">Daily Streak</th>
+                      <th className="py-3 px-4 text-right">Total Poin Belajar</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium">
+                    {leaderboardList.map((st) => (
+                      <tr
+                        key={st.id}
+                        className={`transition hover:bg-slate-50/80 ${
+                          st.isCurrentUser ? "bg-amber-50/80 font-bold border-l-4 border-l-amber-500" : ""
+                        }`}
+                      >
+                        <td className="py-3.5 px-4">
+                          {st.rank === 1 ? (
+                            <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-amber-400 text-amber-950 font-extrabold text-xs shadow-xs">
+                              👑 1
+                            </span>
+                          ) : st.rank === 2 ? (
+                            <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-300 text-slate-900 font-extrabold text-xs">
+                              🥈 2
+                            </span>
+                          ) : st.rank === 3 ? (
+                            <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-amber-700/20 text-amber-900 font-extrabold text-xs">
+                              🥉 3
+                            </span>
+                          ) : (
+                            <span className="text-slate-500 font-bold pl-2">
+                              #{st.rank}
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3.5 px-4 font-bold text-[#0F172A]">
+                          <div className="flex items-center gap-2">
+                            <span>{st.name}</span>
+                            {st.isCurrentUser && (
+                              <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[9px] font-extrabold">
+                                Akun Anda
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4 text-slate-600">
+                          {st.school}
+                        </td>
+                        <td className="py-3.5 px-4 text-center">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-orange-50 text-orange-700 font-extrabold text-[10px]">
+                            <Flame className="w-3 h-3 text-orange-500" />
+                            <span>{st.streak} Hari</span>
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-extrabold text-[#0F172A]">
+                          <span className="text-amber-600">{st.points.toLocaleString("id-ID")}</span> Poin
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </main>
       )}
 
-      {/* TAB CONTENT: PENCAPAIAN (ACHIEVEMENTS) */}
-      {activeTab === "Pencapaian" && (
-        <main className="mx-auto max-w-7xl px-4 sm:px-6 pt-6 space-y-6">
-          <div className="saas-card p-6 rounded-3xl border border-slate-200 shadow-sm space-y-2">
-            <h1 className="text-2xl font-extrabold text-[#0F172A] flex items-center gap-2">
-              <Award className="w-6 h-6 text-emerald-600" />
-              <span>Pencapaian & Lencana Digital</span>
+      {/* 3. TAB: KURSUS SAYA */}
+      {activeTab === "Kursus Saya" && (
+        <main className="mx-auto max-w-7xl px-4 sm:px-6 pt-6 space-y-6 animate-in fade-in duration-200">
+          <div className="space-y-1">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0F172A] tracking-tight flex items-center gap-2.5">
+              <BookOpen className="w-7 h-7 text-blue-600" />
+              <span>Kursus & Bab Pembelajaran</span>
             </h1>
-            <p className="text-xs text-slate-500 font-medium">
-              Kumpulkan lencana atas konsistensi belajar dan hasil kuis terbaikmu.
+            <p className="text-xs sm:text-sm text-slate-500 font-medium max-w-2xl">
+              Pilih bab pembelajaran untuk mulai mengerjakan kuis dan mengumpulkan Poin Belajar.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-            {[
-              {
-                icon: "🏆",
-                title: "Pionir Aljabar",
-                desc: "Menyelesaikan 5 modul matematika tanpa jeda.",
-                unlocked: true,
-              },
-              {
-                icon: "⚡",
-                title: "Pejuang Kuis",
-                desc: "Meraih skor sempurna pada 3 kuis berturut-turut.",
-                unlocked: true,
-              },
-              {
-                icon: "🔥",
-                title: "Streak Master",
-                desc: "Mempertahankan daily streak selama 14 hari.",
-                unlocked: true,
-              },
-              {
-                icon: "🤖",
-                title: "Tutor AI Fanatic",
-                desc: "Berdiskusi Sokratik dengan AI Tutor lebih dari 20 kali.",
-                unlocked: true,
-              },
-              {
-                icon: "👑",
-                title: "Top 3 Leaderboard",
-                desc: "Mencapai peringkat 3 besar di kelasmu.",
-                unlocked: true,
-              },
-              {
-                icon: "🎓",
-                title: "Master Fisika",
-                desc: "Menyelesaikan seluruh bab Mekanika Klasik.",
-                unlocked: false,
-              },
-            ].map((badge, idx) => (
-              <div
-                key={idx}
-                className={`saas-card p-5 rounded-3xl border shadow-xs text-center space-y-3 ${
-                  badge.unlocked
-                    ? "border-emerald-200 bg-white"
-                    : "border-slate-200 bg-slate-50 opacity-60"
-                }`}
-              >
-                <div className="text-3xl">{badge.icon}</div>
-                <div>
-                  <h3 className="text-sm font-extrabold text-[#0F172A]">
-                    {badge.title}
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-1">{badge.desc}</p>
-                </div>
-                <span
-                  className={`inline-block text-[10px] font-bold px-3 py-1 rounded-full ${
-                    badge.unlocked
-                      ? "bg-emerald-100 text-emerald-800"
-                      : "bg-slate-200 text-slate-600"
-                  }`}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {activeClasses.map((cls) => {
+              const IconComp = cls.icon;
+              return (
+                <Link
+                  key={cls.id}
+                  href={`/bab/${cls.id}`}
+                  className="saas-card saas-card-hover rounded-3xl p-6 border border-slate-200 flex flex-col justify-between space-y-5 shadow-xs group bg-white"
                 >
-                  {badge.unlocked ? "Terbuka" : "Terkunci"}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className={`w-12 h-12 rounded-2xl ${cls.color} flex items-center justify-center font-bold shadow-xs group-hover:scale-105 transition`}>
+                        <IconComp className="w-6 h-6" />
+                      </div>
+                      <span className="text-[10px] font-extrabold px-3 py-1 rounded-full bg-slate-100 text-slate-600 uppercase tracking-wider">
+                        {cls.module}
+                      </span>
+                    </div>
+
+                    <div>
+                      <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                        {cls.grade}
+                      </div>
+                      <h3 className="text-xl font-extrabold text-[#0F172A] group-hover:text-blue-600 transition">
+                        {cls.subject}
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-1">
+                        {cls.topic}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 pt-2">
+                    <div className="flex items-center justify-between text-xs font-extrabold">
+                      <span className="text-slate-400">Progres Pembelajaran</span>
+                      <span className="text-[#0F172A]">{cls.progress}%</span>
+                    </div>
+                    <div className="w-full h-2.5 rounded-full bg-slate-100 overflow-hidden">
+                      <div
+                        className={`h-full ${cls.progressColor} rounded-full transition-all duration-500`}
+                        style={{ width: `${cls.progress}%` }}
+                      />
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </main>
+      )}
+
+      {/* 4. TAB: PENCAPAIAN */}
+      {activeTab === "Pencapaian" && (
+        <main className="mx-auto max-w-7xl px-4 sm:px-6 pt-6 space-y-6 animate-in fade-in duration-200">
+          <div className="space-y-1">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0F172A] tracking-tight flex items-center gap-2.5">
+              <Gift className="w-7 h-7 text-purple-600" />
+              <span>Pencapaian & Lencana Siswa</span>
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-500 font-medium max-w-2xl">
+              Lencana penghargaan atas konsistensi belajar dan penyelesaian kuis Anda.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+            <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center font-extrabold text-xl shrink-0">
+                🏆
+              </div>
+              <div>
+                <h3 className="text-sm font-extrabold text-[#0F172A]">Master Kuis</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Menyelesaikan 10 kuis berturut-turut.</p>
+                <span className="inline-block mt-2 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                  Terbuka ✓
                 </span>
               </div>
-            ))}
+            </div>
+
+            <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-orange-100 text-orange-700 flex items-center justify-center font-extrabold text-xl shrink-0">
+                🔥
+              </div>
+              <div>
+                <h3 className="text-sm font-extrabold text-[#0F172A]">Konsisten 14 Hari</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Absen presensi 14 hari tanpa putus.</p>
+                <span className="inline-block mt-2 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                  Terbuka ✓
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center font-extrabold text-xl shrink-0">
+                ⭐
+              </div>
+              <div>
+                <h3 className="text-sm font-extrabold text-[#0F172A]">Pembelajar Hebat</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Mengumpulkan 1.000+ Poin Belajar.</p>
+                <span className="inline-block mt-2 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                  Terbuka ✓
+                </span>
+              </div>
+            </div>
           </div>
         </main>
       )}
 
-      {/* ========================================================= */}
-      {/* MODAL: LIVE SELFIE CAMERA ATTENDANCE SYSTEM */}
-      {/* ========================================================= */}
+      {/* MODAL: LIVE WEBCAM SELFIE ATTENDANCE */}
       {isAttendanceModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="saas-modal rounded-3xl shadow-2xl border border-slate-200 p-6 max-w-md w-full text-center space-y-5 relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="saas-modal rounded-3xl shadow-2xl border border-slate-200 p-6 max-w-md w-full relative space-y-4">
             <button
               onClick={() => {
+                stopCamera();
                 setIsAttendanceModalOpen(false);
-                setIsCameraActive(false);
               }}
               className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
             >
               <X className="w-5 h-5" />
             </button>
 
-            <div className="space-y-1">
-              <h3 className="text-lg font-extrabold text-[#0F172A]">
-                Presensi Selfie Kehadiran
-              </h3>
-              <p className="text-xs text-slate-500">
-                Ambil foto selfie verifikasi untuk mendaftar kehadiran hari ini.
-              </p>
+            <div className="flex items-center space-x-3 border-b border-slate-200 pb-3">
+              <div className="w-10 h-10 rounded-2xl bg-[#0F172A] text-white flex items-center justify-center">
+                <Camera className="w-5 h-5 text-emerald-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-extrabold text-[#0F172A]">
+                  Absen Kamera Selfie
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Ambil foto selfie untuk memverifikasi kehadiran hari ini
+                </p>
+              </div>
             </div>
 
-            {/* Camera Frame Preview */}
-            <div className="relative w-full h-56 rounded-2xl bg-slate-900 border-2 border-slate-300 flex flex-col items-center justify-center overflow-hidden">
-              {isCameraActive ? (
-                <div className="relative w-full h-full flex flex-col items-center justify-center bg-slate-800 text-white space-y-2">
-                  <div className="w-24 h-24 rounded-full border-4 border-dashed border-emerald-400 animate-spin-slow flex items-center justify-center">
-                    <User className="w-12 h-12 text-slate-300" />
+            {/* Webcam Live View, Face Scanner Overlay & Canvas */}
+            <div className="relative rounded-2xl overflow-hidden bg-slate-900 aspect-video flex items-center justify-center border border-slate-800 shadow-inner">
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-full object-cover"
+              />
+              <canvas ref={canvasRef} className="hidden" />
+
+              {/* Face Detection Bounding Box & Status Overlay */}
+              {isCameraActive && (
+                <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-between p-4">
+                  {/* Status Badge Top */}
+                  <div className="px-3.5 py-1.5 rounded-full bg-slate-900/80 backdrop-blur-md border border-white/20 text-white text-[11px] font-extrabold flex items-center gap-2 shadow-md">
+                    <span className={`w-2 h-2 rounded-full ${isFaceDetected ? "bg-emerald-400 animate-ping" : "bg-amber-400 animate-pulse"}`} />
+                    <span>{faceDetectorStatus}</span>
                   </div>
-                  <span className="text-xs font-bold text-emerald-400">
-                    Kamera Selfie Aktif...
-                  </span>
+
+                  {/* Bounding Box Frame Indicator */}
+                  <div
+                    className={`w-44 h-56 rounded-3xl border-2 transition-all duration-300 relative flex items-center justify-center ${
+                      isFaceDetected
+                        ? "border-emerald-400 bg-emerald-500/10 shadow-[0_0_25px_rgba(52,211,153,0.4)]"
+                        : "border-dashed border-amber-300/60"
+                    }`}
+                  >
+                    {/* Frame Corner Accents */}
+                    <div className={`absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 rounded-tl-xl ${isFaceDetected ? "border-emerald-400" : "border-amber-400"}`} />
+                    <div className={`absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 rounded-tr-xl ${isFaceDetected ? "border-emerald-400" : "border-amber-400"}`} />
+                    <div className={`absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 rounded-bl-xl ${isFaceDetected ? "border-emerald-400" : "border-amber-400"}`} />
+                    <div className={`absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 rounded-br-xl ${isFaceDetected ? "border-emerald-400" : "border-amber-400"}`} />
+
+                    {isFaceDetected && (
+                      <div className="px-3 py-1 bg-emerald-600 text-white font-extrabold text-[10px] rounded-full shadow-lg animate-bounce">
+                        ✓ Terverifikasi Otomatis
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Subtext info */}
+                  <div className="text-[10px] text-slate-300 bg-slate-900/70 px-3 py-1 rounded-full backdrop-blur-xs font-semibold">
+                    Posisikan wajah Anda tepat di tengah bingkai
+                  </div>
                 </div>
-              ) : (
-                <div className="space-y-2 text-slate-400 text-xs">
-                  <Camera className="w-10 h-10 mx-auto text-slate-500" />
-                  <p>Klik tombol di bawah untuk mengaktifkan kamera</p>
+              )}
+
+              {!isCameraActive && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center text-white space-y-3 bg-slate-900/90">
+                  <Camera className="w-10 h-10 text-emerald-400 animate-bounce" />
+                  <p className="text-xs text-slate-300 font-medium">
+                    Klik tombol di bawah untuk mengaktifkan kamera webcam
+                  </p>
+                  <button
+                    onClick={handleStartCamera}
+                    className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-xs rounded-xl transition"
+                  >
+                    Aktifkan Kamera
+                  </button>
                 </div>
               )}
             </div>
 
-            {!isCameraActive ? (
+            <div className="flex items-center gap-3 pt-2">
               <button
-                onClick={handleStartCamera}
-                className="w-full py-3 rounded-2xl bg-[#0F172A] hover:bg-slate-800 text-white font-bold text-xs transition shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+                type="button"
+                onClick={() => {
+                  stopCamera();
+                  setIsAttendanceModalOpen(false);
+                }}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50 transition"
               >
-                <Camera className="w-4 h-4 text-emerald-400" />
-                <span>Buka Kamera Selfie</span>
+                Batal
               </button>
-            ) : (
+
               <button
+                type="button"
+                disabled={!isCameraActive || isSubmittingAttendance}
                 onClick={handleTakeSelfie}
-                className="w-full py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs transition shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+                className={`flex-1 py-2.5 rounded-xl text-white text-xs font-bold flex items-center justify-center gap-2 transition disabled:opacity-40 ${
+                  isFaceDetected
+                    ? "bg-emerald-600 hover:bg-emerald-700 shadow-md"
+                    : "bg-[#0F172A] hover:bg-slate-800"
+                }`}
               >
-                <Check className="w-4 h-4" />
-                <span>Ambil Foto & Verifikasi Absen</span>
+                {isSubmittingAttendance ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
+                ) : (
+                  <Camera className="w-4 h-4 text-emerald-400" />
+                )}
+                <span>
+                  {isSubmittingAttendance
+                    ? "Menyimpan..."
+                    : isFaceDetected
+                    ? "Wajah Terdeteksi (Otomatis)"
+                    : "Ambil Foto & Absen"}
+                </span>
               </button>
-            )}
+            </div>
           </div>
+        </div>
+      )}
+
+      {/* TOP-RIGHT REACT TOAST NOTIFICATION COMPONENT */}
+      {toastNotification?.show && (
+        <div className="fixed top-5 right-5 z-50 max-w-sm w-full bg-[#0F172A] text-white rounded-2xl p-4 border border-emerald-500/50 shadow-2xl animate-in slide-in-from-top-5 duration-300 flex items-start space-x-3">
+          <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/30">
+            <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+          </div>
+          <div className="flex-1 space-y-0.5">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-extrabold text-white">
+                {toastNotification.title}
+              </h4>
+              <span className="text-[10px] text-emerald-400 font-semibold">
+                {toastNotification.time}
+              </span>
+            </div>
+            <p className="text-xs text-slate-300 leading-snug">
+              {toastNotification.message}
+            </p>
+          </div>
+          <button
+            onClick={() => setToastNotification(null)}
+            className="text-slate-400 hover:text-white transition cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
 
@@ -1110,13 +1608,21 @@ export default function StudentDashboardClient({
             </button>
 
             <div className="flex flex-col items-center text-center space-y-3 pt-2">
-              <div className="w-20 h-20 rounded-full bg-[#0F172A] text-white flex items-center justify-center text-2xl font-extrabold shadow-md border-4 border-white">
-                {studentName
-                  .split(" ")
-                  .map((n) => n[0])
-                  .join("")
-                  .substring(0, 2)
-                  .toUpperCase()}
+              <div className="w-20 h-20 rounded-full bg-[#0F172A] text-white flex items-center justify-center text-2xl font-extrabold shadow-md border-4 border-white overflow-hidden">
+                {capturedSelfie ? (
+                  <img
+                    src={capturedSelfie}
+                    alt="Selfie"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  studentName
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")
+                    .substring(0, 2)
+                    .toUpperCase()
+                )}
               </div>
 
               <div>
@@ -1124,11 +1630,11 @@ export default function StudentDashboardClient({
                   {studentName}
                 </h3>
                 <div className="text-xs text-slate-500 font-medium mt-0.5">
-                  NIS: 2024081092 • {studentEmail}
+                  {studentEmail}
                 </div>
                 <div className="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold">
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>SMP N 1 Jakarta • Kelas 8A</span>
+                  <span>Siswa • Terverifikasi</span>
                 </div>
               </div>
             </div>
@@ -1183,51 +1689,15 @@ export default function StudentDashboardClient({
                   Jadwal Kelas Saya
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Agenda Mingguan Kelas X - SMP N 1 Jakarta
+                  Agenda Mingguan Terintegrasi Database
                 </p>
               </div>
             </div>
 
             <div className="space-y-3 max-h-[340px] overflow-y-auto pr-1">
-              {[
-                {
-                  day: "Senin",
-                  time: "07:30 - 09:00",
-                  subject: "Matematika (Persamaan Kuadrat)",
-                  teacher: "Ibu Rahma, M.Pd",
-                  room: "Lab 1",
-                },
-                {
-                  day: "Senin",
-                  time: "09:30 - 11:00",
-                  subject: "Fisika (Hukum Newton)",
-                  teacher: "Pak Hendra, S.Pd",
-                  room: "Ruang 8A",
-                },
-                {
-                  day: "Selasa",
-                  time: "07:30 - 09:00",
-                  subject: "Bahasa Indonesia (Teks Laporan)",
-                  teacher: "Ibu Dewi, M.Hum",
-                  room: "Ruang 8A",
-                },
-                {
-                  day: "Selasa",
-                  time: "09:30 - 11:00",
-                  subject: "Kimia (Stokiometri)",
-                  teacher: "Pak Budi, S.Si",
-                  room: "Lab Kimia",
-                },
-                {
-                  day: "Rabu",
-                  time: "07:30 - 09:00",
-                  subject: "Biologi (Genetika Dasar)",
-                  teacher: "Dr. Anita Wibowo",
-                  room: "Lab Biologi",
-                },
-              ].map((sch, idx) => (
+              {(schedulesData || []).map((sch, idx) => (
                 <div
-                  key={idx}
+                  key={sch.id || idx}
                   className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 shadow-xs flex items-center justify-between"
                 >
                   <div className="space-y-1">

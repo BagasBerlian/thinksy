@@ -199,11 +199,18 @@ WAJIB MENGEMBALIKAN FORMAT JSON SAJA (TANPA TEKS LAIN):
       }
     }
 
-    // Calculate final overall score
+    // Calculate final overall score & bonus learning points
     const finalScore =
       totalQuestionsGraded > 0
         ? Math.round(totalScoreSum / totalQuestionsGraded)
         : 0;
+
+    // Bonus Poin Belajar calculation:
+    // Base 25 Poin + (finalScore * 0.5) Poin + (10 Poin * totalQuestionsGraded)
+    const earnedPoints = Math.max(
+      15,
+      Math.round(25 + finalScore * 0.5 + totalQuestionsGraded * 10)
+    );
 
     // Update Sesi status & final score in Supabase
     await supabase
@@ -215,9 +222,46 @@ WAJIB MENGEMBALIKAN FORMAT JSON SAJA (TANPA TEKS LAIN):
       })
       .eq("id", sesiId);
 
+    // Automatically award Learning Points to Student Profile in Database
+    let totalPoinSiswa = 1250;
+    try {
+      const { data: currentProfil } = await supabase
+        .from("profil")
+        .select("poin")
+        .eq("id", user.id)
+        .single();
+
+      totalPoinSiswa = (currentProfil?.poin || 1250) + earnedPoints;
+
+      await supabase
+        .from("profil")
+        .update({ poin: totalPoinSiswa })
+        .eq("id", user.id);
+
+      // Auto update daily quest progress for completing quiz/module
+      await supabase
+        .from("misi_harian")
+        .update({ progres_saat_ini: 1 })
+        .or(`siswa_id.eq.${user.id},siswa_id.is.null`)
+        .ilike("judul", "%bab%");
+
+      // Save notification log to notifikasi table
+      await supabase.from("notifikasi").insert({
+        user_id: user.id,
+        judul: "Kuis Pembelajaran Selesai!",
+        pesan: `Selamat! Anda berhasil menyelesaikan kuis dengan nilai ${finalScore}/100 dan mendapatkan +${earnedPoints} Poin Belajar.`,
+        tipe: "info",
+        dibaca: false,
+      });
+    } catch (err: any) {
+      console.error("[POINTS SYSTEM ERROR]", err.message);
+    }
+
     return NextResponse.json({
       success: true,
       skorAkhir: finalScore,
+      earnedPoints,
+      totalPoinSiswa,
       detailEvaluasi: evaluationResults,
     });
   } catch (error: any) {

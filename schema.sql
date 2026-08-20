@@ -67,6 +67,8 @@ CREATE TABLE profil (
   sekolah_id      UUID REFERENCES sekolah(id) ON DELETE SET NULL,
   nama_lengkap    TEXT NOT NULL DEFAULT '',
   peran           peran NOT NULL DEFAULT 'siswa',
+  poin            INT NOT NULL DEFAULT 1250,
+  streak          INT NOT NULL DEFAULT 14,
   dibuat_pada     TIMESTAMPTZ NOT NULL DEFAULT now(),
   diperbarui_pada TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -182,6 +184,64 @@ CREATE TABLE log_ai (
   total_tokens      INT NOT NULL DEFAULT 0,
   biaya_usd         NUMERIC(10, 8) NOT NULL DEFAULT 0,
   dibuat_pada       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 2.13 Tabel Presensi (Absen Kamera Selfie)
+CREATE TABLE presensi (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  siswa_id UUID NOT NULL REFERENCES profil(id) ON DELETE CASCADE,
+  tanggal DATE NOT NULL DEFAULT CURRENT_DATE,
+  waktu_masuk TIMESTAMPTZ NOT NULL DEFAULT now(),
+  foto_url TEXT,
+  status TEXT NOT NULL DEFAULT 'Hadir',
+  UNIQUE(siswa_id, tanggal)
+);
+
+-- 2.14 Tabel Misi Harian (Daily Quests)
+CREATE TABLE misi_harian (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  siswa_id UUID REFERENCES profil(id) ON DELETE CASCADE,
+  judul TEXT NOT NULL,
+  progres_saat_ini INT NOT NULL DEFAULT 0,
+  target_max INT NOT NULL DEFAULT 1,
+  poin_hadiah INT NOT NULL DEFAULT 20,
+  diklaim BOOLEAN NOT NULL DEFAULT false,
+  tanggal DATE NOT NULL DEFAULT CURRENT_DATE
+);
+
+-- 2.15 Tabel Agenda Tugas (Tenggat Waktu)
+CREATE TABLE agenda_tugas (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  siswa_id UUID REFERENCES profil(id) ON DELETE CASCADE,
+  judul TEXT NOT NULL,
+  deskripsi TEXT,
+  tenggat_waktu TIMESTAMPTZ NOT NULL,
+  kategori TEXT NOT NULL DEFAULT 'kuis',
+  tingkat_urgensi TEXT NOT NULL DEFAULT 'normal'
+);
+
+-- 2.16 Tabel Jadwal Kelas
+CREATE TABLE jadwal_kelas (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  sekolah_id UUID REFERENCES sekolah(id) ON DELETE CASCADE,
+  mata_pelajaran TEXT NOT NULL,
+  nama_guru TEXT NOT NULL,
+  hari TEXT NOT NULL,
+  jam_mulai TIME NOT NULL,
+  jam_selesai TIME NOT NULL,
+  ruangan TEXT NOT NULL,
+  urutan INT DEFAULT 1
+);
+
+-- 2.17 Tabel Notifikasi (Log Notifikasi User)
+CREATE TABLE notifikasi (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES profil(id) ON DELETE CASCADE,
+  judul TEXT NOT NULL,
+  pesan TEXT NOT NULL,
+  tipe TEXT NOT NULL DEFAULT 'info',
+  dibaca BOOLEAN NOT NULL DEFAULT false,
+  dibuat_pada TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- ============================================================
