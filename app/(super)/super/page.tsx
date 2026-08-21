@@ -13,18 +13,13 @@ import {
   Sparkles,
   FolderOpen,
   LayoutDashboard,
-  Layers,
   ArrowRight,
-  Activity,
   Globe,
-  Shield,
   Zap,
   Server,
   Database,
-  CheckCircle2,
-  Clock,
-  TrendingUp,
-  BarChart3,
+  Users,
+  GraduationCap,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -54,6 +49,47 @@ export default async function SuperAdminDashboard() {
     .join("")
     .substring(0, 2)
     .toUpperCase();
+
+  // Fetch real metrics from database
+  const { count: totalSekolah } = await supabase
+    .from("sekolah")
+    .select("id", { count: "exact", head: true });
+
+  const { count: totalAdmin } = await supabase
+    .from("profil")
+    .select("id", { count: "exact", head: true })
+    .eq("peran", "admin_sekolah");
+
+  const { count: totalGuru } = await supabase
+    .from("profil")
+    .select("id", { count: "exact", head: true })
+    .eq("peran", "guru");
+
+  const { count: totalSiswa } = await supabase
+    .from("profil")
+    .select("id", { count: "exact", head: true })
+    .eq("peran", "siswa");
+
+  const { data: biayaData } = await supabase.from("log_ai").select("biaya_usd");
+  let totalBiaya = 0;
+  if (biayaData && biayaData.length > 0) {
+    totalBiaya = biayaData.reduce(
+      (sum: number, row: { biaya_usd: number }) => sum + Number(row.biaya_usd || 0),
+      0
+    );
+  }
+
+  // Fetch recent sekolah for preview
+  const { data: recentSekolah } = await supabase
+    .from("sekolah")
+    .select("id, nama, npsn, alamat, dibuat_pada")
+    .order("dibuat_pada", { ascending: false })
+    .limit(5);
+
+  const sekolahCount = totalSekolah || 0;
+  const adminCount = totalAdmin || 0;
+  const guruCount = totalGuru || 0;
+  const siswaCount = totalSiswa || 0;
 
   return (
     <div className="min-h-screen bg-[#0B0F17] text-white font-sans flex flex-col">
@@ -170,8 +206,8 @@ export default async function SuperAdminDashboard() {
             </div>
           </div>
 
-          {/* STAT WIDGETS */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {/* STAT WIDGETS — REAL DATA */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="group bg-slate-800/40 rounded-2xl border border-slate-700/50 p-5 hover:border-blue-500/30 transition-all duration-300 backdrop-blur-sm">
               <div className="flex items-center justify-between mb-3">
                 <div className="w-10 h-10 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
@@ -179,7 +215,7 @@ export default async function SuperAdminDashboard() {
                 </div>
                 <span className="text-[10px] font-bold text-slate-500 bg-slate-700/50 px-2 py-0.5 rounded-full">Tenant</span>
               </div>
-              <span className="text-3xl font-extrabold text-white">0</span>
+              <span className="text-3xl font-extrabold text-white">{sekolahCount}</span>
               <div className="text-[11px] text-slate-400 font-semibold mt-1">Total Tenant Sekolah</div>
             </div>
 
@@ -190,8 +226,21 @@ export default async function SuperAdminDashboard() {
                 </div>
                 <span className="text-[10px] font-bold text-slate-500 bg-slate-700/50 px-2 py-0.5 rounded-full">Akun</span>
               </div>
-              <span className="text-3xl font-extrabold text-white">0</span>
+              <span className="text-3xl font-extrabold text-white">{adminCount}</span>
               <div className="text-[11px] text-slate-400 font-semibold mt-1">Total Admin Sekolah</div>
+            </div>
+
+            <div className="group bg-slate-800/40 rounded-2xl border border-slate-700/50 p-5 hover:border-purple-500/30 transition-all duration-300 backdrop-blur-sm">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                  <Users className="w-5 h-5 text-purple-400" />
+                </div>
+                <span className="text-[10px] font-bold text-slate-500 bg-slate-700/50 px-2 py-0.5 rounded-full">Pengguna</span>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-extrabold text-white">{guruCount + siswaCount}</span>
+              </div>
+              <div className="text-[11px] text-slate-400 font-semibold mt-1">{guruCount} Guru · {siswaCount} Siswa</div>
             </div>
 
             <div className="group bg-slate-800/40 rounded-2xl border border-slate-700/50 p-5 hover:border-emerald-500/30 transition-all duration-300 backdrop-blur-sm">
@@ -201,7 +250,7 @@ export default async function SuperAdminDashboard() {
                 </div>
                 <span className="text-[10px] font-bold text-slate-500 bg-slate-700/50 px-2 py-0.5 rounded-full">API</span>
               </div>
-              <span className="text-3xl font-extrabold text-emerald-400">$0.00</span>
+              <span className="text-3xl font-extrabold text-emerald-400">${totalBiaya.toFixed(4)}</span>
               <div className="text-[11px] text-slate-400 font-semibold mt-1">AI Usage Cost</div>
             </div>
           </div>
@@ -288,28 +337,64 @@ export default async function SuperAdminDashboard() {
             </div>
           </div>
 
-          {/* EMPTY STATE DATA SECTION */}
-          <section className="bg-slate-800/20 rounded-2xl border border-slate-700/40 p-10 text-center space-y-5 backdrop-blur-sm">
-            <div className="w-16 h-16 rounded-2xl bg-slate-800/60 border border-slate-700/50 text-slate-500 flex items-center justify-center mx-auto">
-              <FolderOpen className="w-8 h-8" />
-            </div>
-            <div className="space-y-2 max-w-sm mx-auto">
-              <h3 className="text-base font-extrabold text-white">
-                Belum Ada Tenant Sekolah
-              </h3>
-              <p className="text-xs text-slate-400 font-medium leading-relaxed">
-                Belum ada tenant sekolah atau akun admin sekolah terdaftar. Gunakan tombol di atas untuk mendaftarkan tenant pertama.
-              </p>
-            </div>
-            <Link
-              href="/super/sekolah"
-              className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-extrabold text-xs px-6 py-3 rounded-xl shadow-lg shadow-amber-500/20 transition"
-            >
-              <Plus className="w-4 h-4" />
-              Mulai Registrasi
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          </section>
+          {/* TENANT LIST OR EMPTY STATE */}
+          {sekolahCount === 0 ? (
+            <section className="bg-slate-800/20 rounded-2xl border border-slate-700/40 p-10 text-center space-y-5 backdrop-blur-sm">
+              <div className="w-16 h-16 rounded-2xl bg-slate-800/60 border border-slate-700/50 text-slate-500 flex items-center justify-center mx-auto">
+                <FolderOpen className="w-8 h-8" />
+              </div>
+              <div className="space-y-2 max-w-sm mx-auto">
+                <h3 className="text-base font-extrabold text-white">
+                  Belum Ada Tenant Sekolah
+                </h3>
+                <p className="text-xs text-slate-400 font-medium leading-relaxed">
+                  Belum ada tenant sekolah atau akun admin sekolah terdaftar. Gunakan tombol di atas untuk mendaftarkan tenant pertama.
+                </p>
+              </div>
+              <Link
+                href="/super/sekolah"
+                className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-extrabold text-xs px-6 py-3 rounded-xl shadow-lg shadow-amber-500/20 transition"
+              >
+                <Plus className="w-4 h-4" />
+                Mulai Registrasi
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </section>
+          ) : (
+            <section className="bg-slate-800/20 rounded-2xl border border-slate-700/40 overflow-hidden backdrop-blur-sm">
+              <div className="px-6 py-4 border-b border-slate-700/40 flex items-center justify-between">
+                <h3 className="text-sm font-extrabold text-white flex items-center gap-2">
+                  <Building className="w-4 h-4 text-amber-400" />
+                  Tenant Sekolah Terdaftar
+                </h3>
+                <Link
+                  href="/super/sekolah"
+                  className="text-xs font-bold text-amber-400 hover:text-amber-300 transition flex items-center gap-1"
+                >
+                  Lihat Semua
+                  <ArrowRight className="w-3 h-3" />
+                </Link>
+              </div>
+              <div className="divide-y divide-slate-700/30">
+                {(recentSekolah || []).map((s: any) => (
+                  <div key={s.id} className="px-6 py-4 flex items-center gap-4 hover:bg-slate-800/30 transition">
+                    <div className="w-10 h-10 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center shrink-0">
+                      <Building className="w-5 h-5 text-blue-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-white truncate">{s.nama}</p>
+                      <p className="text-xs text-slate-400 truncate">
+                        {s.npsn ? `NPSN: ${s.npsn}` : "NPSN belum diisi"} · {s.alamat || "Alamat belum diisi"}
+                      </p>
+                    </div>
+                    <div className="text-[10px] text-slate-500 font-semibold shrink-0">
+                      {new Date(s.dibuat_pada).toLocaleDateString("id-ID")}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
         </main>
       </div>
     </div>

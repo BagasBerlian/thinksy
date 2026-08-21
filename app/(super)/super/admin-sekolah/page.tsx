@@ -14,6 +14,7 @@ import {
   Search,
   Send,
   UserCheck,
+  Building,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -27,6 +28,11 @@ interface Undangan {
   sekolah_id: string | null;
 }
 
+interface Sekolah {
+  id: string;
+  nama: string;
+}
+
 function ModalUndangAdmin({
   onClose,
   onSuccess,
@@ -36,8 +42,29 @@ function ModalUndangAdmin({
 }) {
   const [nama, setNama] = useState("");
   const [email, setEmail] = useState("");
+  const [sekolahId, setSekolahId] = useState("");
+  const [sekolahList, setSekolahList] = useState<Sekolah[]>([]);
+  const [loadingSekolah, setLoadingSekolah] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchSekolah() {
+      setLoadingSekolah(true);
+      try {
+        const res = await fetch("/api/super/sekolah");
+        if (res.ok) {
+          const data = await res.json();
+          setSekolahList(data.sekolah || []);
+        }
+      } catch {
+        // silent
+      } finally {
+        setLoadingSekolah(false);
+      }
+    }
+    fetchSekolah();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,7 +75,11 @@ function ModalUndangAdmin({
       const res = await fetch("/api/super/admin-sekolah/buat-akun", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nama_lengkap: nama, email }),
+        body: JSON.stringify({
+          nama_lengkap: nama,
+          email,
+          sekolah_id: sekolahId || undefined,
+        }),
       });
 
       const data = await res.json();
@@ -83,7 +114,7 @@ function ModalUndangAdmin({
           </div>
           <button
             onClick={onClose}
-            className="text-slate-500 hover:text-slate-300 transition-colors"
+            className="text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -101,7 +132,7 @@ function ModalUndangAdmin({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-              Nama Lengkap
+              Nama Lengkap <span className="text-red-400">*</span>
             </label>
             <input
               type="text"
@@ -117,7 +148,7 @@ function ModalUndangAdmin({
 
           <div className="space-y-1.5">
             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-              Email
+              Email <span className="text-red-400">*</span>
             </label>
             <div className="relative">
               <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -133,6 +164,40 @@ function ModalUndangAdmin({
             </div>
           </div>
 
+          <div className="space-y-1.5">
+            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+              Assign ke Sekolah (Opsional)
+            </label>
+            <div className="relative">
+              <Building className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              {loadingSekolah ? (
+                <div className="w-full pl-10 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-sm text-slate-500 flex items-center gap-2">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  Memuat daftar sekolah...
+                </div>
+              ) : (
+                <select
+                  value={sekolahId}
+                  onChange={(e) => setSekolahId(e.target.value)}
+                  disabled={isLoading}
+                  className="w-full pl-10 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-sm text-white focus:outline-none focus:border-slate-500 transition-all disabled:opacity-60 appearance-none cursor-pointer"
+                >
+                  <option value="">— Pilih sekolah (opsional) —</option>
+                  {sekolahList.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.nama}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+            {sekolahList.length === 0 && !loadingSekolah && (
+              <p className="text-[10px] text-slate-500 mt-1">
+                Belum ada sekolah terdaftar. <Link href="/super/sekolah" className="text-amber-400 hover:underline">Daftarkan dulu →</Link>
+              </p>
+            )}
+          </div>
+
           {error && (
             <div className="flex items-center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs">
               <AlertCircle className="w-4 h-4 shrink-0" />
@@ -145,14 +210,14 @@ function ModalUndangAdmin({
               type="button"
               onClick={onClose}
               disabled={isLoading}
-              className="flex-1 py-2.5 rounded-xl border border-slate-700 text-slate-400 text-sm font-semibold hover:bg-slate-800 transition-all disabled:opacity-50"
+              className="flex-1 py-2.5 rounded-xl border border-slate-700 text-slate-400 text-sm font-semibold hover:bg-slate-800 transition-all disabled:opacity-50 cursor-pointer"
             >
               Batal
             </button>
             <button
               type="submit"
               disabled={isLoading}
-              className="flex-1 py-2.5 rounded-xl bg-amber-400 text-slate-950 text-sm font-extrabold flex items-center justify-center gap-2 hover:bg-amber-500 transition-all disabled:opacity-50"
+              className="flex-1 py-2.5 rounded-xl bg-amber-400 text-slate-950 text-sm font-extrabold flex items-center justify-center gap-2 hover:bg-amber-500 transition-all disabled:opacity-50 cursor-pointer"
             >
               {isLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -253,7 +318,7 @@ export default function SuperAdminSekolahPage() {
           Cara Sistem Undangan Bekerja
         </h3>
         <ol className="list-decimal list-inside space-y-1.5 text-amber-200/80 text-xs">
-          <li>Klik <strong>"Undang Admin Sekolah"</strong> dan masukkan nama serta email calon admin.</li>
+          <li>Klik <strong>&quot;Undang Admin Sekolah&quot;</strong> dan masukkan nama serta email calon admin.</li>
           <li>Sistem menyimpan undangan yang berlaku selama <strong>7 hari</strong>.</li>
           <li>Beritahu mereka untuk daftar atau login di aplikasi ini menggunakan <strong>email yang Anda daftarkan</strong>.</li>
           <li>Sistem otomatis memberi mereka peran <strong>Admin Sekolah</strong>.</li>
@@ -288,7 +353,7 @@ export default function SuperAdminSekolahPage() {
             <UserCog className="w-10 h-10 text-slate-700 mb-3" />
             <p className="text-sm font-bold text-slate-400">Belum ada undangan</p>
             <p className="text-xs text-slate-500 mt-1">
-              Klik "Undang Admin Sekolah" untuk memulai
+              Klik &quot;Undang Admin Sekolah&quot; untuk memulai
             </p>
           </div>
         ) : (

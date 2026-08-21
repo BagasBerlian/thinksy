@@ -12,6 +12,7 @@ DROP FUNCTION IF EXISTS public.handle_new_user CASCADE;
 DROP FUNCTION IF EXISTS public.check_user_role CASCADE;
 DROP FUNCTION IF EXISTS public.check_staff_sekolah_match CASCADE;
 
+DROP TABLE IF EXISTS undangan CASCADE;
 DROP TABLE IF EXISTS log_ai CASCADE;
 DROP TABLE IF EXISTS percakapan_tutor CASCADE;
 DROP TABLE IF EXISTS jawaban CASCADE;
@@ -472,6 +473,39 @@ INSERT INTO opsi_soal (id, soal_id, teks_opsi, benar, urutan) VALUES
   ('e3eebc99-9c0b-4ef8-bb6d-6bb9bd380a99', 'd1eebc99-9c0b-4ef8-bb6d-6bb9bd380a55', '43', false, 3),
   ('e4eebc99-9c0b-4ef8-bb6d-6bb9bd380aaa', 'd1eebc99-9c0b-4ef8-bb6d-6bb9bd380a55', '47', false, 4)
 ON CONFLICT (id) DO NOTHING;
+
+-- ============================================================
+-- STEP 6: TABEL UNDANGAN (Sistem Undangan Admin Sekolah)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS undangan (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email             TEXT NOT NULL,
+  peran             peran NOT NULL DEFAULT 'admin_sekolah',
+  sekolah_id        UUID REFERENCES sekolah(id) ON DELETE SET NULL,
+  dibuat_oleh       UUID REFERENCES profil(id) ON DELETE SET NULL,
+  nama_yang_diundang TEXT NOT NULL DEFAULT '',
+  digunakan         BOOLEAN NOT NULL DEFAULT false,
+  dibuat_pada       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  kadaluarsa_pada   TIMESTAMPTZ NOT NULL DEFAULT (now() + interval '7 days')
+);
+
+-- RLS: undangan
+ALTER TABLE undangan ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "undangan: super_admin kelola semua"
+  ON undangan FOR ALL
+  USING (EXISTS (
+    SELECT 1 FROM profil WHERE id = auth.uid() AND peran = 'super_admin'
+  ));
+
+CREATE POLICY "undangan: baca undangan sendiri by email"
+  ON undangan FOR SELECT
+  USING (auth.uid() IS NOT NULL);
+
+CREATE POLICY "undangan: update saat digunakan"
+  ON undangan FOR UPDATE
+  USING (auth.uid() IS NOT NULL);
 
 -- ============================================================
 -- SELESAI! Semua tabel, trigger, RLS, dan seed data sudah siap.
