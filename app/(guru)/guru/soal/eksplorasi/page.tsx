@@ -15,6 +15,9 @@ import {
   Filter,
   ArrowRight,
   Check,
+  X,
+  Save,
+  Loader2,
 } from "lucide-react";
 
 import { useRealtimeDashboard } from "@/hooks/useRealtimeDashboard";
@@ -24,15 +27,12 @@ export default function ReviewSoalEksplorasiPage() {
   const [sortBy, setSortBy] = useState<"terbaru" | "kesulitan">("terbaru");
   const [isExplanationOpen, setIsExplanationOpen] = useState(false);
   const [questionStatus, setQuestionStatus] = useState<"pending" | "published" | "rejected">("pending");
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [notification, setNotification] = useState<string | null>(null);
+
   const { broadcastEvent } = useRealtimeDashboard();
 
-  const handlePublish = () => {
-    setQuestionStatus("published");
-    broadcastEvent("SOAL_PUBLISHED", { id: "EXP-AR02" });
-  };
-
-
-  const questionData = {
+  const [questionData, setQuestionData] = useState({
     id: "EXP-AR02",
     bab: "ALJEBAR",
     kesulitan: "Sulit",
@@ -66,11 +66,47 @@ export default function ReviewSoalEksplorasiPage() {
    $$p = 6 \\quad \\text{atau} \\quad p = -2$$`,
     confidence: 75,
     timestamp: "24 Okt 2023, 14:30 WIB",
+  });
+
+  // Edit Form States
+  const [editPertanyaan, setEditPertanyaan] = useState(questionData.pertanyaan);
+  const [editOpsiB, setEditOpsiB] = useState(questionData.opsi[1].teks);
+  const [editPembahasan, setEditPembahasan] = useState(questionData.pembahasan);
+
+  const handlePublish = () => {
+    setQuestionStatus("published");
+    broadcastEvent("SOAL_PUBLISHED", { id: questionData.id });
+    setNotification("Soal AI berhasil diterbitkan ke Bank Soal!");
+    setTimeout(() => setNotification(null), 4000);
+  };
+
+  const handleSaveEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setQuestionData((prev) => ({
+      ...prev,
+      pertanyaan: editPertanyaan,
+      pembahasan: editPembahasan,
+      opsi: prev.opsi.map((o) => (o.id === "B" ? { ...o, teks: editOpsiB } : o)),
+    }));
+    setIsEditModalOpen(false);
+    setNotification("Revisi soal AI berhasil disimpan!");
+    setTimeout(() => setNotification(null), 4000);
   };
 
   return (
     <GuruLayout>
       <div className="space-y-6">
+        {/* Toast Notification */}
+        {notification && (
+          <div className="fixed top-5 right-5 z-50 flex items-center gap-3 bg-[#0F172A] text-white px-5 py-3.5 rounded-2xl shadow-2xl border border-amber-500/40 animate-in fade-in slide-in-from-top duration-200">
+            <CheckCircle2 className="w-5 h-5 text-amber-400 shrink-0" />
+            <span className="text-xs font-bold">{notification}</span>
+            <button onClick={() => setNotification(null)} className="text-slate-400 hover:text-white ml-2">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         {/* 1. HEADER BANNER */}
         <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2 max-w-2xl">
@@ -246,7 +282,7 @@ export default function ReviewSoalEksplorasiPage() {
               </div>
             </div>
 
-            {/* Right: Actions Column (4 cols) */}
+            {/* Right: Actions Column (4 cols) (BISA DIKLIK KETIGA BUTTONS) */}
             <div className="w-full lg:w-64 space-y-4 shrink-0 border-t lg:border-t-0 lg:border-l border-slate-200 pt-6 lg:pt-0 lg:pl-6 flex flex-col justify-between">
               <div className="space-y-2.5">
                 {questionStatus === "published" ? (
@@ -268,13 +304,21 @@ export default function ReviewSoalEksplorasiPage() {
                       <span>Terbitkan</span>
                     </button>
 
-                    <button className="w-full py-3 px-4 rounded-2xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-xs font-extrabold flex items-center justify-center gap-2 transition cursor-pointer">
-                      <Edit3 className="w-4 h-4 text-slate-600" />
+                    {/* EDIT & REVISI BUTTON (SEKARANG BISA DIKLIK & INTERAKSI) */}
+                    <button
+                      onClick={() => setIsEditModalOpen(true)}
+                      className="w-full py-3 px-4 rounded-2xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-800 text-xs font-extrabold flex items-center justify-center gap-2 transition cursor-pointer shadow-xs"
+                    >
+                      <Edit3 className="w-4 h-4 text-blue-600" />
                       <span>Edit & Revisi</span>
                     </button>
 
                     <button
-                      onClick={() => setQuestionStatus("rejected")}
+                      onClick={() => {
+                        setQuestionStatus("rejected");
+                        setNotification("Soal telah ditolak dan disimpan ke arsip.");
+                        setTimeout(() => setNotification(null), 4000);
+                      }}
                       className="w-full py-2.5 px-4 rounded-2xl text-red-600 hover:bg-red-50 text-xs font-extrabold flex items-center justify-center gap-2 transition cursor-pointer"
                     >
                       <Trash2 className="w-4 h-4 text-red-500" />
@@ -302,15 +346,84 @@ export default function ReviewSoalEksplorasiPage() {
             </div>
           </div>
         </div>
-
-        {/* 4. LOAD MORE BUTTON */}
-        <div className="text-center pt-2">
-          <button className="px-6 py-2.5 rounded-2xl bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 text-xs font-extrabold inline-flex items-center gap-2 transition shadow-xs cursor-pointer">
-            <span>Muat Lebih Banyak</span>
-            <ChevronDown className="w-4 h-4 text-slate-500" />
-          </button>
-        </div>
       </div>
+
+      {/* MODAL EDIT & REVISI SOAL AI */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-2xl p-6 sm:p-8 space-y-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600">
+                  <Edit3 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="font-extrabold text-[#0F172A] text-base">Edit & Revisi Soal AI (ID: {questionData.id})</h2>
+                  <p className="text-xs text-slate-500 font-medium">Ubah pertanyaan, kunci jawaban, atau pembahasan soal</p>
+                </div>
+              </div>
+              <button onClick={() => setIsEditModalOpen(false)} className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEdit} className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                  Teks Pertanyaan Soal (Mendukung KaTeX Math)
+                </label>
+                <textarea
+                  value={editPertanyaan}
+                  onChange={(e) => setEditPertanyaan(e.target.value)}
+                  rows={3}
+                  className="w-full p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-[#0F172A] focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                  Kunci Jawaban Opsi B (Benar)
+                </label>
+                <input
+                  type="text"
+                  value={editOpsiB}
+                  onChange={(e) => setEditOpsiB(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-[#0F172A]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                  Pembahasan Langkah-demi-Langkah
+                </label>
+                <textarea
+                  value={editPembahasan}
+                  onChange={(e) => setEditPembahasan(e.target.value)}
+                  rows={5}
+                  className="w-full p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-mono text-[#0F172A] focus:outline-none resize-none"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 rounded-xl bg-[#0F172A] text-white text-xs font-extrabold flex items-center justify-center gap-2"
+                >
+                  <Save className="w-4 h-4 text-amber-400" />
+                  <span>Simpan Revisi</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </GuruLayout>
   );
 }

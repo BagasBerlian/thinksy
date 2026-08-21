@@ -15,7 +15,18 @@ import {
   Edit,
   Trash,
   HelpCircle,
+  X,
+  CheckCircle2,
 } from "lucide-react";
+
+interface QuestionItem {
+  id: string;
+  pertanyaan: string;
+  bab: string;
+  tipe: string;
+  kesulitan: string;
+  kesulitanColor: string;
+}
 
 export default function BankSoalManualPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -23,8 +34,11 @@ export default function BankSoalManualPage() {
   const [filterBab, setFilterBab] = useState("Semua Bab");
   const [filterTipe, setFilterTipe] = useState("Semua Tipe");
   const [filterKesulitan, setFilterKesulitan] = useState("Semua Level");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [editingQuestion, setEditingQuestion] = useState<QuestionItem | null>(null);
+  const [notification, setNotification] = useState<string | null>(null);
 
-  const [questions, setQuestions] = useState([
+  const [questions, setQuestions] = useState<QuestionItem[]>([
     {
       id: "#Q-8021",
       pertanyaan: "Diketahui persamaan kuadrat $x^2 - 5x + 6 = 0$. Akar-akar persamaan tersebut adalah...",
@@ -52,22 +66,72 @@ export default function BankSoalManualPage() {
   ]);
 
   const handleSaveQuestion = (newQ: any) => {
-    setQuestions((prev) => [
-      {
-        id: newQ.id,
+    if (editingQuestion) {
+      setQuestions((prev) =>
+        prev.map((q) =>
+          q.id === editingQuestion.id
+            ? {
+                ...q,
+                pertanyaan: newQ.pertanyaan,
+                bab: newQ.bab?.includes("Persamaan") ? "ALJEBAR" : "GEOMETRI",
+                tipe: newQ.tipeSoal === "pilihan_ganda" ? "Pilihan Ganda" : newQ.tipeSoal === "esai" ? "Esai" : "Isian",
+                kesulitan: newQ.kesulitan === "mudah" ? "Mudah" : newQ.kesulitan === "sulit" ? "Sulit" : "Sedang",
+                kesulitanColor: newQ.kesulitan === "mudah" ? "bg-emerald-500" : newQ.kesulitan === "sulit" ? "bg-red-500" : "bg-amber-500",
+              }
+            : q
+        )
+      );
+      setNotification(`Soal ${editingQuestion.id} berhasil diperbarui!`);
+      setEditingQuestion(null);
+    } else {
+      const newItem: QuestionItem = {
+        id: newQ.id || `#Q-${Math.floor(1000 + Math.random() * 9000)}`,
         pertanyaan: newQ.pertanyaan,
-        bab: newQ.bab.includes("Persamaan") ? "ALJEBAR" : "GEOMETRI",
+        bab: newQ.bab?.includes("Persamaan") ? "ALJEBAR" : "GEOMETRI",
         tipe: newQ.tipeSoal === "pilihan_ganda" ? "Pilihan Ganda" : newQ.tipeSoal === "esai" ? "Esai" : "Isian",
         kesulitan: newQ.kesulitan === "mudah" ? "Mudah" : newQ.kesulitan === "sulit" ? "Sulit" : "Sedang",
         kesulitanColor: newQ.kesulitan === "mudah" ? "bg-emerald-500" : newQ.kesulitan === "sulit" ? "bg-red-500" : "bg-amber-500",
-      },
-      ...prev,
-    ]);
+      };
+      setQuestions((prev) => [newItem, ...prev]);
+      setNotification(`Soal baru ${newItem.id} berhasil ditambahkan!`);
+    }
+    setTimeout(() => setNotification(null), 4000);
   };
+
+  const handleDeleteQuestion = (id: string) => {
+    if (!confirm(`Apakah Anda yakin ingin menghapus soal ${id}?`)) return;
+    setQuestions((prev) => prev.filter((q) => q.id !== id));
+    setNotification(`Soal ${id} berhasil dihapus.`);
+    setTimeout(() => setNotification(null), 4000);
+  };
+
+  const handleEditClick = (q: QuestionItem) => {
+    setEditingQuestion(q);
+    setIsModalOpen(true);
+  };
+
+  const filteredQuestions = questions.filter((q) => {
+    const matchesSearch = q.pertanyaan.toLowerCase().includes(searchQuery.toLowerCase()) || q.id.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesBab = filterBab === "Semua Bab" || q.bab.toLowerCase() === filterBab.toLowerCase();
+    const matchesTipe = filterTipe === "Semua Tipe" || q.tipe.toLowerCase() === filterTipe.toLowerCase();
+    const matchesKesulitan = filterKesulitan === "Semua Level" || q.kesulitan.toLowerCase() === filterKesulitan.toLowerCase();
+    return matchesSearch && matchesBab && matchesTipe && matchesKesulitan;
+  });
 
   return (
     <GuruLayout>
       <div className="space-y-6">
+        {/* Notification Toast */}
+        {notification && (
+          <div className="fixed top-5 right-5 z-50 flex items-center gap-3 bg-[#0F172A] text-white px-5 py-3.5 rounded-2xl shadow-2xl border border-amber-500/40 animate-in fade-in slide-in-from-top duration-200">
+            <CheckCircle2 className="w-5 h-5 text-amber-400 shrink-0" />
+            <span className="text-xs font-bold">{notification}</span>
+            <button onClick={() => setNotification(null)} className="text-slate-400 hover:text-white ml-2">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         {/* 1. PAGE HEADER */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
@@ -81,7 +145,10 @@ export default function BankSoalManualPage() {
           </div>
 
           <button
-            onClick={() => setIsModalOpen(true)}
+            onClick={() => {
+              setEditingQuestion(null);
+              setIsModalOpen(true);
+            }}
             className="px-4 py-2.5 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-white font-extrabold text-xs shadow-xs transition flex items-center gap-2 cursor-pointer shrink-0"
           >
             <Plus className="w-4 h-4 text-amber-400" />
@@ -162,7 +229,7 @@ export default function BankSoalManualPage() {
           </div>
         </div>
 
-        {/* 3. QUESTIONS TABLE */}
+        {/* 3. QUESTIONS TABLE (CLICKABLE EDIT & TRASH BUTTONS) */}
         <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-xs">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs text-slate-700">
@@ -177,7 +244,7 @@ export default function BankSoalManualPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
-                {questions.map((q) => (
+                {filteredQuestions.map((q) => (
                   <tr key={q.id} className="hover:bg-slate-50/80 transition">
                     <td className="px-6 py-4 font-mono text-slate-400 font-semibold">
                       {q.id}
@@ -205,10 +272,20 @@ export default function BankSoalManualPage() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <button className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer">
+                        {/* EDIT BUTTON (SEKARANG BISA DIKLIK) */}
+                        <button
+                          onClick={() => handleEditClick(q)}
+                          title="Edit Soal Ini"
+                          className="p-1.5 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition cursor-pointer"
+                        >
                           <Edit className="w-4 h-4" />
                         </button>
-                        <button className="p-1.5 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer">
+                        {/* TRASH BUTTON (SEKARANG BISA DIKLIK) */}
+                        <button
+                          onClick={() => handleDeleteQuestion(q.id)}
+                          title="Hapus Soal Ini"
+                          className="p-1.5 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
+                        >
                           <Trash className="w-4 h-4" />
                         </button>
                       </div>
@@ -221,21 +298,29 @@ export default function BankSoalManualPage() {
 
           {/* Table Footer Pagination */}
           <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between text-xs text-slate-500 font-medium">
-            <span>Menampilkan 1–3 dari 124 soal</span>
+            <span>Menampilkan 1–{filteredQuestions.length} dari {questions.length} soal</span>
             <div className="flex items-center gap-1">
-              <button className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 cursor-pointer">
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 cursor-pointer"
+              >
                 <ChevronLeft className="w-4 h-4" />
               </button>
-              <button className="px-3 py-1 rounded-lg bg-[#0F172A] text-white font-extrabold">
-                1
-              </button>
-              <button className="px-3 py-1 rounded-lg hover:bg-slate-200 text-slate-700 font-extrabold cursor-pointer">
-                2
-              </button>
-              <button className="px-3 py-1 rounded-lg hover:bg-slate-200 text-slate-700 font-extrabold cursor-pointer">
-                3
-              </button>
-              <button className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 cursor-pointer">
+              {[1, 2, 3].map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setCurrentPage(p)}
+                  className={`px-3 py-1 rounded-lg text-xs font-extrabold cursor-pointer ${
+                    currentPage === p ? "bg-[#0F172A] text-white" : "hover:bg-slate-200 text-slate-700"
+                  }`}
+                >
+                  {p}
+                </button>
+              ))}
+              <button
+                onClick={() => setCurrentPage((p) => Math.min(3, p + 1))}
+                className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 cursor-pointer"
+              >
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
@@ -246,7 +331,10 @@ export default function BankSoalManualPage() {
       {/* Editor Soal Drawer */}
       <EditorSoalModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingQuestion(null);
+        }}
         onSave={handleSaveQuestion}
       />
     </GuruLayout>

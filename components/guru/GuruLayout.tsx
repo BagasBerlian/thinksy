@@ -20,6 +20,10 @@ import {
   HelpCircle,
   ChevronDown,
   Wifi,
+  Save,
+  CheckCircle2,
+  Key,
+  Sliders,
 } from "lucide-react";
 import { logoutAction } from "@/app/(auth)/actions";
 import { useRealtimeDashboard } from "@/hooks/useRealtimeDashboard";
@@ -37,9 +41,18 @@ export default function GuruLayout({ children, userProfile }: GuruLayoutProps) {
   const pathname = usePathname();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const teacherName = userProfile?.nama_lengkap || "Budi Santoso";
+  // Settings Modal Form State
+  const [settingsNama, setSettingsNama] = useState(userProfile?.nama_lengkap || "Ibu Siti Rahmawati, M.Pd.");
+  const [settingsEmail, setSettingsEmail] = useState(userProfile?.email || "siti.rahmawati@sekolah.sch.id");
+  const [settingsMapel, setSettingsMapel] = useState("Matematika SMP Kelas 8");
+  const [settingsNip, setSettingsNip] = useState("198511232010122001");
+  const [settingsSavedSuccess, setSettingsSavedSuccess] = useState(false);
+  const [activeSettingsTab, setActiveSettingsTab] = useState<"profil" | "ai" | "notif" | "keamanan">("profil");
+
+  const teacherName = settingsNama;
   const teacherRole = userProfile?.peran === "superadmin" ? "Administrator" : "Guru Matematika";
 
   const [notifications, setNotifications] = useState([
@@ -98,6 +111,15 @@ export default function GuruLayout({ children, userProfile }: GuruLayoutProps) {
     }
   });
 
+  const handleSaveSettings = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSettingsSavedSuccess(true);
+    setTimeout(() => {
+      setSettingsSavedSuccess(false);
+      setIsSettingsModalOpen(false);
+    }, 2000);
+  };
+
   const navItems = [
     {
       label: "Dashboard",
@@ -131,9 +153,10 @@ export default function GuruLayout({ children, userProfile }: GuruLayoutProps) {
     },
     {
       label: "Pengaturan",
-      href: "/guru#pengaturan",
+      href: "#pengaturan",
+      onClick: () => setIsSettingsModalOpen(true),
       icon: Settings,
-      active: pathname === "/guru#pengaturan",
+      active: isSettingsModalOpen,
     },
   ];
 
@@ -164,10 +187,26 @@ export default function GuruLayout({ children, userProfile }: GuruLayoutProps) {
             </div>
           </Link>
 
-          {/* Nav Items */}
+          {/* Nav Items (ALL CLICKABLE & WORKING) */}
           <nav className="space-y-1.5 text-xs font-bold text-slate-600">
             {navItems.map((item) => {
               const IconComp = item.icon;
+              if (item.onClick) {
+                return (
+                  <button
+                    key={item.label}
+                    onClick={item.onClick}
+                    className={`w-full flex items-center gap-3 rounded-xl px-3.5 py-3 transition cursor-pointer text-left ${
+                      item.active
+                        ? "bg-[#0F172A] text-white shadow-xs"
+                        : "hover:bg-slate-100 hover:text-[#0F172A]"
+                    }`}
+                  >
+                    <IconComp className={`w-4 h-4 ${item.active ? "text-amber-400" : "text-slate-500"}`} />
+                    <span>{item.label}</span>
+                  </button>
+                );
+              }
               return (
                 <Link
                   key={item.label}
@@ -239,7 +278,7 @@ export default function GuruLayout({ children, userProfile }: GuruLayoutProps) {
                     </div>
                     <button
                       onClick={() => setIsNotificationOpen(false)}
-                      className="text-slate-400 hover:text-slate-600"
+                      className="text-slate-400 hover:text-slate-600 cursor-pointer"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -311,14 +350,16 @@ export default function GuruLayout({ children, userProfile }: GuruLayoutProps) {
                   </div>
 
                   <div className="space-y-1">
-                    <Link
-                      href="/guru#pengaturan"
-                      onClick={() => setIsDropdownOpen(false)}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 hover:text-[#0F172A] rounded-xl transition cursor-pointer"
+                    <button
+                      onClick={() => {
+                        setIsDropdownOpen(false);
+                        setIsSettingsModalOpen(true);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 hover:text-[#0F172A] rounded-xl transition cursor-pointer text-left"
                     >
                       <Settings className="w-4 h-4 text-slate-500" />
                       <span>Pengaturan Akun</span>
-                    </Link>
+                    </button>
 
                     <form action={logoutAction}>
                       <button
@@ -341,6 +382,232 @@ export default function GuruLayout({ children, userProfile }: GuruLayoutProps) {
           {children}
         </main>
       </div>
+
+      {/* ======================================================== */}
+      {/* MODAL PENGATURAN PROFIL & AKUN GURU (MENU PENGATURAN)     */}
+      {/* ======================================================== */}
+      {isSettingsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-2xl p-6 sm:p-8 space-y-6 max-h-[90vh] overflow-y-auto">
+            {/* Header Modal */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-[#0F172A] text-amber-400 flex items-center justify-center shrink-0">
+                  <Settings className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="font-extrabold text-[#0F172A] text-lg">Pengaturan Profil & Sistem Guru</h2>
+                  <p className="text-xs text-slate-500 font-medium">Kelola informasi akun pengajar, preferensi AI Sokratik, dan notifikasi</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsSettingsModalOpen(false)}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Tabs Bar */}
+            <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200 text-xs font-bold">
+              <button
+                onClick={() => setActiveSettingsTab("profil")}
+                className={`flex-1 py-2 px-3 rounded-xl transition cursor-pointer text-center ${
+                  activeSettingsTab === "profil" ? "bg-[#0F172A] text-white shadow-xs" : "text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                Profil Guru
+              </button>
+              <button
+                onClick={() => setActiveSettingsTab("ai")}
+                className={`flex-1 py-2 px-3 rounded-xl transition cursor-pointer text-center ${
+                  activeSettingsTab === "ai" ? "bg-[#0F172A] text-white shadow-xs" : "text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                Preferensi AI
+              </button>
+              <button
+                onClick={() => setActiveSettingsTab("notif")}
+                className={`flex-1 py-2 px-3 rounded-xl transition cursor-pointer text-center ${
+                  activeSettingsTab === "notif" ? "bg-[#0F172A] text-white shadow-xs" : "text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                Notifikasi
+              </button>
+              <button
+                onClick={() => setActiveSettingsTab("keamanan")}
+                className={`flex-1 py-2 px-3 rounded-xl transition cursor-pointer text-center ${
+                  activeSettingsTab === "keamanan" ? "bg-[#0F172A] text-white shadow-xs" : "text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                Keamanan
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleSaveSettings} className="space-y-5">
+              {activeSettingsTab === "profil" && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                        Nama Lengkap & Gelar
+                      </label>
+                      <input
+                        type="text"
+                        value={settingsNama}
+                        onChange={(e) => setSettingsNama(e.target.value)}
+                        required
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                        Email Utama
+                      </label>
+                      <input
+                        type="email"
+                        value={settingsEmail}
+                        onChange={(e) => setSettingsEmail(e.target.value)}
+                        required
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                        Mata Pelajaran & Tingkat
+                      </label>
+                      <input
+                        type="text"
+                        value={settingsMapel}
+                        onChange={(e) => setSettingsMapel(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                        NIP / NUPTK
+                      </label>
+                      <input
+                        type="text"
+                        value={settingsNip}
+                        onChange={(e) => setSettingsNip(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeSettingsTab === "ai" && (
+                <div className="space-y-4">
+                  <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 space-y-2">
+                    <div className="text-xs font-extrabold text-amber-900 flex items-center gap-2">
+                      <Bot className="w-4 h-4 text-amber-600" /> Preferensi AI Sokratik Tutor (Gemini AI)
+                    </div>
+                    <p className="text-xs text-amber-800 font-medium leading-relaxed">
+                      AI Sokratik akan memandu siswa berdasarkan gaya pembimbingan yang Anda tentukan di bawah ini.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                      Gaya Pembimbingan Sokratik
+                    </label>
+                    <select className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-[#0F172A] focus:outline-none">
+                      <option>Fun, Ramah & Bertahap (Default)</option>
+                      <option>Tegas & Berfokus pada Pembuktian</option>
+                      <option>Eksploratif & Bebas Tantangan</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                      Target Tingkat Kesulitan Auto-Generate Soal AI
+                    </label>
+                    <select className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-[#0F172A] focus:outline-none">
+                      <option>Seimbang (Mudah 30%, Sedang 50%, Sulit 20%)</option>
+                      <option>Tinggi (HOTS / AKM Matematika)</option>
+                      <option>Dasar (Penguatan Konsep Awal)</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {activeSettingsTab === "notif" && (
+                <div className="space-y-3">
+                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-extrabold text-[#0F172A]">Email Notifikasi Esai Baru</div>
+                      <div className="text-[11px] text-slate-500">Kirim email saat siswa mengirimkan jawaban esai</div>
+                    </div>
+                    <input type="checkbox" defaultChecked className="w-4 h-4 accent-[#0F172A] cursor-pointer" />
+                  </div>
+                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-extrabold text-[#0F172A]">Laporan Ringkasan Presensi Harian</div>
+                      <div className="text-[11px] text-slate-500">Terima ringkasan selfie presensi setiap pukul 08.00 WIB</div>
+                    </div>
+                    <input type="checkbox" defaultChecked className="w-4 h-4 accent-[#0F172A] cursor-pointer" />
+                  </div>
+                </div>
+              )}
+
+              {activeSettingsTab === "keamanan" && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                      Kata Sandi Baru
+                    </label>
+                    <input
+                      type="password"
+                      placeholder="Masukkan kata sandi baru (min. 8 karakter)"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-[#0F172A] focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                      Konfirmasi Kata Sandi Baru
+                    </label>
+                    <input
+                      type="password"
+                      placeholder="Ulangi kata sandi baru"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-[#0F172A] focus:outline-none"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {settingsSavedSuccess && (
+                <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-extrabold flex items-center gap-2 animate-in fade-in duration-150">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Pengaturan akun berhasil disimpan!</span>
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsSettingsModalOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50 transition cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-extrabold flex items-center justify-center gap-2 transition cursor-pointer shadow-md"
+                >
+                  <Save className="w-4 h-4 text-amber-400" />
+                  <span>Simpan Pengaturan</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

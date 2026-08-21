@@ -14,6 +14,8 @@ import {
   Check,
   Award,
   User,
+  X,
+  Sparkles,
 } from "lucide-react";
 
 import { useRealtimeDashboard } from "@/hooks/useRealtimeDashboard";
@@ -22,6 +24,15 @@ export default function PenilaianEsaiPage() {
   const [openStudentId, setOpenStudentId] = useState<string | null>("s1");
   const [scoreRaihan, setScoreRaihan] = useState(85);
   const [isSavedRaihan, setIsSavedRaihan] = useState(false);
+  const [isRubrikModalOpen, setIsRubrikModalOpen] = useState(false);
+
+  // Rubrik Parameters State
+  const [rubrikKonsep, setRubrikKonsep] = useState(30);
+  const [rubrikLangkah, setRubrikLangkah] = useState(30);
+  const [rubrikJawaban, setRubrikJawaban] = useState(25);
+  const [rubrikStruktur, setRubrikStruktur] = useState(15);
+  const [rubrikSavedToast, setRubrikSavedToast] = useState(false);
+
   const { broadcastEvent } = useRealtimeDashboard();
 
   const handleSaveScore = (studentId: string) => {
@@ -31,6 +42,14 @@ export default function PenilaianEsaiPage() {
     }
   };
 
+  const handleSaveRubrik = (e: React.FormEvent) => {
+    e.preventDefault();
+    setRubrikSavedToast(true);
+    setTimeout(() => {
+      setRubrikSavedToast(false);
+      setIsRubrikModalOpen(false);
+    }, 1500);
+  };
 
   const submissions = [
     {
@@ -45,10 +64,10 @@ export default function PenilaianEsaiPage() {
       jawaban:
         "Langkah pertama kalikan $a$ dan $c$ yaitu $2 \\times (-3) = -6$. Cari dua angka yang jika dikali hasilnya $-6$ dan dijumlahkan $5$, yaitu $6$ dan $-1$. Ubah $5x$ menjadi $6x - 1x$.\n\nMaka $2x^2 + 6x - 1x - 3 = 0 \\implies 2x(x + 3) - 1(x + 3) = (2x - 1)(x + 3) = 0$.\n\nJadi $x = 1/2$ atau $x = -3$.",
       rubrik: [
-        { item: "Pemahaman Konsep", score: "30/30" },
-        { item: "Ketepatan Langkah Matematika", score: "30/30" },
-        { item: "Kebenaran Jawaban Akhir", score: "25/25" },
-        { item: "Kejelasan Struktur Penjelasan", score: "0/15 (Bahasa informal)" },
+        { item: "Pemahaman Konsep", score: `${rubrikKonsep}/${rubrikKonsep}` },
+        { item: "Ketepatan Langkah Matematika", score: `${rubrikLangkah}/${rubrikLangkah}` },
+        { item: "Kebenaran Jawaban Akhir", score: `${rubrikJawaban}/${rubrikJawaban}` },
+        { item: "Kejelasan Struktur Penjelasan", score: `0/${rubrikStruktur} (Bahasa informal)` },
       ],
     },
     {
@@ -63,10 +82,10 @@ export default function PenilaianEsaiPage() {
       jawaban:
         "Dengan metode eliminasi, tambahkan kedua persamaan:\n$(x + y) + (2x - y) = 5 + 4 \\implies 3x = 9 \\implies x = 3$.\nSubstitusi $x = 3$ ke $x + y = 5 \\implies 3 + y = 5 \\implies y = 2$.\nHimpunan penyelesaian $HP = \\{(3, 2)\\}$.",
       rubrik: [
-        { item: "Pemahaman Konsep", score: "30/30" },
-        { item: "Ketepatan Langkah Matematika", score: "30/30" },
-        { item: "Kebenaran Jawaban Akhir", score: "25/25" },
-        { item: "Kejelasan Struktur Penjelasan", score: "10/15" },
+        { item: "Pemahaman Konsep", score: `${rubrikKonsep}/${rubrikKonsep}` },
+        { item: "Ketepatan Langkah Matematika", score: `${rubrikLangkah}/${rubrikLangkah}` },
+        { item: "Kebenaran Jawaban Akhir", score: `${rubrikJawaban}/${rubrikJawaban}` },
+        { item: "Kejelasan Struktur Penjelasan", score: `10/${rubrikStruktur}` },
       ],
     },
   ];
@@ -122,17 +141,21 @@ export default function PenilaianEsaiPage() {
             </div>
           </div>
 
-          {/* Card 3: Rubrik AI Button */}
-          <button className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs flex items-center justify-between hover:border-[#0F172A] transition text-left cursor-pointer group">
+          {/* Card 3: Rubrik AI Button (SEKARANG BISA DIKLIK & INTEGRASI) */}
+          <button
+            onClick={() => setIsRubrikModalOpen(true)}
+            className="bg-white p-6 rounded-3xl border border-slate-200 hover:border-amber-400 shadow-xs flex items-center justify-between transition text-left cursor-pointer group"
+          >
             <div className="space-y-1">
-              <h3 className="text-sm font-extrabold text-[#0F172A] group-hover:text-blue-600 transition">
+              <h3 className="text-sm font-extrabold text-[#0F172A] group-hover:text-amber-600 transition flex items-center gap-1.5">
                 Sesuai Rubrik AI
+                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
               </h3>
               <p className="text-xs text-slate-500 font-medium">
-                Ubah parameter penilaian
+                Klik untuk ubah parameter penilaian
               </p>
             </div>
-            <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-100 text-amber-600 flex items-center justify-center shrink-0">
+            <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-100 text-amber-600 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
               <Sliders className="w-6 h-6" />
             </div>
           </button>
@@ -280,6 +303,102 @@ export default function PenilaianEsaiPage() {
           </div>
         </div>
       </div>
+
+      {/* MODAL PARAMETER RUBRIK PENILAIAN AI */}
+      {isRubrikModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-lg p-6 space-y-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600">
+                  <Sliders className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="font-extrabold text-[#0F172A] text-base">Atur Parameter Rubrik Penilaian AI</h2>
+                  <p className="text-xs text-slate-500 font-medium">Tentukan bobot poin penilaian esai otomatis</p>
+                </div>
+              </div>
+              <button onClick={() => setIsRubrikModalOpen(false)} className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveRubrik} className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                  1. Pemahaman Konsep (Maks Poin)
+                </label>
+                <input
+                  type="number"
+                  value={rubrikKonsep}
+                  onChange={(e) => setRubrikKonsep(Number(e.target.value))}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-[#0F172A]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                  2. Ketepatan Langkah Matematika (Maks Poin)
+                </label>
+                <input
+                  type="number"
+                  value={rubrikLangkah}
+                  onChange={(e) => setRubrikLangkah(Number(e.target.value))}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-[#0F172A]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                  3. Kebenaran Jawaban Akhir (Maks Poin)
+                </label>
+                <input
+                  type="number"
+                  value={rubrikJawaban}
+                  onChange={(e) => setRubrikJawaban(Number(e.target.value))}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-[#0F172A]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                  4. Kejelasan Struktur Penjelasan (Maks Poin)
+                </label>
+                <input
+                  type="number"
+                  value={rubrikStruktur}
+                  onChange={(e) => setRubrikStruktur(Number(e.target.value))}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-[#0F172A]"
+                />
+              </div>
+
+              {rubrikSavedToast && (
+                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-extrabold flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>Bobot rubrik AI berhasil diperbarui!</span>
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setIsRubrikModalOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 rounded-xl bg-[#0F172A] text-white text-xs font-extrabold flex items-center justify-center gap-2"
+                >
+                  <Save className="w-4 h-4 text-amber-400" />
+                  <span>Simpan Rubrik</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </GuruLayout>
   );
 }
