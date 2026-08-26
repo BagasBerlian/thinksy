@@ -73,10 +73,14 @@ export default function EditorSoalModal({ isOpen, onClose, onSave }: EditorSoalM
                 onChange={(e) => setBab(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0F172A] bg-slate-50"
               >
-                <option value="Bab 4: Persamaan Linear Dua Variabel">Bab 4: Persamaan Linear Dua Variabel</option>
-                <option value="Bab 3: Relasi dan Fungsi">Bab 3: Relasi dan Fungsi</option>
-                <option value="Bab 2: Persamaan Kuadrat">Bab 2: Persamaan Kuadrat</option>
-                <option value="Bab 1: Pola Bilangan">Bab 1: Pola Bilangan</option>
+                <option value="Bab 1: Pola Bilangan & Barisan Bilangan">Bab 1: Pola Bilangan & Barisan Bilangan</option>
+                <option value="Bab 2: Bentuk Aljabar & PLSV/PTLSV">Bab 2: Bentuk Aljabar & PLSV/PTLSV</option>
+                <option value="Bab 3: Relasi & Fungsi">Bab 3: Relasi & Fungsi</option>
+                <option value="Bab 4: Persamaan Garis Lurus (PGL)">Bab 4: Persamaan Garis Lurus (PGL)</option>
+                <option value="Bab 5: Sistem Persamaan Linear Dua Variabel (SPLDV)">Bab 5: Sistem Persamaan Linear Dua Variabel (SPLDV)</option>
+                <option value="Bab 6: Teorema Pythagoras">Bab 6: Teorema Pythagoras</option>
+                <option value="Bab 7: Bangun Ruang Sisi Datar (BRSD)">Bab 7: Bangun Ruang Sisi Datar (BRSD)</option>
+                <option value="Bab 8: Statistika & Peluang">Bab 8: Statistika & Peluang</option>
               </select>
             </div>
 

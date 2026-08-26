@@ -26,8 +26,8 @@ export async function GET() {
         notifications: [
           {
             id: "n1",
-            title: "Tenggat Waktu Kuis Biologi",
-            desc: "Kuis Biologi Bab 3 berakhir malam ini pukul 23:59 WIB.",
+            title: "Tenggat Waktu Kuis Matematika",
+            desc: "Kuis Matematika Bab 1 Pola Bilangan berakhir malam ini pukul 23:59 WIB.",
             time: "10 menit yang lalu",
             type: "urgent",
             dibaca: false,
@@ -35,15 +35,15 @@ export async function GET() {
           {
             id: "n2",
             title: "Pengumuman Guru Matematika",
-            desc: "Materi Faktorisasi Kuadrat telah diperbarui oleh Ibu Rahma.",
+            desc: "Materi Pola Bilangan & Barisan Aritmetika telah diperbarui oleh Guru.",
             time: "1 jam yang lalu",
             type: "info",
             dibaca: false,
           },
           {
             id: "n3",
-            title: "Jadwal Kelas Pengganti Fisika",
-            desc: "Sesi Sokratik AI Fisika dijadwalkan besok pukul 09:30 WIB.",
+            title: "Jadwal Sesi AI Sokratik",
+            desc: "Sesi Sokratik AI Matematika Kelas 8 dijadwalkan besok pukul 09:30 WIB.",
             time: "3 jam yang lalu",
             type: "schedule",
             dibaca: true,

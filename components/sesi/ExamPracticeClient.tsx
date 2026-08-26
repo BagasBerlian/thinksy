@@ -68,44 +68,44 @@ export default function ExamPracticeClient({
     } else if (idx === 2) {
       return {
         id: `q-2`,
-        pertanyaan: `Akar-akar persamaan kuadrat $x^2 - 5x + 6 = 0$ adalah $p$ dan $q$. Tentukan nilai dari $p^2 + q^2$!`,
+        pertanyaan: `Selesaikan persamaan linear satu variabel berikut: $4x - 7 = 2x + 9$. Berapakah nilai $x$?`,
         tipeSoal: "pilihan_ganda",
         opsiSoal: [
-          { id: "opt-2-a", teksOpsi: "13" },
-          { id: "opt-2-b", teksOpsi: "19" },
-          { id: "opt-2-c", teksOpsi: "25" },
-          { id: "opt-2-d", teksOpsi: "31" },
+          { id: "opt-2-a", teksOpsi: "6" },
+          { id: "opt-2-b", teksOpsi: "8" },
+          { id: "opt-2-c", teksOpsi: "10" },
+          { id: "opt-2-d", teksOpsi: "12" },
         ],
-        kunciJawaban: "opt-2-a",
-        pembahasan: `**Rumus Jumlah & Hasil Kali Akar:**\n$$p + q = -\\frac{b}{a} = 5, \\quad p \\cdot q = \\frac{c}{a} = 6$$\n$$p^2 + q^2 = (p + q)^2 - 2pq = 5^2 - 2(6) = 25 - 12 = 13$$`,
+        kunciJawaban: "opt-2-b",
+        pembahasan: `**Penyelesaian PLSV:**\n$$4x - 2x = 9 + 7 \\implies 2x = 16 \\implies x = 8$$`,
       };
     } else if (idx === 3) {
       return {
         id: `q-3`,
-        pertanyaan: `Hitunglah nilai Diskriminan ($D$) dari persamaan kuadrat $2x^2 + 4x - 6 = 0$!`,
+        pertanyaan: `Berapakah gradien ($m$) dari garis lurus yang melalui titik $(1, 2)$ dan $(3, 10)$?`,
         tipeSoal: "pilihan_ganda",
         opsiSoal: [
-          { id: "opt-3-a", teksOpsi: "32" },
-          { id: "opt-3-b", teksOpsi: "64" },
-          { id: "opt-3-c", teksOpsi: "16" },
-          { id: "opt-3-d", teksOpsi: "48" },
+          { id: "opt-3-a", teksOpsi: "2" },
+          { id: "opt-3-b", teksOpsi: "3" },
+          { id: "opt-3-c", teksOpsi: "4" },
+          { id: "opt-3-d", teksOpsi: "5" },
         ],
-        kunciJawaban: "opt-3-b",
-        pembahasan: `**Rumus Diskriminan:**\n$$D = b^2 - 4ac$$\nDengan $a = 2, b = 4, c = -6$:\n$$D = 4^2 - 4(2)(-6) = 16 + 48 = 64$$`,
+        kunciJawaban: "opt-3-c",
+        pembahasan: `**Gradien Garis Lurus:**\n$$m = \\frac{y_2 - y_1}{x_2 - x_1} = \\frac{10 - 2}{3 - 1} = \\frac{8}{2} = 4$$`,
       };
     }
     return {
       id: `q-${idx}`,
-      pertanyaan: `Soal #${idx}: Jika fungsi $f(x) = ${idx}x^2 - ${idx * 2}x + ${idx + 1}$, tentukan titik puncak parabola tersebut!`,
+      pertanyaan: `Soal #${idx} (Teorema Pythagoras): Sebuah segitiga siku-siku memiliki alas ${idx * 3}\\text{ cm} dan tinggi ${idx * 4}\\text{ cm}. Tentukan hipotenusa (sisi miring) segitiga tersebut!`,
       tipeSoal: "pilihan_ganda",
       opsiSoal: [
-        { id: `opt-${idx}-a`, teksOpsi: `(1, ${idx})` },
-        { id: `opt-${idx}-b`, teksOpsi: `(2, ${idx + 2})` },
-        { id: `opt-${idx}-c`, teksOpsi: `(0, ${idx + 1})` },
-        { id: `opt-${idx}-d`, teksOpsi: `(-1, ${idx * 3})` },
+        { id: `opt-${idx}-a`, teksOpsi: `${idx * 5} cm` },
+        { id: `opt-${idx}-b`, teksOpsi: `${idx * 5 + 2} cm` },
+        { id: `opt-${idx}-c`, teksOpsi: `${idx * 5 + 4} cm` },
+        { id: `opt-${idx}-d`, teksOpsi: `${idx * 5 + 6} cm` },
       ],
       kunciJawaban: `opt-${idx}-a`,
-      pembahasan: `**Titik Puncak Parabola:**\n$$x_p = -\\frac{b}{2a} = \\frac{${idx * 2}}{2(${idx})} = 1$$\nSubstitusi $x = 1$ untuk mendapatkan $y_p = ${idx}$.`,
+      pembahasan: `**Teorema Pythagoras:**\n$$c = \\sqrt{(${idx * 3})^2 + (${idx * 4})^2} = \\sqrt{${(idx * 3) ** 2 + (idx * 4) ** 2}} = ${idx * 5}\\text{ cm}$$`,
     };
   });
 
