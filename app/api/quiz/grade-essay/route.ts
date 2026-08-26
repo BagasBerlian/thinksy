@@ -205,12 +205,8 @@ WAJIB MENGEMBALIKAN FORMAT JSON SAJA (TANPA TEKS LAIN):
         ? Math.round(totalScoreSum / totalQuestionsGraded)
         : 0;
 
-    // Bonus Poin Belajar calculation:
-    // Base 25 Poin + (finalScore * 0.5) Poin + (10 Poin * totalQuestionsGraded)
-    const earnedPoints = Math.max(
-      15,
-      Math.round(25 + finalScore * 0.5 + totalQuestionsGraded * 10)
-    );
+    // Bonus Poin Belajar: 1 Kuis Selesai = 15 Poin Belajar
+    const earnedPoints = 15;
 
     // Update Sesi status & final score in Supabase
     await supabase
@@ -237,13 +233,6 @@ WAJIB MENGEMBALIKAN FORMAT JSON SAJA (TANPA TEKS LAIN):
         .from("profil")
         .update({ poin: totalPoinSiswa })
         .eq("id", user.id);
-
-      // Auto update daily quest progress for completing quiz/module
-      await supabase
-        .from("misi_harian")
-        .update({ progres_saat_ini: 1 })
-        .or(`siswa_id.eq.${user.id},siswa_id.is.null`)
-        .ilike("judul", "%bab%");
 
       // Save notification log to notifikasi table
       await supabase.from("notifikasi").insert({

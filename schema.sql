@@ -323,9 +323,9 @@ CREATE POLICY "profil: super_admin lihat semua"
   ON profil FOR SELECT
   USING (public.check_user_role('super_admin'));
 
-CREATE POLICY "profil: staff_sekolah lihat sekolahnya"
+CREATE POLICY "profil: user login bisa baca leaderboard siswa"
   ON profil FOR SELECT
-  USING (public.check_staff_sekolah_match(sekolah_id));
+  USING (auth.uid() IS NOT NULL AND peran = 'siswa');
 
 -- RLS: sekolah
 CREATE POLICY "sekolah: user login bisa baca"

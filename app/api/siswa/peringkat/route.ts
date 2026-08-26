@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET() {
   try {
     const supabase = await createClient();
+    const adminSupabase = createAdminClient();
 
     const {
       data: { user },
@@ -16,8 +18,8 @@ export async function GET() {
       );
     }
 
-    // STRICTLY FILTER BY ROLE = 'siswa' ONLY!
-    const { data: leaderboardData, error } = await supabase
+    // STRICTLY FILTER BY ROLE = 'siswa' ONLY using adminSupabase (or fallback to supabase)
+    let { data: leaderboardData, error } = await adminSupabase
       .from("profil")
       .select(`
         id,
@@ -25,13 +27,39 @@ export async function GET() {
         poin,
         streak,
         peran,
+        dibuat_pada,
         sekolah (
           nama
         )
       `)
       .eq("peran", "siswa")
       .order("poin", { ascending: false })
-      .limit(50);
+      .order("dibuat_pada", { ascending: true })
+      .limit(100);
+
+    if (error || !leaderboardData || leaderboardData.length <= 1) {
+      const fallbackRes = await supabase
+        .from("profil")
+        .select(`
+          id,
+          nama_lengkap,
+          poin,
+          streak,
+          peran,
+          dibuat_pada,
+          sekolah (
+            nama
+          )
+        `)
+        .eq("peran", "siswa")
+        .order("poin", { ascending: false })
+        .order("dibuat_pada", { ascending: true })
+        .limit(100);
+
+      if (fallbackRes.data && fallbackRes.data.length > 0) {
+        leaderboardData = fallbackRes.data;
+      }
+    }
 
     if (error) {
       console.error("[PERINGKAT ERROR]", error.message);

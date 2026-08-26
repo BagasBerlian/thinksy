@@ -1,8 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import StudentDashboardClient from "./StudentDashboardClient";
 
 export default async function SiswaDashboardPage() {
   const supabase = await createClient();
+  const adminSupabase = createAdminClient();
 
   // 1. Get current authenticated user
   const {
@@ -23,6 +25,11 @@ export default async function SiswaDashboardPage() {
     fotoSelfie: null as string | null,
   };
 
+  let completedQuizCount = 0;
+  let answeredSoalCount = 0;
+  let totalSoalCount = 0;
+  let learningProgressPercent = 75; // fallback
+
   if (user) {
     // Get user profile data
     const { data: profil } = await supabase
@@ -34,17 +41,74 @@ export default async function SiswaDashboardPage() {
     const currentPoin = profil?.poin ?? 1250;
     const currentStreak = profil?.streak ?? 14;
 
-    // Calculate dynamic student rank
-    const { count: higherRankCount } = await supabase
-      .from("profil")
+    // Calculate completed quiz count (status_sesi = 'selesai')
+    const { count: quizDoneCount } = await supabase
+      .from("sesi")
       .select("id", { count: "exact", head: true })
-      .eq("peran", "siswa")
-      .gt("poin", currentPoin);
+      .eq("siswa_id", user.id)
+      .eq("status_sesi", "selesai");
 
-    const { count: totalSiswaCount } = await supabase
+    completedQuizCount = quizDoneCount || 0;
+
+    // Points earned directly from completed quizzes (1 quiz = 15 points)
+    const pointsFromQuizzes = completedQuizCount * 15;
+    const dynamicPoin = Math.max(currentPoin, pointsFromQuizzes);
+
+    // If dynamic points differ from DB poin, sync to profil table
+    if (dynamicPoin !== currentPoin) {
+      await supabase
+        .from("profil")
+        .update({ poin: dynamicPoin })
+        .eq("id", user.id);
+    }
+
+    // Calculate dynamic student rank among ALL users with peran = 'siswa' sorted by learning points
+    let { data: allStudents } = await adminSupabase
       .from("profil")
+      .select("id, poin")
+      .eq("peran", "siswa")
+      .order("poin", { ascending: false })
+      .order("dibuat_pada", { ascending: true });
+
+    if (!allStudents || allStudents.length <= 1) {
+      const fallbackAll = await supabase
+        .from("profil")
+        .select("id, poin")
+        .eq("peran", "siswa")
+        .order("poin", { ascending: false })
+        .order("dibuat_pada", { ascending: true });
+
+      if (fallbackAll.data && fallbackAll.data.length > 0) {
+        allStudents = fallbackAll.data;
+      }
+    }
+
+    const totalSiswaCount = allStudents?.length || 1;
+    const studentIndex = allStudents?.findIndex((s) => s.id === user.id) ?? -1;
+    const studentRank = studentIndex >= 0 ? studentIndex + 1 : 1;
+
+    // Calculate Learning Progress from answered questions vs total published questions in DB
+    const { count: dbTotalSoal } = await supabase
+      .from("soal")
       .select("id", { count: "exact", head: true })
-      .eq("peran", "siswa");
+      .eq("status_soal", "dipublikasi");
+
+    totalSoalCount = dbTotalSoal || 10;
+
+    const { data: answeredRows } = await supabase
+      .from("jawaban")
+      .select("soal_id, sesi!inner(siswa_id)")
+      .eq("sesi.siswa_id", user.id);
+
+    const answeredSet = new Set(answeredRows?.map((r) => r.soal_id));
+    answeredSoalCount = answeredSet.size;
+
+    if (totalSoalCount > 0) {
+      learningProgressPercent = Math.min(
+        100,
+        Math.round((answeredSoalCount / totalSoalCount) * 100)
+      );
+    }
 
     // Check today's attendance status
     const formattedDate = new Date().toISOString().split("T")[0];
@@ -72,70 +136,17 @@ export default async function SiswaDashboardPage() {
       nama_lengkap: profil?.nama_lengkap || user.email?.split("@")[0] || "Budi Kartika",
       email: user.email || "budi.kartika@sekolah.sch.id",
       peran: profil?.peran || "siswa",
-      poin: currentPoin,
+      poin: dynamicPoin,
       streak: currentStreak,
-      rank: (higherRankCount || 0) + 1,
-      totalStudents: totalSiswaCount || 120,
+      rank: studentRank,
+      totalStudents: totalSiswaCount,
       isCheckedIn,
       checkInTime,
       fotoSelfie,
     };
   }
 
-  // 2. Fetch Misi Harian (Daily Quests)
-  let quests = [
-    {
-      id: "q1",
-      title: "Absen Pagi Tepat Waktu",
-      progress: userProfile.isCheckedIn ? 1 : 0,
-      max: 1,
-      reward: 20,
-      claimed: false,
-    },
-    {
-      id: "q2",
-      title: "Selesaikan 1 Bab Pembelajaran",
-      progress: 1,
-      max: 1,
-      reward: 50,
-      claimed: false,
-    },
-    {
-      id: "q3",
-      title: "Jawab 5 Soal Kuis Tanpa Salah",
-      progress: 3,
-      max: 5,
-      reward: 30,
-      claimed: false,
-    },
-  ];
-
-  if (user) {
-    const { data: dbQuests } = await supabase
-      .from("misi_harian")
-      .select("id, judul, progres_saat_ini, target_max, poin_hadiah, diklaim")
-      .or(`siswa_id.eq.${user.id},siswa_id.is.null`)
-      .order("id", { ascending: true });
-
-    if (dbQuests && dbQuests.length > 0) {
-      quests = dbQuests.map((q) => {
-        let currentProgress = q.progres_saat_ini;
-        if (q.judul.toLowerCase().includes("absen") && userProfile.isCheckedIn) {
-          currentProgress = q.target_max;
-        }
-        return {
-          id: q.id,
-          title: q.judul,
-          progress: currentProgress,
-          max: q.target_max,
-          reward: q.poin_hadiah,
-          claimed: q.diklaim,
-        };
-      });
-    }
-  }
-
-  // 3. Fetch Agenda & Tenggat Waktu (Deadlines)
+  // 2. Fetch Agenda & Tenggat Waktu (Deadlines)
   let deadlines = [
     {
       id: "a1",
@@ -230,10 +241,15 @@ export default async function SiswaDashboardPage() {
   return (
     <StudentDashboardClient
       userProfile={userProfile}
-      questsData={quests}
       deadlinesData={deadlines}
       schedulesData={schedules}
       chapters={listBab || []}
+      completedQuizCount={completedQuizCount}
+      answeredSoalCount={answeredSoalCount}
+      totalSoalCount={totalSoalCount}
+      learningProgressPercent={learningProgressPercent}
     />
   );
 }
+// Dashboard Page Updated
+

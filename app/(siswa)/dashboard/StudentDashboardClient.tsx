@@ -88,14 +88,21 @@ interface StudentDashboardProps {
       urutan: number;
     }>;
   }>;
+  completedQuizCount?: number;
+  answeredSoalCount?: number;
+  totalSoalCount?: number;
+  learningProgressPercent?: number;
 }
 
 export default function StudentDashboardClient({
   userProfile,
-  questsData,
   deadlinesData,
   schedulesData,
   chapters,
+  completedQuizCount = 0,
+  answeredSoalCount = 0,
+  totalSoalCount = 10,
+  learningProgressPercent = 75,
 }: StudentDashboardProps) {
   // Navigation Tabs State
   const [activeTab, setActiveTab] = useState<
@@ -124,14 +131,18 @@ export default function StudentDashboardClient({
     userProfile?.fotoSelfie || null
   );
 
-  // Live Camera & Face Detection State
+  // Live Camera & Face Detection State with 3-Second Stability Verification & Obstruction Check
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [isSubmittingAttendance, setIsSubmittingAttendance] = useState(false);
   const [isFaceDetected, setIsFaceDetected] = useState(false);
-  const [faceDetectorStatus, setFaceDetectorStatus] = useState<string>("Mengarahkan kamera...");
+  const [isFaceValidAndStable, setIsFaceValidAndStable] = useState(false);
+  const [stabilityCountdown, setStabilityCountdown] = useState(3);
+  const [hasObstruction, setHasObstruction] = useState(false);
+  const validFrameCountRef = useRef(0);
+  const [faceDetectorStatus, setFaceDetectorStatus] = useState<string>("Posisikan Wajah Tepat di Tengah Bingkai");
   const [toastNotification, setToastNotification] = useState<{
     show: boolean;
     title: string;
@@ -140,69 +151,18 @@ export default function StudentDashboardClient({
   } | null>(null);
   const autoCaptureTriggeredRef = useRef(false);
 
-  // Dynamic Quests State
-  const [quests, setQuests] = useState(
-    questsData || [
-      {
-        id: "q1",
-        title: "Absen Pagi Tepat Waktu",
-        progress: userProfile?.isCheckedIn ? 1 : 0,
-        max: 1,
-        reward: 20,
-        claimed: false,
-      },
-      {
-        id: "q2",
-        title: "Selesaikan 1 Bab Pembelajaran",
-        progress: 1,
-        max: 1,
-        reward: 50,
-        claimed: false,
-      },
-      {
-        id: "q3",
-        title: "Jawab 5 Soal Kuis Tanpa Salah",
-        progress: 3,
-        max: 5,
-        reward: 30,
-        claimed: false,
-      },
-    ]
-  );
-
-  // Handle Claim Quest Action (DB Dynamic Update)
-  const handleClaimQuest = async (questId: string, reward: number) => {
-    try {
-      const res = await fetch("/api/siswa/misi", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ questId }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setQuests((prev) =>
-          prev.map((q) => (q.id === questId ? { ...q, claimed: true } : q))
-        );
-        setLearningPoints(data.totalPoin || learningPoints + reward);
-      } else {
-        alert(data.error || "Gagal mengklaim misi.");
-      }
-    } catch {
-      setQuests((prev) =>
-        prev.map((q) => (q.id === questId ? { ...q, claimed: true } : q))
-      );
-      setLearningPoints((prev) => prev + reward);
-    }
-  };
-
   // Cross-Browser Camera Access
   const handleStartCamera = async () => {
     try {
       setIsAttendanceModalOpen(true);
       setIsCameraActive(true);
       setIsFaceDetected(false);
+      setIsFaceValidAndStable(false);
+      setStabilityCountdown(3);
+      setHasObstruction(false);
+      validFrameCountRef.current = 0;
       autoCaptureTriggeredRef.current = false;
-      setFaceDetectorStatus("Mendeteksi Wajah...");
+      setFaceDetectorStatus("Posisikan Wajah Tepat di Tengah Bingkai (Tahan 3 Detik)");
 
       let stream: MediaStream | null = null;
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
@@ -228,7 +188,7 @@ export default function StudentDashboardClient({
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           videoRef.current.setAttribute("playsinline", "true");
-          videoRef.current.play().catch(() => {});
+          videoRef.current.play().catch(() => { });
         }
       }
     } catch (err: any) {
@@ -241,11 +201,11 @@ export default function StudentDashboardClient({
     if (isCameraActive && cameraStream && videoRef.current) {
       videoRef.current.srcObject = cameraStream;
       videoRef.current.setAttribute("playsinline", "true");
-      videoRef.current.play().catch(() => {});
+      videoRef.current.play().catch(() => { });
     }
   }, [isCameraActive, cameraStream]);
 
-  // Real-Time Face Detection & Auto Capture Loop
+  // Real-Time Face Detection & 3-Second Stability Verification Loop
   useEffect(() => {
     let animId: number;
     let isCancelled = false;
@@ -255,7 +215,8 @@ export default function StudentDashboardClient({
       cameraStream &&
       videoRef.current &&
       !isCheckedIn &&
-      !isSubmittingAttendance
+      !isSubmittingAttendance &&
+      !isFaceValidAndStable
     ) {
       const detectFace = async () => {
         if (isCancelled || autoCaptureTriggeredRef.current) return;
@@ -263,22 +224,30 @@ export default function StudentDashboardClient({
         const video = videoRef.current;
         if (video && video.readyState === 4 && video.videoWidth > 0) {
           let faceFound = false;
+          let obstruction = false;
 
           // 1. Native ShapeDetection API (Chrome / Edge / Opera)
           if ("FaceDetector" in window) {
             try {
               const faceDetector = new (window as any).FaceDetector({ fastMode: true });
               const faces = await faceDetector.detect(video);
-              if (faces && faces.length > 0) {
-                faceFound = true;
+              if (faces && faces.length === 1) {
+                const face = faces[0];
+                const box = face.boundingBox;
+                if (box && box.width > 50 && box.height > 50) {
+                  faceFound = true;
+                }
+              } else if (faces && faces.length > 1) {
+                // Multiple faces / hand near face detected as extra object
+                obstruction = true;
               }
             } catch {
-              // fallback to canvas
+              // fallback
             }
           }
 
-          // 2. Cross-browser Canvas skin-color & facial structure analysis
-          if (!faceFound && canvasRef.current) {
+          // 2. Cross-browser Canvas skin-color & facial structure & hand obstruction analysis
+          if (canvasRef.current) {
             const canvas = canvasRef.current;
             canvas.width = 160;
             canvas.height = 120;
@@ -287,46 +256,91 @@ export default function StudentDashboardClient({
               ctx.drawImage(video, 0, 0, 160, 120);
               const imgData = ctx.getImageData(0, 0, 160, 120);
               const data = imgData.data;
-              let skinPixelCount = 0;
 
-              for (let i = 0; i < data.length; i += 16) {
-                const r = data[i];
-                const g = data[i + 1];
-                const b = data[i + 2];
-                // Human skin tone heuristic in RGB space
-                if (r > 60 && g > 40 && b > 20 && r > g && r > b && Math.abs(r - g) > 15) {
-                  skinPixelCount++;
+              let centerSkinPixels = 0;
+              let edgeSkinPixels = 0;
+
+              for (let y = 0; y < 120; y += 4) {
+                for (let x = 0; x < 160; x += 4) {
+                  const idx = (y * 160 + x) * 4;
+                  const r = data[idx];
+                  const g = data[idx + 1];
+                  const b = data[idx + 2];
+
+                  const isSkin = r > 60 && g > 40 && b > 20 && r > g && r > b && Math.abs(r - g) > 15;
+
+                  if (isSkin) {
+                    if (x >= 40 && x <= 120 && y >= 20 && y <= 100) {
+                      centerSkinPixels++;
+                    } else {
+                      edgeSkinPixels++;
+                    }
+                  }
                 }
               }
-              if (skinPixelCount >= 40) {
-                faceFound = true;
+
+              if (centerSkinPixels >= 40 && edgeSkinPixels < centerSkinPixels * 1.5) {
+                if (!obstruction) faceFound = true;
+              } else if (edgeSkinPixels >= centerSkinPixels * 1.5 && centerSkinPixels > 20) {
+                // Hand blocking camera or covering face area
+                obstruction = true;
+                faceFound = false;
               }
             }
           }
 
-          if (faceFound && !autoCaptureTriggeredRef.current) {
+          if (obstruction) {
+            setHasObstruction(true);
+            setIsFaceDetected(false);
+            validFrameCountRef.current = 0;
+            setStabilityCountdown(3);
+            setFaceDetectorStatus("⚠️ Terdeteksi Halangan (Tangan/Benda)! Singkirkan dari Wajah");
+          } else if (faceFound) {
+            setHasObstruction(false);
             setIsFaceDetected(true);
-            setFaceDetectorStatus("Wajah Terdeteksi! Mengambil Foto...");
-            autoCaptureTriggeredRef.current = true;
+            validFrameCountRef.current += 1;
 
-            // Auto-trigger selfie capture after face match
-            setTimeout(() => {
-              if (!isCancelled) {
-                handleTakeSelfie();
+            // ~12 frames = ~3 seconds (continuous valid face position)
+            const remainingSecs = Math.max(1, 3 - Math.floor(validFrameCountRef.current / 4));
+            setStabilityCountdown(remainingSecs);
+
+            if (validFrameCountRef.current < 12) {
+              setFaceDetectorStatus(`Wajah Terdeteksi! Tahan Posisi: ${remainingSecs} Detik...`);
+            } else {
+              // 3 Full Seconds Completed Continuous Verification!
+              setIsFaceValidAndStable(true);
+              setStabilityCountdown(0);
+              setFaceDetectorStatus("✓ Wajah Terverifikasi 100%! Memproses Presensi...");
+
+              if (!autoCaptureTriggeredRef.current) {
+                autoCaptureTriggeredRef.current = true;
+                setTimeout(() => {
+                  if (!isCancelled) {
+                    handleTakeSelfie();
+                  }
+                }, 400);
+                return;
               }
-            }, 700);
-            return;
+            }
+          } else {
+            setHasObstruction(false);
+            setIsFaceDetected(false);
+            validFrameCountRef.current = 0;
+            setStabilityCountdown(3);
+            setFaceDetectorStatus("Posisikan Wajah Tepat di Tengah Bingkai (Tahan 3 Detik)");
           }
         }
 
-        if (!isCancelled && !autoCaptureTriggeredRef.current) {
-          animId = requestAnimationFrame(detectFace);
+        if (!isCancelled && !autoCaptureTriggeredRef.current && !isFaceValidAndStable) {
+          animId = requestAnimationFrame(() => {
+            setTimeout(detectFace, 200);
+          });
         }
       };
 
       const timer = setTimeout(() => {
         detectFace();
-      }, 500);
+      }, 300);
 
       return () => {
         isCancelled = true;
@@ -334,7 +348,7 @@ export default function StudentDashboardClient({
         if (animId) cancelAnimationFrame(animId);
       };
     }
-  }, [isCameraActive, cameraStream, isCheckedIn, isSubmittingAttendance]);
+  }, [isCameraActive, cameraStream, isCheckedIn, isSubmittingAttendance, isFaceValidAndStable]);
 
   // Stop Camera Stream
   const stopCamera = () => {
@@ -344,6 +358,10 @@ export default function StudentDashboardClient({
     }
     setIsCameraActive(false);
     setIsFaceDetected(false);
+    setIsFaceValidAndStable(false);
+    setStabilityCountdown(3);
+    setHasObstruction(false);
+    validFrameCountRef.current = 0;
   };
 
   const studentName = userProfile?.nama_lengkap || "Budi Kartika";
@@ -385,7 +403,9 @@ export default function StudentDashboardClient({
     },
   ]);
 
-  // Dynamic Leaderboard (Role = Siswa Only) State
+  // Dynamic Leaderboard (Role = Siswa Only) State & Real-Time Rank
+  const [currentUserRank, setCurrentUserRank] = useState<number>(userProfile?.rank || 1);
+  const [totalStudentsCount, setTotalStudentsCount] = useState<number>(userProfile?.totalStudents || 1);
   const [leaderboardList, setLeaderboardList] = useState<
     Array<{
       rank: number;
@@ -423,6 +443,13 @@ export default function StudentDashboardClient({
         const data = await res.json();
         if (data.leaderboard) {
           setLeaderboardList(data.leaderboard);
+          const currentStudentInBoard = data.leaderboard.find((st: any) => st.isCurrentUser);
+          if (currentStudentInBoard) {
+            setCurrentUserRank(currentStudentInBoard.rank);
+          }
+          if (data.totalStudents) {
+            setTotalStudentsCount(data.totalStudents);
+          }
         }
       }
     } catch {
@@ -479,6 +506,11 @@ export default function StudentDashboardClient({
 
   // Take Camera Selfie Photo & Send to Database
   const handleTakeSelfie = async () => {
+    if (!isFaceValidAndStable && !autoCaptureTriggeredRef.current) {
+      alert("Presensi Gagal: Wajah belum terverifikasi secara stabil selama 3 detik tanpa halangan tangan atau benda.");
+      return;
+    }
+
     let photoBase64: string | null = null;
 
     if (videoRef.current && canvasRef.current) {
@@ -514,15 +546,6 @@ export default function StudentDashboardClient({
         setIsCheckedIn(true);
         setCheckInTime(formattedTime);
         setCapturedSelfie(photoBase64 || "selfie-captured");
-
-        // Update quest
-        setQuests((prev) =>
-          prev.map((q) =>
-            q.id === "q1" || q.title.toLowerCase().includes("absen")
-              ? { ...q, progress: 1 }
-              : q
-          )
-        );
 
         // Show React Toast Notification at top-right
         setToastNotification({
@@ -634,17 +657,15 @@ export default function StudentDashboardClient({
 
   return (
     <div
-      className={`min-h-screen font-sans pb-20 transition-colors duration-200 ${
-        isDarkMode ? "bg-slate-950 text-slate-100" : "bg-[#F8FAFC] text-slate-900"
-      }`}
+      className={`min-h-screen font-sans pb-20 transition-colors duration-200 ${isDarkMode ? "bg-slate-950 text-slate-100" : "bg-[#F8FAFC] text-slate-900"
+        }`}
     >
       {/* 1. ENTERPRISE SAAS NAVBAR */}
       <header
-        className={`sticky top-0 z-40 saas-nav border-b ${
-          isDarkMode
-            ? "bg-slate-900/90 border-slate-800 text-white"
-            : "bg-white border-slate-200 text-slate-900"
-        }`}
+        className={`sticky top-0 z-40 saas-nav border-b ${isDarkMode
+          ? "bg-slate-900/90 border-slate-800 text-white"
+          : "bg-white border-slate-200 text-slate-900"
+          }`}
       >
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 py-3.5">
           {/* Left: Brand Vector Logo & Nav Tabs */}
@@ -666,11 +687,10 @@ export default function StudentDashboardClient({
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer ${
-                    activeTab === tab
-                      ? "bg-[#0F172A] text-white shadow-xs"
-                      : "text-slate-700 hover:text-[#0F172A] hover:bg-slate-100"
-                  }`}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer ${activeTab === tab
+                    ? "bg-[#0F172A] text-white shadow-xs"
+                    : "text-slate-700 hover:text-[#0F172A] hover:bg-slate-100"
+                    }`}
                 >
                   {tab}
                 </button>
@@ -733,11 +753,10 @@ export default function StudentDashboardClient({
                       notifications.map((notif) => (
                         <div
                           key={notif.id}
-                          className={`p-3 rounded-xl border space-y-1 transition ${
-                            notif.dibaca
-                              ? "bg-slate-50/70 border-slate-200/60 opacity-80"
-                              : "bg-blue-50/50 border-blue-200"
-                          }`}
+                          className={`p-3 rounded-xl border space-y-1 transition ${notif.dibaca
+                            ? "bg-slate-50/70 border-slate-200/60 opacity-80"
+                            : "bg-blue-50/50 border-blue-200"
+                            }`}
                         >
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-bold text-[#0F172A] flex items-center gap-1.5">
@@ -872,13 +891,12 @@ export default function StudentDashboardClient({
                   >
                     <Trophy className="w-3.5 h-3.5 text-blue-600" />
                     <span>
-                      Peringkat: #{userProfile?.rank || 3} dari{" "}
-                      {userProfile?.totalStudents || 120} Siswa →
+                      Peringkat: #{currentUserRank} dari {totalStudentsCount} Siswa →
                     </span>
                   </button>
                 </div>
 
-                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#0F172A] tracking-tight">
+                <h1 className="text-2xl sm:text-2xl lg:text-3xl font-extrabold text-[#0F172A] tracking-tight">
                   Selamat Datang Kembali, {studentName.split(" ")[0]}! 👋
                 </h1>
                 <p className="text-slate-600 text-xs sm:text-sm leading-relaxed font-medium">
@@ -892,11 +910,12 @@ export default function StudentDashboardClient({
                       <Trophy className="w-4.5 h-4.5 text-amber-600" />
                     </div>
                     <div>
-                      <div className="text-[10px] text-amber-700 font-bold uppercase tracking-wider">
-                        POIN BELAJAR
+                      <div className="text-[10px] text-amber-700 font-bold uppercase tracking-wider flex items-center gap-1">
+                        <span>POIN BELAJAR</span>
+                        <span className="text-[9px] font-normal text-amber-600 bg-amber-100 px-1.5 py-0.2 rounded">1 Kuis = 15 Poin</span>
                       </div>
                       <div className="text-sm font-extrabold text-[#0F172A]">
-                        {learningPoints.toLocaleString("id-ID")} Poin
+                        {learningPoints.toLocaleString("id-ID")} Poin ({completedQuizCount} Kuis Selesai)
                       </div>
                     </div>
                   </div>
@@ -950,7 +969,7 @@ export default function StudentDashboardClient({
                   )}
                 </div>
 
-                {/* Progress Visualizer Gauge */}
+                {/* Progress Visualizer Gauge (Real Database Questions Ratio) */}
                 <div className="saas-card p-5 rounded-3xl border border-slate-200 shadow-xs flex items-center gap-4 min-w-[220px] w-full sm:w-auto">
                   <div className="relative w-20 h-20 flex items-center justify-center shrink-0">
                     <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
@@ -963,7 +982,7 @@ export default function StudentDashboardClient({
                       />
                       <path
                         className="text-[#0F172A]"
-                        strokeDasharray="75, 100"
+                        strokeDasharray={`${learningProgressPercent}, 100`}
                         strokeWidth="3.5"
                         strokeLinecap="round"
                         stroke="currentColor"
@@ -971,82 +990,20 @@ export default function StudentDashboardClient({
                         d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                       />
                     </svg>
-                    <span className="absolute text-lg font-extrabold text-[#0F172A]">
-                      75%
+                    <span className="absolute text-base font-extrabold text-[#0F172A]">
+                      {learningProgressPercent}%
                     </span>
                   </div>
                   <div>
                     <div className="text-sm font-extrabold text-[#0F172A]">
-                      75% Selesai
+                      {learningProgressPercent}% Selesai
                     </div>
-                    <div className="text-xs text-slate-500 font-medium mt-0.5">
-                      Target Pembelajaran
+                    <div className="text-xs text-slate-500 font-semibold mt-0.5">
+                      {answeredSoalCount} / {totalSoalCount} Soal Dikerjakan
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </section>
-
-          {/* MISI HARIAN (DAILY QUESTS) WIDGET */}
-          <section className="saas-card p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-extrabold text-[#0F172A] flex items-center gap-2">
-                <Target className="w-5 h-5 text-amber-500" />
-                <span>Misi Harian (Daily Quests)</span>
-              </h2>
-              <span className="text-xs font-bold text-slate-500">
-                Bonus Poin Real-Time
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {quests.map((q) => (
-                <div
-                  key={q.id}
-                  className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col justify-between space-y-3"
-                >
-                  <div>
-                    <div className="flex items-center justify-between text-xs font-bold">
-                      <span className="text-[#0F172A]">{q.title}</span>
-                      <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                        +{q.reward} Poin
-                      </span>
-                    </div>
-                    <div className="mt-2 text-xs text-slate-500 font-semibold flex items-center justify-between">
-                      <span>Progres</span>
-                      <span>
-                        {q.progress} / {q.max}
-                      </span>
-                    </div>
-                    <div className="w-full h-1.5 rounded-full bg-slate-200 mt-1 overflow-hidden">
-                      <div
-                        className="h-full bg-[#0F172A] rounded-full transition-all duration-300"
-                        style={{ width: `${(q.progress / q.max) * 100}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  {q.claimed ? (
-                    <button
-                      disabled
-                      className="w-full py-2 bg-emerald-100 text-emerald-800 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 border border-emerald-200"
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Klaim Berhasil</span>
-                    </button>
-                  ) : (
-                    <button
-                      disabled={q.progress < q.max}
-                      onClick={() => handleClaimQuest(q.id, q.reward)}
-                      className="w-full py-2 bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-bold rounded-xl disabled:opacity-40 transition cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
-                    >
-                      <Gift className="w-3.5 h-3.5 text-amber-400" />
-                      <span>Klaim Hadiah</span>
-                    </button>
-                  )}
-                </div>
-              ))}
             </div>
           </section>
 
@@ -1261,9 +1218,8 @@ export default function StudentDashboardClient({
                     {leaderboardList.map((st) => (
                       <tr
                         key={st.id}
-                        className={`transition hover:bg-slate-50/80 ${
-                          st.isCurrentUser ? "bg-amber-50/80 font-bold border-l-4 border-l-amber-500" : ""
-                        }`}
+                        className={`transition hover:bg-slate-50/80 ${st.isCurrentUser ? "bg-amber-50/80 font-bold border-l-4 border-l-amber-500" : ""
+                          }`}
                       >
                         <td className="py-3.5 px-4">
                           {st.rank === 1 ? (
@@ -1479,35 +1435,110 @@ export default function StudentDashboardClient({
               {isCameraActive && (
                 <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-between p-4">
                   {/* Status Badge Top */}
-                  <div className="px-3.5 py-1.5 rounded-full bg-slate-900/80 backdrop-blur-md border border-white/20 text-white text-[11px] font-extrabold flex items-center gap-2 shadow-md">
-                    <span className={`w-2 h-2 rounded-full ${isFaceDetected ? "bg-emerald-400 animate-ping" : "bg-amber-400 animate-pulse"}`} />
+                  <div
+                    className={`px-3.5 py-1.5 rounded-full backdrop-blur-md border text-white text-[11px] font-extrabold flex items-center gap-2 shadow-md ${hasObstruction
+                      ? "bg-red-900/90 border-red-500 text-red-100"
+                      : isFaceValidAndStable
+                        ? "bg-emerald-900/90 border-emerald-400 text-emerald-100"
+                        : isFaceDetected
+                          ? "bg-amber-900/90 border-amber-400 text-amber-100"
+                          : "bg-slate-900/80 border-white/20"
+                      }`}
+                  >
+                    <span
+                      className={`w-2 h-2 rounded-full ${hasObstruction
+                        ? "bg-red-500 animate-ping"
+                        : isFaceValidAndStable
+                          ? "bg-emerald-400 animate-ping"
+                          : isFaceDetected
+                            ? "bg-amber-400 animate-pulse"
+                            : "bg-slate-400"
+                        }`}
+                    />
                     <span>{faceDetectorStatus}</span>
                   </div>
 
-                  {/* Bounding Box Frame Indicator */}
+                  {/* Bounding Box Frame Indicator with Countdown */}
                   <div
-                    className={`w-44 h-56 rounded-3xl border-2 transition-all duration-300 relative flex items-center justify-center ${
-                      isFaceDetected
+                    className={`w-44 h-56 rounded-3xl border-2 transition-all duration-300 relative flex flex-col items-center justify-center gap-2 ${hasObstruction
+                      ? "border-red-500 bg-red-500/10 shadow-[0_0_25px_rgba(239,68,68,0.4)]"
+                      : isFaceValidAndStable
                         ? "border-emerald-400 bg-emerald-500/10 shadow-[0_0_25px_rgba(52,211,153,0.4)]"
-                        : "border-dashed border-amber-300/60"
-                    }`}
+                        : isFaceDetected
+                          ? "border-amber-400 bg-amber-500/10 shadow-[0_0_20px_rgba(251,191,36,0.3)]"
+                          : "border-dashed border-slate-400/60"
+                      }`}
                   >
                     {/* Frame Corner Accents */}
-                    <div className={`absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 rounded-tl-xl ${isFaceDetected ? "border-emerald-400" : "border-amber-400"}`} />
-                    <div className={`absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 rounded-tr-xl ${isFaceDetected ? "border-emerald-400" : "border-amber-400"}`} />
-                    <div className={`absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 rounded-bl-xl ${isFaceDetected ? "border-emerald-400" : "border-amber-400"}`} />
-                    <div className={`absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 rounded-br-xl ${isFaceDetected ? "border-emerald-400" : "border-amber-400"}`} />
+                    <div
+                      className={`absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 rounded-tl-xl ${hasObstruction
+                        ? "border-red-500"
+                        : isFaceValidAndStable
+                          ? "border-emerald-400"
+                          : isFaceDetected
+                            ? "border-amber-400"
+                            : "border-slate-400"
+                        }`}
+                    />
+                    <div
+                      className={`absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 rounded-tr-xl ${hasObstruction
+                        ? "border-red-500"
+                        : isFaceValidAndStable
+                          ? "border-emerald-400"
+                          : isFaceDetected
+                            ? "border-amber-400"
+                            : "border-slate-400"
+                        }`}
+                    />
+                    <div
+                      className={`absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 rounded-bl-xl ${hasObstruction
+                        ? "border-red-500"
+                        : isFaceValidAndStable
+                          ? "border-emerald-400"
+                          : isFaceDetected
+                            ? "border-amber-400"
+                            : "border-slate-400"
+                        }`}
+                    />
+                    <div
+                      className={`absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 rounded-br-xl ${hasObstruction
+                        ? "border-red-500"
+                        : isFaceValidAndStable
+                          ? "border-emerald-400"
+                          : isFaceDetected
+                            ? "border-amber-400"
+                            : "border-slate-400"
+                        }`}
+                    />
 
-                    {isFaceDetected && (
+                    {isFaceDetected && !isFaceValidAndStable && (
+                      <div className="w-12 h-12 rounded-full border-4 border-amber-400 border-t-transparent animate-spin flex items-center justify-center">
+                        <span className="text-amber-400 font-extrabold text-xs -rotate-90">
+                          {stabilityCountdown}s
+                        </span>
+                      </div>
+                    )}
+
+                    {isFaceValidAndStable && (
                       <div className="px-3 py-1 bg-emerald-600 text-white font-extrabold text-[10px] rounded-full shadow-lg animate-bounce">
                         ✓ Terverifikasi Otomatis
+                      </div>
+                    )}
+
+                    {hasObstruction && (
+                      <div className="px-3 py-1 bg-red-600 text-white font-extrabold text-[10px] rounded-full shadow-lg text-center leading-tight">
+                        ⚠️ Singkirkan Tangan/Benda
                       </div>
                     )}
                   </div>
 
                   {/* Subtext info */}
-                  <div className="text-[10px] text-slate-300 bg-slate-900/70 px-3 py-1 rounded-full backdrop-blur-xs font-semibold">
-                    Posisikan wajah Anda tepat di tengah bingkai
+                  <div className="text-[10px] text-slate-300 bg-slate-900/70 px-3 py-1 rounded-full backdrop-blur-xs font-semibold text-center">
+                    {hasObstruction
+                      ? "Bebaskan area wajah dari tangan / halangan"
+                      : isFaceValidAndStable
+                        ? "Wajah bersih & terverifikasi!"
+                        : "Posisikan wajah tepat di tengah (Tahan 3 Detik)"}
                   </div>
                 </div>
               )}
@@ -1520,7 +1551,7 @@ export default function StudentDashboardClient({
                   </p>
                   <button
                     onClick={handleStartCamera}
-                    className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-xs rounded-xl transition"
+                    className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-xs rounded-xl transition cursor-pointer"
                   >
                     Aktifkan Kamera
                   </button>
@@ -1535,20 +1566,21 @@ export default function StudentDashboardClient({
                   stopCamera();
                   setIsAttendanceModalOpen(false);
                 }}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50 transition"
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50 transition cursor-pointer"
               >
                 Batal
               </button>
 
               <button
                 type="button"
-                disabled={!isCameraActive || isSubmittingAttendance}
+                disabled={!isCameraActive || !isFaceValidAndStable || isSubmittingAttendance}
                 onClick={handleTakeSelfie}
-                className={`flex-1 py-2.5 rounded-xl text-white text-xs font-bold flex items-center justify-center gap-2 transition disabled:opacity-40 ${
-                  isFaceDetected
-                    ? "bg-emerald-600 hover:bg-emerald-700 shadow-md"
+                className={`flex-1 py-2.5 rounded-xl text-white text-xs font-bold flex items-center justify-center gap-2 transition disabled:opacity-40 cursor-pointer ${isFaceValidAndStable
+                  ? "bg-emerald-600 hover:bg-emerald-700 shadow-md"
+                  : hasObstruction
+                    ? "bg-red-600 cursor-not-allowed"
                     : "bg-[#0F172A] hover:bg-slate-800"
-                }`}
+                  }`}
               >
                 {isSubmittingAttendance ? (
                   <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
@@ -1557,10 +1589,12 @@ export default function StudentDashboardClient({
                 )}
                 <span>
                   {isSubmittingAttendance
-                    ? "Menyimpan..."
-                    : isFaceDetected
-                    ? "Wajah Terdeteksi (Otomatis)"
-                    : "Ambil Foto & Absen"}
+                    ? "Menyimpan Presensi..."
+                    : isFaceValidAndStable
+                      ? "Wajah Terverifikasi (Otomatis)"
+                      : hasObstruction
+                        ? "Ada Halangan Tangan/Benda"
+                        : `Verifikasi Wajah (${stabilityCountdown}s)`}
                 </span>
               </button>
             </div>
