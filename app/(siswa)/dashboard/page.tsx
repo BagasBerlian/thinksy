@@ -149,7 +149,7 @@ export default async function SiswaDashboardPage() {
   let deadlines = [
     {
       id: "a1",
-      title: "Kuis Biologi Bab 3: Genetika Sel",
+      title: "Kuis Matematika Bab 1: Pola Bilangan",
       desc: "Selesai pukul 23:59 WIB",
       dayBadge: "HARI INI",
       dateNum: "15",
@@ -159,7 +159,7 @@ export default async function SiswaDashboardPage() {
     },
     {
       id: "a2",
-      title: "Tugas Makalah Sejarah Indonesia",
+      title: "Tugas Matematika: Latihan Pythagoras",
       desc: "Selesai pukul 12:00 WIB",
       dayBadge: "BESOK",
       dateNum: "16",
@@ -198,9 +198,9 @@ export default async function SiswaDashboardPage() {
 
   // 4. Fetch Jadwal Kelas Pelajaran Mingguan
   let schedules = [
-    { id: "s1", subject: "Matematika", teacher: "Ibu Siti Rahmawati", day: "Senin", time: "08:00 - 09:30 WIB", room: "Ruang 8A" },
-    { id: "s2", subject: "Fisika", teacher: "Budi Santoso, S.Pd.", day: "Senin", time: "10:00 - 11:30 WIB", room: "Lab Fisika" },
-    { id: "s3", subject: "Biologi", teacher: "Citra Wulandari, S.Si.", day: "Selasa", time: "08:00 - 09:30 WIB", room: "Lab Biologi" },
+    { id: "s1", subject: "Matematika", teacher: "Ibu Siti Rahmawati, S.Pd.", day: "Senin", time: "08:00 - 09:30 WIB", room: "Ruang 8A" },
+    { id: "s2", subject: "Matematika", teacher: "Budi Santoso, S.Pd.", day: "Rabu", time: "10:00 - 11:30 WIB", room: "Ruang 8A" },
+    { id: "s3", subject: "Matematika (AI Sokratik)", teacher: "thinksy AI Tutor", day: "Jumat", time: "08:00 - 09:30 WIB", room: "Lab Komputer" },
   ];
 
   const { data: dbSchedules } = await supabase

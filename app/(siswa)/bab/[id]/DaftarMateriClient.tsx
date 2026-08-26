@@ -52,47 +52,19 @@ export default function DaftarMateriClient({
 
   const selectedMateri = listMateri.find((m) => m.id === selectedMateriId);
 
-  // Mock Modules for Bab 2: Persamaan Kuadrat if empty
-  const defaultModules = [
-    {
-      id: "materi-2-1",
-      judul: "2.1 Pengantar Persamaan Bentuk Kuadrat",
-      duration: "15 Menit",
-      status: "Selesai",
-      isCompleted: true,
-      konten: `### 1. Definisi Persamaan Kuadrat\n\nPersamaan kuadrat adalah persamaan polinomial tingkat dua yang dapat ditulis dalam bentuk umum:\n\n$$ax^2 + bx + c = 0$$\n\ndengan $a \\neq 0$, di mana:\n- $x$ adalah variabel (peubah).\n- $a, b$ adalah koefisien real.\n- $c$ adalah konstanta.\n\n### Contoh Bentuk Kuadrat:\n1. $x^2 - 5x + 6 = 0$\n2. $2x^2 + 3x - 5 = 0$\n3. $x^2 - 9 = 0$`,
-    },
-    {
-      id: "materi-2-2",
-      judul: "2.2 Metode Faktorisasi & Kuadrat Sempurna",
-      duration: "20 Menit",
-      status: "Selesai",
-      isCompleted: true,
-      konten: `### 2. Metode Pemfaktoran\n\nMetode faktorisasi mencari dua nilai $(x - p)(x - q) = 0$ sehingga:\n\n$$p + q = b \\quad \\text{dan} \\quad p \\cdot q = a \\cdot c$$\n\n#### Contoh Soal:\nSelesaikan $x^2 - 5x + 6 = 0$.\n- Cari angka yang jika dijumlahkan $= -5$ dan dikali $= 6$.\n- Angka tersebut adalah $-2$ dan $-3$.\n- Sehinggga $(x - 2)(x - 3) = 0$, yaitu $x_1 = 2$ dan $x_2 = 3$.`,
-    },
-    {
-      id: "materi-2-3",
-      judul: "2.3 Formula ABC & Diskriminan (D)",
-      duration: "25 Menit",
-      status: "Belum Selesai",
-      isCompleted: false,
-      konten: `### 3. Rumus Kuadratik (Formula ABC)\n\nJika persamaan kuadrat $ax^2 + bx + c = 0$ tidak dapat difaktorkan secara langsung, gunakan Rumus ABC:\n\n$$x_{1,2} = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$$\n\n### Diskriminan ($D$)\nNilai $D = b^2 - 4ac$ menentukan jenis akar-akar persamaan kuadrat:\n- **$D > 0$**: Memiliki 2 akar real berbeda.\n- **$D = 0$**: Memiliki 2 akar real kembar ($x_1 = x_2$).\n- **$D < 0$**: Memiliki akar imajiner (tidak real).`,
-    },
-  ];
-
   const displayModules =
     listMateri.length > 0
       ? listMateri.map((m, idx) => ({
           id: m.id,
           judul: m.judul,
           duration: `${15 + idx * 5} Menit`,
-          status: idx < 2 ? "Selesai" : "Belum Selesai",
-          isCompleted: idx < 2,
-          konten:
+          status: idx === 0 ? "Selesai" : "Belum Selesai",
+          isCompleted: idx === 0,
+          konten_markdown:
             m.konten_markdown ||
-            `### ${m.judul}\n\nMemahami materi secara mendalam dengan rumus KaTeX:\n\n$$ax^2 + bx + c = 0$$`,
+            `### ${m.judul}\n\nMemahami materi pembelajaran Matematika Kelas 8 (Fase D).`,
         }))
-      : defaultModules;
+      : [];
 
   return (
     <main className="min-h-screen bg-mesh-gradient text-slate-900 pb-16">
@@ -126,14 +98,14 @@ export default function DaftarMateriClient({
             <div className="saas-card rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white">
               <div className="space-y-2 max-w-2xl">
                 <span className="inline-block text-xs font-extrabold text-[#0F172A] bg-amber-100 border border-amber-200 px-3 py-1 rounded-full">
-                  Matematika Kelas X • Bab {urutanBab || 2}
+                  Matematika Kelas 8 (Fase D) • Bab {urutanBab || 1}
                 </span>
                 <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0F172A] tracking-tight">
-                  {judulBab || "Bab 2: Persamaan & Fungsi Kuadrat"}
+                  {judulBab || "Bab 1: Pola Bilangan & Barisan Bilangan"}
                 </h1>
                 <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
                   {deskripsiBab ||
-                    "Pelajari konsep dasar persamaan kuadrat, pemfaktoran, kuadrat sempurna, serta formula ABC dan diskriminan."}
+                    "Menggeneralisasi pola susunan benda dan barisan bilangan aritmetika & geometri."}
                 </p>
               </div>
 
@@ -319,7 +291,7 @@ export default function DaftarMateriClient({
                     </span>
                   </div>
                   <h1 className="text-2xl font-extrabold text-[#0F172A]">
-                    {selectedMateri?.judul || "2.3 Formula ABC & Diskriminan"}
+                    {selectedMateri?.judul || "Materi Pembelajaran"}
                   </h1>
                 </div>
 
@@ -327,8 +299,9 @@ export default function DaftarMateriClient({
                 <div className="prose prose-slate max-w-none text-slate-700 leading-relaxed text-sm">
                   <MarkdownRenderer
                     content={
+                      selectedMateri?.konten_markdown ||
                       selectedMateri?.konten ||
-                      `### Rumus Kuadratik (Formula ABC)\n\nJika persamaan kuadrat $ax^2 + bx + c = 0$ tidak dapat difaktorkan secara langsung, gunakan Rumus ABC:\n\n$$x_{1,2} = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$$\n\n### Nilai Diskriminan ($D$)\nNilai $D = b^2 - 4ac$ menentukan jenis akar-akar:\n- **$D > 0$**: Memiliki 2 akar real berbeda.\n- **$D = 0$**: Memiliki 2 akar real kembar.\n- **$D < 0$**: Memiliki akar imajiner.`
+                      "### Konten sedang dimuat\n\nSilakan pilih materi dari daftar."
                     }
                   />
                 </div>
@@ -361,27 +334,27 @@ export default function DaftarMateriClient({
                       href="#"
                       className="block p-2 rounded-xl bg-slate-100 text-[#0F172A] font-bold"
                     >
-                      1. Definisi Formula ABC
+                      1. Konsep Utama
                     </a>
                     <a
                       href="#"
                       className="block p-2 rounded-xl hover:bg-slate-50 transition"
                     >
-                      2. Menghitung Nilai Diskriminan
+                      2. Rumus & Contoh Soal
                     </a>
                     <a
                       href="#"
                       className="block p-2 rounded-xl hover:bg-slate-50 transition"
                     >
-                      3. Contoh Soal & Pembahasan
+                      3. Penjelasan Rinci
                     </a>
                   </div>
                 </div>
 
                 {/* Socratic THINKSY AI Tutor Chat Widget */}
                 <TutorChat
-                  materiJudul={selectedMateri?.judul || "2.3 Formula ABC"}
-                  materiKonten={selectedMateri?.konten}
+                  materiJudul={selectedMateri?.judul || "Materi Pembelajaran"}
+                  materiKonten={selectedMateri?.konten_markdown || selectedMateri?.konten}
                 />
               </div>
             </div>

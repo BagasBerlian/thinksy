@@ -379,8 +379,8 @@ export default function StudentDashboardClient({
   >([
     {
       id: "1",
-      title: "Tenggat Waktu Kuis Biologi",
-      desc: "Kuis Biologi Bab 3 berakhir malam ini pukul 23:59 WIB.",
+      title: "Tenggat Waktu Kuis Matematika",
+      desc: "Kuis Matematika Bab 1 Pola Bilangan berakhir malam ini pukul 23:59 WIB.",
       time: "10 menit yang lalu",
       type: "urgent",
       dibaca: false,
@@ -388,15 +388,15 @@ export default function StudentDashboardClient({
     {
       id: "2",
       title: "Pengumuman Guru Matematika",
-      desc: "Materi Faktorisasi Kuadrat telah diperbarui oleh Ibu Rahma.",
+      desc: "Materi Pola Bilangan & Barisan Aritmetika telah diperbarui oleh Guru.",
       time: "1 jam yang lalu",
       type: "info",
       dibaca: false,
     },
     {
       id: "3",
-      title: "Jadwal Kelas Pengganti Fisika",
-      desc: "Sesi Sokratik AI Fisika dijadwalkan besok pukul 09:30 WIB.",
+      title: "Jadwal Sesi AI Sokratik",
+      desc: "Sesi Sokratik AI Matematika Kelas 8 dijadwalkan besok pukul 09:30 WIB.",
       time: "3 jam yang lalu",
       type: "schedule",
       dibaca: true,
@@ -619,41 +619,53 @@ export default function StudentDashboardClient({
     }
   };
 
-  const activeClasses = [
-    {
-      id: chapters?.[0]?.id || "bab-1",
-      subject: "Matematika",
-      grade: "Kelas X",
-      module: chapters?.[0]?.judul || "Bab 1",
-      topic: chapters?.[0]?.deskripsi || "Pola Bilangan & Barisan",
-      progress: 75,
-      icon: BookOpen,
-      color: "bg-[#0F172A] text-white border-slate-700",
-      progressColor: "bg-blue-600",
-    },
-    {
-      id: chapters?.[1]?.id || "bab-2",
-      subject: "Fisika",
-      grade: "Kelas X",
-      module: chapters?.[1]?.judul || "Bab 2",
-      topic: chapters?.[1]?.deskripsi || "Persamaan & Fungsi Kuadrat",
-      progress: 40,
-      icon: Atom,
-      color: "bg-slate-100 text-slate-800 border-slate-200",
-      progressColor: "bg-amber-500",
-    },
-    {
-      id: chapters?.[2]?.id || "bab-3",
-      subject: "Kimia",
-      grade: "Kelas X",
-      module: chapters?.[2]?.judul || "Bab 3",
-      topic: chapters?.[2]?.deskripsi || "Relasi dan Fungsi",
-      progress: 20,
-      icon: FlaskConical,
-      color: "bg-slate-100 text-slate-800 border-slate-200",
-      progressColor: "bg-purple-600",
-    },
-  ];
+  const activeClasses = (chapters && chapters.length > 0)
+    ? chapters.slice(0, 3).map((ch: any, idx: number) => ({
+        id: ch.id,
+        subject: "Matematika",
+        grade: "Kelas 8 (Fase D)",
+        module: ch.judul,
+        topic: ch.deskripsi,
+        progress: 100 - idx * 25,
+        icon: BookOpen,
+        color: idx === 0 ? "bg-[#0F172A] text-white border-slate-700" : "bg-slate-100 text-slate-800 border-slate-200",
+        progressColor: idx === 0 ? "bg-blue-600" : idx === 1 ? "bg-emerald-500" : "bg-purple-600",
+      }))
+    : [
+        {
+          id: "b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+          subject: "Matematika",
+          grade: "Kelas 8 (Fase D)",
+          module: "Bab 1: Pola Bilangan & Barisan Bilangan",
+          topic: "CP: Menggeneralisasi pola susunan benda dan barisan bilangan.",
+          progress: 75,
+          icon: BookOpen,
+          color: "bg-[#0F172A] text-white border-slate-700",
+          progressColor: "bg-blue-600",
+        },
+        {
+          id: "b2eebc99-9c0b-4ef8-bb6d-6bb9bd380a22",
+          subject: "Matematika",
+          grade: "Kelas 8 (Fase D)",
+          module: "Bab 2: Bentuk Aljabar & PLSV/PTLSV",
+          topic: "CP: Menyederhanakan bentuk aljabar & penyelesaian PLSV/PTLSV.",
+          progress: 40,
+          icon: BookOpen,
+          color: "bg-slate-100 text-slate-800 border-slate-200",
+          progressColor: "bg-emerald-500",
+        },
+        {
+          id: "b3eebc99-9c0b-4ef8-bb6d-6bb9bd380a33",
+          subject: "Matematika",
+          grade: "Kelas 8 (Fase D)",
+          module: "Bab 3: Relasi & Fungsi",
+          topic: "CP: Memahami relasi, fungsi, dan rumus f(x) = ax + b.",
+          progress: 20,
+          icon: BookOpen,
+          color: "bg-slate-100 text-slate-800 border-slate-200",
+          progressColor: "bg-purple-600",
+        },
+      ];
 
   return (
     <div

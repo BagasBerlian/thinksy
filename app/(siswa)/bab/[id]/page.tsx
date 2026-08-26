@@ -37,12 +37,12 @@ export default async function DetailBabPage({
   return (
     <DaftarMateriClient
       babId={id}
-      judulBab={babData?.judul || "Bab 2: Persamaan Kuadrat"}
+      judulBab={babData?.judul || "Bab 1: Pola Bilangan & Barisan Bilangan"}
       deskripsiBab={
         babData?.deskripsi ||
-        "Memahami akar-akar persamaan kuadrat, pemfaktoran, dan formula ABC."
+        "CP: Menggeneralisasi pola susunan benda dan barisan bilangan. TP: Menentukan suku ke-n (Un) dan jumlah n suku (Sn) pada barisan aritmetika dan geometri."
       }
-      urutanBab={babData?.urutan || 2}
+      urutanBab={babData?.urutan || 1}
       listMateri={listMateri}
       initialMateriId={materiId}
     />

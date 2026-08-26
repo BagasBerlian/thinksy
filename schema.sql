@@ -437,7 +437,7 @@ CREATE POLICY "log_ai: insert oleh user login"
   ON log_ai FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
 
 -- ============================================================
--- STEP 5: SEED DATA AWAL
+-- STEP 5: SEED DATA AWAL (MATEMATIKA KELAS 8 FASE D)
 -- ============================================================
 
 INSERT INTO sekolah (id, nama, npsn, alamat)
@@ -447,54 +447,15 @@ VALUES (
 ) ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO bab (id, sekolah_id, judul, deskripsi, urutan)
-VALUES (
-  'b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a22',
-  'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-  'Bab 1: Pola Bilangan & Barisan',
-  'Mengenal jenis-jenis pola bilangan, barisan aritmatika, dan deret geometri.', 1
-) ON CONFLICT (id) DO NOTHING;
-
-INSERT INTO materi (id, bab_id, judul, konten_markdown, urutan) VALUES
-(
-  'c1eebc99-9c0b-4ef8-bb6d-6bb9bd380a33',
-  'b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a22',
-  'Mengenal Pola Bilangan Aritmatika',
-  E'# Pola Bilangan Aritmatika\n\nBarisan aritmatika memiliki **selisih (beda)** yang tetap.\n\n$$U_n = a + (n - 1)b$$\n\n**Contoh:** Barisan $3, 7, 11, 15$ maka $U_{10} = 3 + 9(4) = 39$',
-  1
-),
-(
-  'c2eebc99-9c0b-4ef8-bb6d-6bb9bd380a44',
-  'b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a22',
-  'Barisan dan Deret Geometri',
-  E'# Barisan Geometri\n\nBarisan geometri memiliki **rasio (r)** yang tetap.\n\n$$U_n = a \\cdot r^{n-1}$$\n\n**Contoh:** Barisan $2, 6, 18, 54$ maka $U_5 = 2 \\cdot 3^4 = 162$',
-  2
-) ON CONFLICT (id) DO NOTHING;
-
-INSERT INTO soal (id, bab_id, materi_id, pertanyaan, tipe_soal, tingkat_soal, sumber_konten, status_soal, kunci_jawaban, pembahasan)
-VALUES
-(
-  'd1eebc99-9c0b-4ef8-bb6d-6bb9bd380a55',
-  'b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a22',
-  'c1eebc99-9c0b-4ef8-bb6d-6bb9bd380a33',
-  'Diketahui barisan aritmatika $3, 7, 11, 15, \dots$. Tentukan nilai $U_{10}$!',
-  'pilihan_ganda', 'sedang', 'manual', 'dipublikasi', '39',
-  'Gunakan $U_n = a + (n-1)b$ dengan $a=3, b=4, n=10$. Maka $U_{10} = 3 + 9(4) = 39$.'
-),
-(
-  'd2eebc99-9c0b-4ef8-bb6d-6bb9bd380a66',
-  'b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a22',
-  'c2eebc99-9c0b-4ef8-bb6d-6bb9bd380a44',
-  'Jelaskan perbedaan antara Barisan Aritmatika dan Barisan Geometri beserta contohnya!',
-  'esai', 'sedang', 'manual', 'dipublikasi',
-  'Aritmatika: beda tetap. Geometri: rasio tetap.',
-  'Aritmatika (2,4,6,8: beda=2). Geometri (2,4,8,16: rasio=2).'
-) ON CONFLICT (id) DO NOTHING;
-
-INSERT INTO opsi_soal (id, soal_id, teks_opsi, benar, urutan) VALUES
-  ('e1eebc99-9c0b-4ef8-bb6d-6bb9bd380a77', 'd1eebc99-9c0b-4ef8-bb6d-6bb9bd380a55', '35', false, 1),
-  ('e2eebc99-9c0b-4ef8-bb6d-6bb9bd380a88', 'd1eebc99-9c0b-4ef8-bb6d-6bb9bd380a55', '39', true,  2),
-  ('e3eebc99-9c0b-4ef8-bb6d-6bb9bd380a99', 'd1eebc99-9c0b-4ef8-bb6d-6bb9bd380a55', '43', false, 3),
-  ('e4eebc99-9c0b-4ef8-bb6d-6bb9bd380aaa', 'd1eebc99-9c0b-4ef8-bb6d-6bb9bd380a55', '47', false, 4)
+VALUES 
+('b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'Bab 1: Pola Bilangan & Barisan Bilangan', 'CP: Menggeneralisasi pola susunan benda dan barisan bilangan. TP: Menentukan suku ke-n (Un) dan jumlah n suku (Sn) pada barisan aritmetika dan geometri.', 1),
+('b2eebc99-9c0b-4ef8-bb6d-6bb9bd380a22', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'Bab 2: Bentuk Aljabar & PLSV/PTLSV', 'CP: Menyederhanakan bentuk aljabar dan menyelesaikan persamaan/pertidaksamaan linear satu variabel. TP: Operasi aljabar serta penyelesaian PLSV dan PTLSV kontekstual.', 2),
+('b3eebc99-9c0b-4ef8-bb6d-6bb9bd380a33', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'Bab 3: Relasi & Fungsi', 'CP: Memahami konsep relasi dan fungsi serta menyajikannya. TP: Menentukan domain, kodomain, range, diagram panah, dan nilai fungsi f(x) = ax + b.', 3),
+('b4eebc99-9c0b-4ef8-bb6d-6bb9bd380a44', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'Bab 4: Persamaan Garis Lurus (PGL)', 'CP: Mengenal konsep kemiringan garis dan menyusun persamaan garis lurus. TP: Menhitung gradien (m), menyusun PGL melalui 1 atau 2 titik, dan garis sejajar/tegak lurus.', 4),
+('b5eebc99-9c0b-4ef8-bb6d-6bb9bd380a55', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'Bab 5: Sistem Persamaan Linear Dua Variabel (SPLDV)', 'CP: Menyelesaikan sistem persamaan linear dua variabel. TP: Menggunakan metode eliminasi, substitusi, dan campuran pada masalah kehidupan nyata.', 5),
+('b6eebc99-9c0b-4ef8-bb6d-6bb9bd380a66', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'Bab 6: Teorema Pythagoras', 'CP: Membuktikan dan menerapkan Teorema Pythagoras. TP: Menhitung panjang sisi segitiga siku-siku, memeriksa tripel Pythagoras, dan menguji jenis segitiga.', 6),
+('b7eebc99-9c0b-4ef8-bb6d-6bb9bd380a77', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'Bab 7: Bangun Ruang Sisi Datar (BRSD)', 'CP: Menentukan luas permukaan dan volume bangun ruang sisi datar. TP: Menhitung luas permukaan dan volume Kubus, Balok, Prisma Tegak, dan Limas.', 7),
+('b8eebc99-9c0b-4ef8-bb6d-6bb9bd380a88', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'Bab 8: Statistika & Peluang', 'CP: Mengolah data dan menentukan peluang kejadian tunggal. TP: Menhitung Mean, Median, Modus, penyajian tabel/grafik, serta peluang teoritik & empirik.', 8)
 ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================
