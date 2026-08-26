@@ -23,8 +23,6 @@ interface Question {
   id: string;
   pertanyaan: string;
   tipeSoal: "pilihan_ganda" | "esai";
-  kunciJawaban?: string;
-  pembahasan?: string;
   opsiSoal?: { id: string; teksOpsi: string }[];
 }
 

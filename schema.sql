@@ -355,10 +355,9 @@ CREATE POLICY "materi: guru/admin kelola"
     SELECT 1 FROM profil WHERE id = auth.uid() AND peran IN ('guru', 'admin_sekolah', 'super_admin')
   ));
 
--- RLS: soal
-CREATE POLICY "soal: baca soal dipublikasi"
-  ON soal FOR SELECT
-  USING (auth.uid() IS NOT NULL AND status_soal = 'dipublikasi');
+-- View Aman & RLS: soal
+-- Catatan: Siswa HANYA boleh membaca dari view aman `soal_publik` dan `opsi_soal_publik`.
+-- Direct SELECT pada tabel `soal` dan `opsi_soal` hanya untuk Guru & Admin.
 
 CREATE POLICY "soal: guru/admin baca & kelola semua"
   ON soal FOR ALL
@@ -367,14 +366,38 @@ CREATE POLICY "soal: guru/admin baca & kelola semua"
   ));
 
 -- RLS: opsi_soal
-CREATE POLICY "opsi_soal: user login bisa baca"
-  ON opsi_soal FOR SELECT USING (auth.uid() IS NOT NULL);
-
 CREATE POLICY "opsi_soal: guru/admin kelola"
   ON opsi_soal FOR ALL
   USING (EXISTS (
     SELECT 1 FROM profil WHERE id = auth.uid() AND peran IN ('guru', 'admin_sekolah', 'super_admin')
   ));
+
+-- Secure Views untuk Siswa (Tanpa kunci_jawaban, pembahasan, dan benar)
+CREATE OR REPLACE VIEW soal_publik AS
+SELECT
+  id,
+  bab_id,
+  materi_id,
+  pembuat_id,
+  pertanyaan,
+  tipe_soal,
+  tingkat_soal,
+  sumber_konten,
+  status_soal,
+  dibuat_pada
+FROM soal
+WHERE status_soal = 'dipublikasi';
+
+CREATE OR REPLACE VIEW opsi_soal_publik AS
+SELECT
+  id,
+  soal_id,
+  teks_opsi,
+  urutan
+FROM opsi_soal;
+
+GRANT SELECT ON soal_publik TO authenticated, anon;
+GRANT SELECT ON opsi_soal_publik TO authenticated, anon;
 
 -- RLS: sesi
 CREATE POLICY "sesi: siswa kelola sesinya sendiri"

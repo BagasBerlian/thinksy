@@ -49,11 +49,10 @@ export default async function LatihanPage({
     }
   }
 
-  // Query published questions
+  // Query published questions from secure view
   const { data: dbSoalList } = await supabase
-    .from("soal")
-    .select(`id, pertanyaan, tipe_soal, kunci_jawaban, pembahasan, opsi_soal (id, teks_opsi)`)
-    .eq("status_soal", "dipublikasi");
+    .from("soal_publik")
+    .select(`id, pertanyaan, tipe_soal, opsi_soal_publik (id, teks_opsi)`);
 
   const defaultSoalList = [
     {
@@ -80,7 +79,7 @@ export default async function LatihanPage({
           id: item.id,
           pertanyaan: item.pertanyaan,
           tipeSoal: item.tipe_soal as "pilihan_ganda" | "esai",
-          opsiSoal: item.opsi_soal?.map((o: any) => ({ id: o.id, teksOpsi: o.teks_opsi })),
+          opsiSoal: (item.opsi_soal_publik || item.opsi_soal)?.map((o: any) => ({ id: o.id, teksOpsi: o.teks_opsi })),
         }))
       : defaultSoalList;
 

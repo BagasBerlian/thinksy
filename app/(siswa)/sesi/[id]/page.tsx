@@ -59,21 +59,18 @@ export default async function SesiPage({
     // but grade-essay will just show local evaluation
   }
 
-  // Query Soal from Database
+  // Query Soal dari Secure View untuk Siswa (Tanpa kunci_jawaban & pembahasan)
   const { data: dbSoalList } = await supabase
-    .from("soal")
+    .from("soal_publik")
     .select(`
       id,
       pertanyaan,
       tipe_soal,
-      kunci_jawaban,
-      pembahasan,
-      opsi_soal (
+      opsi_soal_publik (
         id,
         teks_opsi
       )
-    `)
-    .eq("status_soal", "dipublikasi");
+    `);
 
   // Fallback sample questions if DB is empty
   const defaultSoalList = [
@@ -103,7 +100,7 @@ export default async function SesiPage({
           id: item.id,
           pertanyaan: item.pertanyaan,
           tipeSoal: item.tipe_soal as "pilihan_ganda" | "esai",
-          opsiSoal: item.opsi_soal?.map((o: any) => ({
+          opsiSoal: (item.opsi_soal_publik || item.opsi_soal)?.map((o: any) => ({
             id: o.id,
             teksOpsi: o.teks_opsi,
           })),

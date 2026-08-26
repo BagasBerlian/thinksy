@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(req: Request) {
   try {
     const supabase = await createClient();
+    const adminDb = createAdminClient();
 
     // 1. Authenticate User
     const {
@@ -49,8 +51,8 @@ export async function POST(req: Request) {
     for (const item of jawabanList) {
       const { soalId, opsiDipilihId, jawabanTeks } = item;
 
-      // Query Soal data
-      const { data: soalData } = await supabase
+      // Query Soal data via adminDb (bypasses student RLS on base tables)
+      const { data: soalData } = await adminDb
         .from("soal")
         .select(`
           id,

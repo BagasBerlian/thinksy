@@ -87,11 +87,10 @@ export default async function SiswaDashboardPage() {
     const studentIndex = allStudents?.findIndex((s) => s.id === user.id) ?? -1;
     const studentRank = studentIndex >= 0 ? studentIndex + 1 : 1;
 
-    // Calculate Learning Progress from answered questions vs total published questions in DB
+    // Calculate Learning Progress from answered questions vs total published questions in DB via secure view
     const { count: dbTotalSoal } = await supabase
-      .from("soal")
-      .select("id", { count: "exact", head: true })
-      .eq("status_soal", "dipublikasi");
+      .from("soal_publik")
+      .select("id", { count: "exact", head: true });
 
     totalSoalCount = dbTotalSoal || 10;
 
