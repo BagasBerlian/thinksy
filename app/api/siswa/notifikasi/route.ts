@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET() {
   try {
@@ -21,35 +22,8 @@ export async function GET() {
       .limit(20);
 
     if (error || !dbNotif || dbNotif.length === 0) {
-      // Fallback initial notifications if DB table empty/not created yet
-      return NextResponse.json({
-        notifications: [
-          {
-            id: "n1",
-            title: "Tenggat Waktu Kuis Matematika",
-            desc: "Kuis Matematika Bab 1 Pola Bilangan berakhir malam ini pukul 23:59 WIB.",
-            time: "10 menit yang lalu",
-            type: "urgent",
-            dibaca: false,
-          },
-          {
-            id: "n2",
-            title: "Pengumuman Guru Matematika",
-            desc: "Materi Pola Bilangan & Barisan Aritmetika telah diperbarui oleh Guru.",
-            time: "1 jam yang lalu",
-            type: "info",
-            dibaca: false,
-          },
-          {
-            id: "n3",
-            title: "Jadwal Sesi AI Sokratik",
-            desc: "Sesi Sokratik AI Matematika Kelas 8 dijadwalkan besok pukul 09:30 WIB.",
-            time: "3 jam yang lalu",
-            type: "schedule",
-            dibaca: true,
-          },
-        ],
-      });
+      // Mengembalikan array KOSONG jika belum ada notifikasi (tanpa mock data)
+      return NextResponse.json({ notifications: [] });
     }
 
     const formattedNotifs = dbNotif.map((n) => {
@@ -75,8 +49,17 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  return handleUpdateNotification(request);
+}
+
+export async function PATCH(request: Request) {
+  return handleUpdateNotification(request);
+}
+
+async function handleUpdateNotification(request: Request) {
   try {
     const supabase = await createClient();
+    const adminDb = createAdminClient();
 
     const {
       data: { user },
@@ -87,16 +70,28 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { action, judul, pesan, tipe } = body;
+    const { action, id, notifId, judul, pesan, tipe } = body;
+    const targetId = id || notifId;
 
-    // Action: Mark all notifications as read
-    if (action === "mark_as_read") {
-      await supabase
-        .from("notifikasi")
-        .update({ dibaca: true })
-        .eq("user_id", user.id);
+    // Action: Mark notification(s) as read in Database
+    if (action === "mark_as_read" || targetId) {
+      if (targetId) {
+        await adminDb
+          .from("notifikasi")
+          .update({ dibaca: true })
+          .eq("id", targetId)
+          .eq("user_id", user.id);
+      } else {
+        await adminDb
+          .from("notifikasi")
+          .update({ dibaca: true })
+          .eq("user_id", user.id);
+      }
 
-      return NextResponse.json({ success: true, message: "Semua notifikasi ditandai dibaca." });
+      return NextResponse.json({
+        success: true,
+        message: "Notifikasi berhasil ditandai dibaca di database.",
+      });
     }
 
     // Action: Create new notification log

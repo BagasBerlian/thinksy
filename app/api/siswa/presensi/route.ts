@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(request: Request) {
   try {
     const supabase = await createClient();
+    const adminDb = createAdminClient();
 
     const {
       data: { user },
@@ -31,6 +33,41 @@ export async function POST(request: Request) {
     });
     const formattedDate = now.toISOString().split("T")[0];
 
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayDateStr = yesterday.toISOString().split("T")[0];
+
+    // Cek apakah siswa sudah presensi hari ini & kemarin
+    const { data: todayPresensi } = await supabase
+      .from("presensi")
+      .select("id")
+      .eq("siswa_id", user.id)
+      .eq("tanggal", formattedDate)
+      .maybeSingle();
+
+    const { data: yesterdayPresensi } = await supabase
+      .from("presensi")
+      .select("id")
+      .eq("siswa_id", user.id)
+      .eq("tanggal", yesterdayDateStr)
+      .maybeSingle();
+
+    const { data: currentProfil } = await supabase
+      .from("profil")
+      .select("nama_lengkap, poin, streak")
+      .eq("id", user.id)
+      .single();
+
+    const oldStreak = currentProfil?.streak ?? 0;
+    let newStreak = oldStreak;
+
+    if (!todayPresensi) {
+      // Jika baru presensi hari ini: tambah 1 jika kemarin hadir, reset ke 1 jika kemarin bolong
+      newStreak = yesterdayPresensi ? oldStreak + 1 : 1;
+    } else {
+      newStreak = Math.max(oldStreak, 1);
+    }
+
     // 1. Simpan atau update presensi di database
     const { data: presensiData, error: presensiError } = await supabase
       .from("presensi")
@@ -55,6 +92,12 @@ export async function POST(request: Request) {
       );
     }
 
+    // Update streak terbaru ke profil siswa
+    await adminDb
+      .from("profil")
+      .update({ streak: newStreak })
+      .eq("id", user.id);
+
     // 2. Auto update progres misi "Absen Pagi Tepat Waktu"
     await supabase
       .from("misi_harian")
@@ -67,20 +110,13 @@ export async function POST(request: Request) {
       await supabase.from("notifikasi").insert({
         user_id: user.id,
         judul: "Presensi Selfie Berhasil",
-        pesan: `Wajah terdeteksi! Presensi kehadiran Anda telah dicatat pada pukul ${formattedTime} WIB.`,
+        pesan: `Foto presensi kehadiran Anda telah dicatat pada pukul ${formattedTime} WIB.`,
         tipe: "urgent",
         dibaca: false,
       });
     } catch {
       // ignore if table not ready yet
     }
-
-    // 4. Ambil data profil terbaru untuk konfirmasi
-    const { data: profil } = await supabase
-      .from("profil")
-      .select("nama_lengkap, poin, streak")
-      .eq("id", user.id)
-      .single();
 
     return NextResponse.json({
       success: true,
@@ -92,9 +128,9 @@ export async function POST(request: Request) {
         foto_url: presensiData.foto_url,
       },
       user: {
-        nama_lengkap: profil?.nama_lengkap || user.email,
-        poin: profil?.poin || 1250,
-        streak: profil?.streak || 14,
+        nama_lengkap: currentProfil?.nama_lengkap || user.email,
+        poin: currentProfil?.poin ?? 1250,
+        streak: newStreak,
       },
     });
   } catch (err: any) {

@@ -17,7 +17,7 @@ export default async function SiswaDashboardPage() {
     email: "budi.kartika@sekolah.sch.id",
     peran: "siswa",
     poin: 1250,
-    streak: 14,
+    streak: 0,
     rank: 3,
     totalStudents: 120,
     isCheckedIn: false,
@@ -28,7 +28,7 @@ export default async function SiswaDashboardPage() {
   let completedQuizCount = 0;
   let answeredSoalCount = 0;
   let totalSoalCount = 0;
-  let learningProgressPercent = 75; // fallback
+  let learningProgressPercent = 0;
 
   if (user) {
     // Get user profile data
@@ -39,7 +39,7 @@ export default async function SiswaDashboardPage() {
       .single();
 
     const currentPoin = profil?.poin ?? 1250;
-    const currentStreak = profil?.streak ?? 14;
+    const currentStreak = profil?.streak ?? 0;
 
     // Calculate completed quiz count (status_sesi = 'selesai')
     const { count: quizDoneCount } = await supabase

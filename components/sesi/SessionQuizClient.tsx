@@ -192,14 +192,37 @@ export default function SessionQuizClient({
     }
   };
 
+  const isTimedSession =
+    jenisSesi.toLowerCase() === "kuis" ||
+    jenisSesi.toLowerCase() === "assessment" ||
+    jenisSesi.toLowerCase() === "asesmen";
+
+  const DURATION_SECONDS = 15 * 60;
+  const [timeLeftSeconds, setTimeLeftSeconds] = useState(DURATION_SECONDS);
+
   // Timer effect
   useEffect(() => {
-    if (resultData) return;
-    const interval = setInterval(() => {
-      setSecondsElapsed((prev) => prev + 1);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [resultData]);
+    if (resultData || submitting) return;
+
+    if (isTimedSession) {
+      const interval = setInterval(() => {
+        setTimeLeftSeconds((prev) => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            handleSubmitQuiz();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(interval);
+    } else {
+      const interval = setInterval(() => {
+        setSecondsElapsed((prev) => prev + 1);
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [resultData, submitting, isTimedSession]);
 
   const currentQuestion = soalList[currentIndex];
 
@@ -398,10 +421,17 @@ export default function SessionQuizClient({
           </Link>
 
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-1.5 bg-slate-100 px-3 py-1.5 rounded-xl text-xs font-mono font-bold text-[#193446] border border-slate-200">
-              <Clock className="w-4 h-4 text-amber-600 animate-pulse" />
-              <span>{formatTimer(secondsElapsed)}</span>
-            </div>
+            {isTimedSession ? (
+              <div className="flex items-center gap-1.5 bg-amber-500 text-white px-3.5 py-1.5 rounded-xl text-xs font-mono font-extrabold shadow-sm border border-amber-400">
+                <Clock className="w-4 h-4 text-white animate-pulse" />
+                <span>{formatTimer(timeLeftSeconds)}</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 bg-slate-100 px-3 py-1.5 rounded-xl text-xs font-mono font-bold text-[#193446] border border-slate-200">
+                <Clock className="w-4 h-4 text-amber-600 animate-pulse" />
+                <span>{formatTimer(secondsElapsed)}</span>
+              </div>
+            )}
 
             <button
               onClick={handleSubmitQuiz}

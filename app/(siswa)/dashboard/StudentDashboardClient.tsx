@@ -33,6 +33,7 @@ import {
   Moon,
   Loader2,
   RefreshCw,
+  Award,
 } from "lucide-react";
 import Link from "next/link";
 import { logoutAction } from "../../(auth)/actions";
@@ -102,7 +103,7 @@ export default function StudentDashboardClient({
   completedQuizCount = 0,
   answeredSoalCount = 0,
   totalSoalCount = 10,
-  learningProgressPercent = 75,
+  learningProgressPercent = 0,
 }: StudentDashboardProps) {
   // Navigation Tabs State
   const [activeTab, setActiveTab] = useState<
@@ -114,15 +115,40 @@ export default function StudentDashboardClient({
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
 
-  // Theme Mode State
+  // Theme Mode & Tutor Guidance State (Persisted in localStorage)
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [tutorGuidanceLevel, setTutorGuidanceLevel] = useState<string>("sedang");
+
+  // Daily Missions State
+  const [dailyMissions, setDailyMissions] = useState<any[]>([]);
+  const [isClaimingMissionId, setIsClaimingMissionId] = useState<string | null>(null);
+
+  // Load persisted theme & guidance level on mount
+  useEffect(() => {
+    try {
+      const savedTheme = localStorage.getItem("thinksy_theme");
+      if (savedTheme === "dark") {
+        setIsDarkMode(true);
+      } else if (savedTheme === "light") {
+        setIsDarkMode(false);
+      }
+
+      const savedGuidance = localStorage.getItem("thinksy_tutor_guidance");
+      if (savedGuidance) {
+        setTutorGuidanceLevel(savedGuidance);
+      }
+    } catch {
+      // ignore SSR or localStorage access error
+    }
+  }, []);
 
   // Dynamic Gamification State (Points, Streak, Presensi)
   const [learningPoints, setLearningPoints] = useState(userProfile?.poin || 1250);
-  const [dailyStreak, setDailyStreak] = useState(userProfile?.streak || 14);
+  const [dailyStreak, setDailyStreak] = useState(userProfile?.streak ?? 0);
   const [isCheckedIn, setIsCheckedIn] = useState(userProfile?.isCheckedIn || false);
   const [checkInTime, setCheckInTime] = useState<string | null>(
     userProfile?.checkInTime || null
@@ -131,38 +157,25 @@ export default function StudentDashboardClient({
     userProfile?.fotoSelfie || null
   );
 
-  // Live Camera & Face Detection State with 3-Second Stability Verification & Obstruction Check
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [isSubmittingAttendance, setIsSubmittingAttendance] = useState(false);
-  const [isFaceDetected, setIsFaceDetected] = useState(false);
-  const [isFaceValidAndStable, setIsFaceValidAndStable] = useState(false);
-  const [stabilityCountdown, setStabilityCountdown] = useState(3);
-  const [hasObstruction, setHasObstruction] = useState(false);
-  const validFrameCountRef = useRef(0);
-  const [faceDetectorStatus, setFaceDetectorStatus] = useState<string>("Posisikan Wajah Tepat di Tengah Bingkai");
+  const [faceDetectorStatus, setFaceDetectorStatus] = useState<string>("Posisikan diri Anda di depan kamera");
   const [toastNotification, setToastNotification] = useState<{
     show: boolean;
     title: string;
     message: string;
     time: string;
   } | null>(null);
-  const autoCaptureTriggeredRef = useRef(false);
 
   // Cross-Browser Camera Access
   const handleStartCamera = async () => {
     try {
       setIsAttendanceModalOpen(true);
       setIsCameraActive(true);
-      setIsFaceDetected(false);
-      setIsFaceValidAndStable(false);
-      setStabilityCountdown(3);
-      setHasObstruction(false);
-      validFrameCountRef.current = 0;
-      autoCaptureTriggeredRef.current = false;
-      setFaceDetectorStatus("Posisikan Wajah Tepat di Tengah Bingkai (Tahan 3 Detik)");
+      setFaceDetectorStatus("Posisikan diri Anda di depan kamera lalu klik Ambil Foto Presensi");
 
       let stream: MediaStream | null = null;
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
@@ -205,151 +218,6 @@ export default function StudentDashboardClient({
     }
   }, [isCameraActive, cameraStream]);
 
-  // Real-Time Face Detection & 3-Second Stability Verification Loop
-  useEffect(() => {
-    let animId: number;
-    let isCancelled = false;
-
-    if (
-      isCameraActive &&
-      cameraStream &&
-      videoRef.current &&
-      !isCheckedIn &&
-      !isSubmittingAttendance &&
-      !isFaceValidAndStable
-    ) {
-      const detectFace = async () => {
-        if (isCancelled || autoCaptureTriggeredRef.current) return;
-
-        const video = videoRef.current;
-        if (video && video.readyState === 4 && video.videoWidth > 0) {
-          let faceFound = false;
-          let obstruction = false;
-
-          // 1. Native ShapeDetection API (Chrome / Edge / Opera)
-          if ("FaceDetector" in window) {
-            try {
-              const faceDetector = new (window as any).FaceDetector({ fastMode: true });
-              const faces = await faceDetector.detect(video);
-              if (faces && faces.length === 1) {
-                const face = faces[0];
-                const box = face.boundingBox;
-                if (box && box.width > 50 && box.height > 50) {
-                  faceFound = true;
-                }
-              } else if (faces && faces.length > 1) {
-                // Multiple faces / hand near face detected as extra object
-                obstruction = true;
-              }
-            } catch {
-              // fallback
-            }
-          }
-
-          // 2. Cross-browser Canvas skin-color & facial structure & hand obstruction analysis
-          if (canvasRef.current) {
-            const canvas = canvasRef.current;
-            canvas.width = 160;
-            canvas.height = 120;
-            const ctx = canvas.getContext("2d");
-            if (ctx) {
-              ctx.drawImage(video, 0, 0, 160, 120);
-              const imgData = ctx.getImageData(0, 0, 160, 120);
-              const data = imgData.data;
-
-              let centerSkinPixels = 0;
-              let edgeSkinPixels = 0;
-
-              for (let y = 0; y < 120; y += 4) {
-                for (let x = 0; x < 160; x += 4) {
-                  const idx = (y * 160 + x) * 4;
-                  const r = data[idx];
-                  const g = data[idx + 1];
-                  const b = data[idx + 2];
-
-                  const isSkin = r > 60 && g > 40 && b > 20 && r > g && r > b && Math.abs(r - g) > 15;
-
-                  if (isSkin) {
-                    if (x >= 40 && x <= 120 && y >= 20 && y <= 100) {
-                      centerSkinPixels++;
-                    } else {
-                      edgeSkinPixels++;
-                    }
-                  }
-                }
-              }
-
-              if (centerSkinPixels >= 40 && edgeSkinPixels < centerSkinPixels * 1.5) {
-                if (!obstruction) faceFound = true;
-              } else if (edgeSkinPixels >= centerSkinPixels * 1.5 && centerSkinPixels > 20) {
-                // Hand blocking camera or covering face area
-                obstruction = true;
-                faceFound = false;
-              }
-            }
-          }
-
-          if (obstruction) {
-            setHasObstruction(true);
-            setIsFaceDetected(false);
-            validFrameCountRef.current = 0;
-            setStabilityCountdown(3);
-            setFaceDetectorStatus("⚠️ Terdeteksi Halangan (Tangan/Benda)! Singkirkan dari Wajah");
-          } else if (faceFound) {
-            setHasObstruction(false);
-            setIsFaceDetected(true);
-            validFrameCountRef.current += 1;
-
-            // ~12 frames = ~3 seconds (continuous valid face position)
-            const remainingSecs = Math.max(1, 3 - Math.floor(validFrameCountRef.current / 4));
-            setStabilityCountdown(remainingSecs);
-
-            if (validFrameCountRef.current < 12) {
-              setFaceDetectorStatus(`Wajah Terdeteksi! Tahan Posisi: ${remainingSecs} Detik...`);
-            } else {
-              // 3 Full Seconds Completed Continuous Verification!
-              setIsFaceValidAndStable(true);
-              setStabilityCountdown(0);
-              setFaceDetectorStatus("✓ Wajah Terverifikasi 100%! Memproses Presensi...");
-
-              if (!autoCaptureTriggeredRef.current) {
-                autoCaptureTriggeredRef.current = true;
-                setTimeout(() => {
-                  if (!isCancelled) {
-                    handleTakeSelfie();
-                  }
-                }, 400);
-                return;
-              }
-            }
-          } else {
-            setHasObstruction(false);
-            setIsFaceDetected(false);
-            validFrameCountRef.current = 0;
-            setStabilityCountdown(3);
-            setFaceDetectorStatus("Posisikan Wajah Tepat di Tengah Bingkai (Tahan 3 Detik)");
-          }
-        }
-
-        if (!isCancelled && !autoCaptureTriggeredRef.current && !isFaceValidAndStable) {
-          animId = requestAnimationFrame(() => {
-            setTimeout(detectFace, 200);
-          });
-        }
-      };
-
-      const timer = setTimeout(() => {
-        detectFace();
-      }, 300);
-
-      return () => {
-        isCancelled = true;
-        clearTimeout(timer);
-        if (animId) cancelAnimationFrame(animId);
-      };
-    }
-  }, [isCameraActive, cameraStream, isCheckedIn, isSubmittingAttendance, isFaceValidAndStable]);
-
   // Stop Camera Stream
   const stopCamera = () => {
     if (cameraStream) {
@@ -357,11 +225,6 @@ export default function StudentDashboardClient({
       setCameraStream(null);
     }
     setIsCameraActive(false);
-    setIsFaceDetected(false);
-    setIsFaceValidAndStable(false);
-    setStabilityCountdown(3);
-    setHasObstruction(false);
-    validFrameCountRef.current = 0;
   };
 
   const studentName = userProfile?.nama_lengkap || "Budi Kartika";
@@ -376,32 +239,7 @@ export default function StudentDashboardClient({
       type: string;
       dibaca?: boolean;
     }>
-  >([
-    {
-      id: "1",
-      title: "Tenggat Waktu Kuis Matematika",
-      desc: "Kuis Matematika Bab 1 Pola Bilangan berakhir malam ini pukul 23:59 WIB.",
-      time: "10 menit yang lalu",
-      type: "urgent",
-      dibaca: false,
-    },
-    {
-      id: "2",
-      title: "Pengumuman Guru Matematika",
-      desc: "Materi Pola Bilangan & Barisan Aritmetika telah diperbarui oleh Guru.",
-      time: "1 jam yang lalu",
-      type: "info",
-      dibaca: false,
-    },
-    {
-      id: "3",
-      title: "Jadwal Sesi AI Sokratik",
-      desc: "Sesi Sokratik AI Matematika Kelas 8 dijadwalkan besok pukul 09:30 WIB.",
-      time: "3 jam yang lalu",
-      type: "schedule",
-      dibaca: true,
-    },
-  ]);
+  >([]);
 
   // Dynamic Leaderboard (Role = Siswa Only) State & Real-Time Rank
   const [currentUserRank, setCurrentUserRank] = useState<number>(userProfile?.rank || 1);
@@ -425,7 +263,7 @@ export default function StudentDashboardClient({
       const res = await fetch("/api/siswa/notifikasi");
       if (res.ok) {
         const data = await res.json();
-        if (data.notifications && data.notifications.length > 0) {
+        if (Array.isArray(data.notifications)) {
           setNotifications(data.notifications);
         }
       }
@@ -459,10 +297,74 @@ export default function StudentDashboardClient({
     }
   };
 
+  const fetchMissionsFromDB = async () => {
+    try {
+      const res = await fetch("/api/siswa/misi");
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.misi)) {
+          setDailyMissions(data.misi);
+        }
+      }
+    } catch {
+      // silent fail fallback
+    }
+  };
+
   useEffect(() => {
     fetchNotificationsFromDB();
     fetchLeaderboardFromDB();
+    fetchMissionsFromDB();
   }, []);
+
+  // Save Settings & Persist Theme/Guidance Level
+  const handleSaveSettings = () => {
+    try {
+      localStorage.setItem("thinksy_theme", isDarkMode ? "dark" : "light");
+      localStorage.setItem("thinksy_tutor_guidance", tutorGuidanceLevel);
+    } catch {
+      // ignore
+    }
+    setIsSettingsModalOpen(false);
+    setToastNotification({
+      show: true,
+      title: "Pengaturan Disimpan",
+      message: "Preferensi mode tampilan & bimbingan Tutor AI berhasil diperbarui.",
+      time: "Baru saja",
+    });
+    setTimeout(() => setToastNotification(null), 5000);
+  };
+
+  // Claim Daily Mission with strict server validation (ONLY show success if res.ok && data.success === true)
+  const handleClaimMission = async (misiId: string) => {
+    setIsClaimingMissionId(misiId);
+    try {
+      const res = await fetch("/api/siswa/misi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ misiId }),
+      });
+      const data = await res.json();
+
+      if (res.ok && data.success === true) {
+        setToastNotification({
+          show: true,
+          title: "Klaim Misi Berhasil! 🎉",
+          message: data.message || `Selamat! +${data.poinDitambahkan || 20} Poin ditambahkan.`,
+          time: "Baru saja",
+        });
+        if (data.poinTotal) setLearningPoints(data.poinTotal);
+        fetchMissionsFromDB();
+        setTimeout(() => setToastNotification(null), 5000);
+      } else {
+        alert(data.error || "Gagal mengklaim misi. Pastikan target progres telah tercapai.");
+      }
+    } catch (err: any) {
+      alert("Gagal mengklaim misi (kesalahan jaringan): " + err.message);
+    } finally {
+      setIsClaimingMissionId(null);
+    }
+  };
 
   // Mark all notifications as read in DB & local state
   const handleMarkAllNotificationsAsRead = async () => {
@@ -506,11 +408,6 @@ export default function StudentDashboardClient({
 
   // Take Camera Selfie Photo & Send to Database
   const handleTakeSelfie = async () => {
-    if (!isFaceValidAndStable && !autoCaptureTriggeredRef.current) {
-      alert("Presensi Gagal: Wajah belum terverifikasi secara stabil selama 3 detik tanpa halangan tangan atau benda.");
-      return;
-    }
-
     let photoBase64: string | null = null;
 
     if (videoRef.current && canvasRef.current) {
@@ -546,12 +443,15 @@ export default function StudentDashboardClient({
         setIsCheckedIn(true);
         setCheckInTime(formattedTime);
         setCapturedSelfie(photoBase64 || "selfie-captured");
+        if (typeof data.user?.streak === "number") {
+          setDailyStreak(data.user.streak);
+        }
 
         // Show React Toast Notification at top-right
         setToastNotification({
           show: true,
           title: "Presensi Berhasil!",
-          message: `Wajah terdeteksi! Presensi Anda telah dicatat pada pukul ${formattedTime} WIB.`,
+          message: `Foto presensi kehadiran Anda telah dicatat pada pukul ${formattedTime} WIB.`,
           time: formattedTime,
         });
 
@@ -560,7 +460,7 @@ export default function StudentDashboardClient({
           {
             id: Date.now(),
             title: "Presensi Selfie Berhasil",
-            desc: `Wajah terdeteksi! Presensi kehadiran Anda telah dicatat pada pukul ${formattedTime} WIB.`,
+            desc: `Foto presensi kehadiran Anda telah dicatat pada pukul ${formattedTime} WIB.`,
             time: "Baru saja",
             type: "urgent",
           },
@@ -572,11 +472,10 @@ export default function StudentDashboardClient({
           setToastNotification(null);
         }, 5000);
 
-        // Broadcast to Guru Dashboard with actual photo!
+        // Broadcast to Realtime Dashboard metadata ONLY (no photo payload for privacy!)
         broadcastEvent("ATTENDANCE_CHECKIN", {
           studentName,
           time: formattedTime,
-          fotoUrl: photoBase64,
         });
       } else {
         alert(data.error || "Gagal mencatat presensi.");
@@ -589,7 +488,7 @@ export default function StudentDashboardClient({
       setToastNotification({
         show: true,
         title: "Presensi Berhasil!",
-        message: `Wajah terdeteksi! Presensi Anda telah dicatat pada pukul ${formattedTime} WIB.`,
+        message: `Foto presensi kehadiran Anda telah dicatat pada pukul ${formattedTime} WIB.`,
         time: formattedTime,
       });
 
@@ -597,7 +496,7 @@ export default function StudentDashboardClient({
         {
           id: Date.now(),
           title: "Presensi Selfie Berhasil",
-          desc: `Wajah terdeteksi! Presensi kehadiran Anda telah dicatat pada pukul ${formattedTime} WIB.`,
+          desc: `Foto presensi kehadiran Anda telah dicatat pada pukul ${formattedTime} WIB.`,
           time: "Baru saja",
           type: "urgent",
         },
@@ -611,7 +510,6 @@ export default function StudentDashboardClient({
       broadcastEvent("ATTENDANCE_CHECKIN", {
         studentName,
         time: formattedTime,
-        fotoUrl: photoBase64,
       });
     } finally {
       setIsSubmittingAttendance(false);
@@ -619,18 +517,20 @@ export default function StudentDashboardClient({
     }
   };
 
+  const mapChapterToClass = (ch: any, idx: number) => ({
+    id: ch.id,
+    subject: "Matematika",
+    grade: "Kelas 8 (Fase D)",
+    module: ch.judul,
+    topic: ch.deskripsi || "Capaian Pembelajaran Kurikulum Merdeka Matematika SMP Kelas 8.",
+    progress: learningProgressPercent,
+    icon: BookOpen,
+    color: idx % 3 === 0 ? "bg-[#0F172A] text-white border-slate-700" : idx % 3 === 1 ? "bg-slate-100 text-slate-800 border-slate-200" : "bg-blue-50 text-blue-900 border-blue-200",
+    progressColor: idx % 3 === 0 ? "bg-blue-600" : idx % 3 === 1 ? "bg-emerald-500" : "bg-purple-600",
+  });
+
   const activeClasses = (chapters && chapters.length > 0)
-    ? chapters.slice(0, 3).map((ch: any, idx: number) => ({
-        id: ch.id,
-        subject: "Matematika",
-        grade: "Kelas 8 (Fase D)",
-        module: ch.judul,
-        topic: ch.deskripsi,
-        progress: 100 - idx * 25,
-        icon: BookOpen,
-        color: idx === 0 ? "bg-[#0F172A] text-white border-slate-700" : "bg-slate-100 text-slate-800 border-slate-200",
-        progressColor: idx === 0 ? "bg-blue-600" : idx === 1 ? "bg-emerald-500" : "bg-purple-600",
-      }))
+    ? chapters.slice(0, 3).map(mapChapterToClass)
     : [
         {
           id: "b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
@@ -638,7 +538,7 @@ export default function StudentDashboardClient({
           grade: "Kelas 8 (Fase D)",
           module: "Bab 1: Pola Bilangan & Barisan Bilangan",
           topic: "CP: Menggeneralisasi pola susunan benda dan barisan bilangan.",
-          progress: 75,
+          progress: learningProgressPercent,
           icon: BookOpen,
           color: "bg-[#0F172A] text-white border-slate-700",
           progressColor: "bg-blue-600",
@@ -649,7 +549,7 @@ export default function StudentDashboardClient({
           grade: "Kelas 8 (Fase D)",
           module: "Bab 2: Bentuk Aljabar & PLSV/PTLSV",
           topic: "CP: Menyederhanakan bentuk aljabar & penyelesaian PLSV/PTLSV.",
-          progress: 40,
+          progress: learningProgressPercent,
           icon: BookOpen,
           color: "bg-slate-100 text-slate-800 border-slate-200",
           progressColor: "bg-emerald-500",
@@ -660,12 +560,16 @@ export default function StudentDashboardClient({
           grade: "Kelas 8 (Fase D)",
           module: "Bab 3: Relasi & Fungsi",
           topic: "CP: Memahami relasi, fungsi, dan rumus f(x) = ax + b.",
-          progress: 20,
+          progress: learningProgressPercent,
           icon: BookOpen,
           color: "bg-slate-100 text-slate-800 border-slate-200",
           progressColor: "bg-purple-600",
         },
       ];
+
+  const allClasses = (chapters && chapters.length > 0)
+    ? chapters.map(mapChapterToClass)
+    : activeClasses;
 
   return (
     <div
@@ -845,7 +749,10 @@ export default function StudentDashboardClient({
                     </button>
 
                     <button
-                      onClick={() => setIsDropdownOpen(false)}
+                      onClick={() => {
+                        setIsHelpModalOpen(true);
+                        setIsDropdownOpen(false);
+                      }}
                       className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-slate-800 hover:bg-slate-100 hover:text-[#0F172A] rounded-xl transition cursor-pointer"
                     >
                       <HelpCircle className="w-4 h-4 text-slate-700" />
@@ -1019,6 +926,131 @@ export default function StudentDashboardClient({
             </div>
           </section>
 
+          {/* DAILY MISSIONS WIDGET */}
+          <section className="saas-card rounded-3xl p-6 border border-slate-200 shadow-sm bg-white space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold">
+                  🎯
+                </div>
+                <div>
+                  <h2 className="text-base font-extrabold text-[#0F172A]">
+                    Misi Harian Siswa
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    Selesaikan target belajar untuk mengklaim tambahan Poin Belajar.
+                  </p>
+                </div>
+              </div>
+              <span className="text-xs font-bold text-amber-700 bg-amber-50 px-3 py-1 rounded-full border border-amber-200">
+                Poin & Presensi
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {(dailyMissions.length > 0
+                ? dailyMissions
+                : [
+                    {
+                      id: "m1",
+                      judul: "Presensi Selfie Harian",
+                      deskripsi: "Absen selfie kamera kehadiran hari ini.",
+                      progres_saat_ini: isCheckedIn ? 1 : 0,
+                      target_max: 1,
+                      poin_hadiah: 20,
+                      diklaim: false,
+                    },
+                    {
+                      id: "m2",
+                      judul: "Selesaikan 1 Kuis / Latihan",
+                      deskripsi: "Kerjakan 1 sesi kuis/latihan matematika.",
+                      progres_saat_ini: completedQuizCount >= 1 ? 1 : 0,
+                      target_max: 1,
+                      poin_hadiah: 50,
+                      diklaim: false,
+                    },
+                    {
+                      id: "m3",
+                      judul: "Eksplorasi Soal Sokratik",
+                      deskripsi: "Tanya AI Sokratik dalam mode eksplorasi.",
+                      progres_saat_ini: answeredSoalCount >= 3 ? 3 : answeredSoalCount,
+                      target_max: 3,
+                      poin_hadiah: 30,
+                      diklaim: false,
+                    },
+                  ]
+              ).map((misi) => {
+                const isCompleted = Number(misi.progres_saat_ini) >= Number(misi.target_max);
+                const isClaimed = Boolean(misi.diklaim);
+
+                return (
+                  <div
+                    key={misi.id}
+                    className={`p-4 rounded-2xl border flex flex-col justify-between space-y-3 transition ${
+                      isClaimed
+                        ? "bg-slate-50 border-slate-200 opacity-60"
+                        : isCompleted
+                        ? "bg-amber-50/50 border-amber-300 shadow-xs"
+                        : "bg-white border-slate-200"
+                    }`}
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <h3 className="text-xs font-extrabold text-[#0F172A]">
+                          {misi.judul}
+                        </h3>
+                        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-200 shrink-0">
+                          +{misi.poin_hadiah || 20} Poin
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 font-medium">
+                        {misi.deskripsi || "Selesaikan target misi."}
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-[10px] font-bold">
+                        <span className="text-slate-400">Progres Target</span>
+                        <span className="text-slate-700">
+                          {misi.progres_saat_ini}/{misi.target_max}
+                        </span>
+                      </div>
+
+                      {isClaimed ? (
+                        <button
+                          disabled
+                          className="w-full py-1.5 rounded-xl bg-slate-200 text-slate-500 text-xs font-bold"
+                        >
+                          Sudah Diklaim ✓
+                        </button>
+                      ) : isCompleted ? (
+                        <button
+                          onClick={() => handleClaimMission(misi.id)}
+                          disabled={isClaimingMissionId === misi.id}
+                          className="w-full py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-extrabold transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        >
+                          {isClaimingMissionId === misi.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Award className="w-3.5 h-3.5" />
+                          )}
+                          <span>Klaim +{misi.poin_hadiah || 20} Poin</span>
+                        </button>
+                      ) : (
+                        <button
+                          disabled
+                          className="w-full py-1.5 rounded-xl bg-slate-100 text-slate-400 text-xs font-semibold cursor-not-allowed"
+                        >
+                          Belum Selesai
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
           {/* PRIORITY AGENDA: DEADLINES & JADWAL KELAS SAYA */}
           <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             <div className="lg:col-span-7 saas-card rounded-3xl p-6 border border-slate-200 shadow-sm flex flex-col justify-between">
@@ -1177,10 +1209,10 @@ export default function StudentDashboardClient({
             <div className="space-y-1">
               <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0F172A] tracking-tight flex items-center gap-2.5">
                 <Trophy className="w-7 h-7 text-amber-500" />
-                <span>Peringkat Siswa Nasional</span>
+                <span>Peringkat Siswa Per Sekolah</span>
               </h1>
               <p className="text-xs sm:text-sm text-slate-500 font-medium max-w-2xl">
-                Peringkat diperbarui secara real-time berdasarkan total Poin Belajar yang didapatkan dari menyelesaikan kuis dan materi.
+                Peringkat diperbarui secara real-time berdasarkan total Poin Belajar siswa di lingkungan sekolah yang sama.
               </p>
             </div>
 
@@ -1298,7 +1330,7 @@ export default function StudentDashboardClient({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {activeClasses.map((cls) => {
+            {allClasses.map((cls) => {
               const IconComp = cls.icon;
               return (
                 <Link
@@ -1349,60 +1381,155 @@ export default function StudentDashboardClient({
       )}
 
       {/* 4. TAB: PENCAPAIAN */}
-      {activeTab === "Pencapaian" && (
-        <main className="mx-auto max-w-7xl px-4 sm:px-6 pt-6 space-y-6 animate-in fade-in duration-200">
-          <div className="space-y-1">
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0F172A] tracking-tight flex items-center gap-2.5">
-              <Gift className="w-7 h-7 text-purple-600" />
-              <span>Pencapaian & Lencana Siswa</span>
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-500 font-medium max-w-2xl">
-              Lencana penghargaan atas konsistensi belajar dan penyelesaian kuis Anda.
-            </p>
-          </div>
+      {activeTab === "Pencapaian" && (() => {
+        const studentBadges = [
+          {
+            id: "b1",
+            title: "Langkah Pertama",
+            desc: "Menyelesaikan 1 kuis atau latihan pertama.",
+            icon: "🚀",
+            bgColor: "bg-blue-100 text-blue-700 border-blue-200",
+            isUnlocked: completedQuizCount >= 1,
+            progressText: `${completedQuizCount}/1 Kuis`,
+            progressPercent: Math.min(100, Math.round((completedQuizCount / 1) * 100)),
+          },
+          {
+            id: "b2",
+            title: "Master Kuis",
+            desc: "Menyelesaikan minimal 5 kuis/latihan.",
+            icon: "🏆",
+            bgColor: "bg-amber-100 text-amber-700 border-amber-200",
+            isUnlocked: completedQuizCount >= 5,
+            progressText: `${completedQuizCount}/5 Kuis`,
+            progressPercent: Math.min(100, Math.round((completedQuizCount / 5) * 100)),
+          },
+          {
+            id: "b3",
+            title: "Pejuang Streak",
+            desc: "Kehadiran harian berturut-turut 7 hari.",
+            icon: "🔥",
+            bgColor: "bg-orange-100 text-orange-700 border-orange-200",
+            isUnlocked: dailyStreak >= 7,
+            progressText: `${dailyStreak}/7 Hari`,
+            progressPercent: Math.min(100, Math.round((dailyStreak / 7) * 100)),
+          },
+          {
+            id: "b4",
+            title: "Pembelajar Hebat",
+            desc: "Mengumpulkan minimal 1.000 Poin Belajar.",
+            icon: "⭐",
+            bgColor: "bg-purple-100 text-purple-700 border-purple-200",
+            isUnlocked: learningPoints >= 1000,
+            progressText: `${learningPoints.toLocaleString("id-ID")}/1.000 Poin`,
+            progressPercent: Math.min(100, Math.round((learningPoints / 1000) * 100)),
+          },
+          {
+            id: "b5",
+            title: "Penjelajah Soal",
+            desc: "Menjawab minimal 10 soal matematika.",
+            icon: "🎯",
+            bgColor: "bg-emerald-100 text-emerald-700 border-emerald-200",
+            isUnlocked: answeredSoalCount >= 10,
+            progressText: `${answeredSoalCount}/10 Soal`,
+            progressPercent: Math.min(100, Math.round((answeredSoalCount / 10) * 100)),
+          },
+          {
+            id: "b6",
+            title: "Bintang Matematika",
+            desc: "Mengumpulkan 1.500+ Poin & 10 Kuis.",
+            icon: "👑",
+            bgColor: "bg-indigo-100 text-indigo-700 border-indigo-200",
+            isUnlocked: learningPoints >= 1500 && completedQuizCount >= 10,
+            progressText: `${completedQuizCount}/10 Kuis`,
+            progressPercent: Math.min(100, Math.round((completedQuizCount / 10) * 100)),
+          },
+        ];
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs flex items-center gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center font-extrabold text-xl shrink-0">
-                🏆
+        const unlockedCount = studentBadges.filter((b) => b.isUnlocked).length;
+
+        return (
+          <main className="mx-auto max-w-7xl px-4 sm:px-6 pt-6 space-y-6 animate-in fade-in duration-200">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0F172A] tracking-tight flex items-center gap-2.5">
+                  <Gift className="w-7 h-7 text-purple-600" />
+                  <span>Pencapaian & Lencana Siswa</span>
+                </h1>
+                <p className="text-xs sm:text-sm text-slate-500 font-medium max-w-2xl">
+                  Lencana penghargaan atas konsistensi belajar dan penyelesaian kuis Anda.
+                </p>
               </div>
-              <div>
-                <h3 className="text-sm font-extrabold text-[#0F172A]">Master Kuis</h3>
-                <p className="text-xs text-slate-500 mt-0.5">Menyelesaikan 10 kuis berturut-turut.</p>
-                <span className="inline-block mt-2 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                  Terbuka ✓
-                </span>
+
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-purple-50 border border-purple-200 text-purple-800 text-xs font-bold shrink-0">
+                <span>{unlockedCount} dari {studentBadges.length} Lencana Terbuka</span>
               </div>
             </div>
 
-            <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs flex items-center gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-orange-100 text-orange-700 flex items-center justify-center font-extrabold text-xl shrink-0">
-                🔥
-              </div>
-              <div>
-                <h3 className="text-sm font-extrabold text-[#0F172A]">Konsisten 14 Hari</h3>
-                <p className="text-xs text-slate-500 mt-0.5">Absen presensi 14 hari tanpa putus.</p>
-                <span className="inline-block mt-2 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                  Terbuka ✓
-                </span>
-              </div>
-            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {studentBadges.map((badge) => (
+                <div
+                  key={badge.id}
+                  className={`saas-card rounded-3xl p-6 border flex flex-col justify-between space-y-4 transition ${
+                    badge.isUnlocked
+                      ? "bg-white border-slate-200 shadow-xs"
+                      : "bg-slate-50/70 border-slate-200/70 opacity-75"
+                  }`}
+                >
+                  <div className="flex items-start gap-4">
+                    <div
+                      className={`w-14 h-14 rounded-2xl flex items-center justify-center font-extrabold text-2xl shrink-0 border ${
+                        badge.isUnlocked
+                          ? badge.bgColor
+                          : "bg-slate-200 text-slate-400 border-slate-300"
+                      }`}
+                    >
+                      {badge.icon}
+                    </div>
 
-            <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs flex items-center gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center font-extrabold text-xl shrink-0">
-                ⭐
-              </div>
-              <div>
-                <h3 className="text-sm font-extrabold text-[#0F172A]">Pembelajar Hebat</h3>
-                <p className="text-xs text-slate-500 mt-0.5">Mengumpulkan 1.000+ Poin Belajar.</p>
-                <span className="inline-block mt-2 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                  Terbuka ✓
-                </span>
-              </div>
+                    <div className="space-y-1 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <h3 className="text-sm font-extrabold text-[#0F172A]">
+                          {badge.title}
+                        </h3>
+                        {badge.isUnlocked ? (
+                          <span className="shrink-0 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold border border-emerald-200">
+                            Terbuka ✓
+                          </span>
+                        ) : (
+                          <span className="shrink-0 px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-600 text-[10px] font-bold border border-slate-300">
+                            Terkunci 🔒
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                        {badge.desc}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5 pt-2 border-t border-slate-100">
+                    <div className="flex items-center justify-between text-[11px] font-bold">
+                      <span className="text-slate-400">Progres Lencana</span>
+                      <span className={badge.isUnlocked ? "text-emerald-700 font-extrabold" : "text-slate-600"}>
+                        {badge.progressText}
+                      </span>
+                    </div>
+                    <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          badge.isUnlocked ? "bg-emerald-500" : "bg-blue-500"
+                        }`}
+                        style={{ width: `${badge.progressPercent}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
-          </div>
-        </main>
-      )}
+          </main>
+        );
+      })()}
 
       {/* MODAL: LIVE WEBCAM SELFIE ATTENDANCE */}
       {isAttendanceModalOpen && (
@@ -1413,26 +1540,26 @@ export default function StudentDashboardClient({
                 stopCamera();
                 setIsAttendanceModalOpen(false);
               }}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
 
-            <div className="flex items-center space-x-3 border-b border-slate-200 pb-3">
+            <div className="flex items-center space-x-3 border-b border-slate-200 pb-4">
               <div className="w-10 h-10 rounded-2xl bg-[#0F172A] text-white flex items-center justify-center">
                 <Camera className="w-5 h-5 text-emerald-400" />
               </div>
               <div>
                 <h3 className="text-lg font-extrabold text-[#0F172A]">
-                  Absen Kamera Selfie
+                  Foto Presensi Selfie
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Ambil foto selfie untuk memverifikasi kehadiran hari ini
+                  Ambil foto selfie kehadiran Anda secara jujur & resmi hari ini
                 </p>
               </div>
             </div>
 
-            {/* Webcam Live View, Face Scanner Overlay & Canvas */}
+            {/* Webcam Live View & Canvas */}
             <div className="relative rounded-2xl overflow-hidden bg-slate-900 aspect-video flex items-center justify-center border border-slate-800 shadow-inner">
               <video
                 ref={videoRef}
@@ -1443,114 +1570,26 @@ export default function StudentDashboardClient({
               />
               <canvas ref={canvasRef} className="hidden" />
 
-              {/* Face Detection Bounding Box & Status Overlay */}
+              {/* Status Overlay */}
               {isCameraActive && (
                 <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-between p-4">
                   {/* Status Badge Top */}
-                  <div
-                    className={`px-3.5 py-1.5 rounded-full backdrop-blur-md border text-white text-[11px] font-extrabold flex items-center gap-2 shadow-md ${hasObstruction
-                      ? "bg-red-900/90 border-red-500 text-red-100"
-                      : isFaceValidAndStable
-                        ? "bg-emerald-900/90 border-emerald-400 text-emerald-100"
-                        : isFaceDetected
-                          ? "bg-amber-900/90 border-amber-400 text-amber-100"
-                          : "bg-slate-900/80 border-white/20"
-                      }`}
-                  >
-                    <span
-                      className={`w-2 h-2 rounded-full ${hasObstruction
-                        ? "bg-red-500 animate-ping"
-                        : isFaceValidAndStable
-                          ? "bg-emerald-400 animate-ping"
-                          : isFaceDetected
-                            ? "bg-amber-400 animate-pulse"
-                            : "bg-slate-400"
-                        }`}
-                    />
+                  <div className="px-3.5 py-1.5 rounded-full backdrop-blur-md border border-white/20 bg-slate-900/80 text-white text-[11px] font-extrabold flex items-center gap-2 shadow-md">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                     <span>{faceDetectorStatus}</span>
                   </div>
 
-                  {/* Bounding Box Frame Indicator with Countdown */}
-                  <div
-                    className={`w-44 h-56 rounded-3xl border-2 transition-all duration-300 relative flex flex-col items-center justify-center gap-2 ${hasObstruction
-                      ? "border-red-500 bg-red-500/10 shadow-[0_0_25px_rgba(239,68,68,0.4)]"
-                      : isFaceValidAndStable
-                        ? "border-emerald-400 bg-emerald-500/10 shadow-[0_0_25px_rgba(52,211,153,0.4)]"
-                        : isFaceDetected
-                          ? "border-amber-400 bg-amber-500/10 shadow-[0_0_20px_rgba(251,191,36,0.3)]"
-                          : "border-dashed border-slate-400/60"
-                      }`}
-                  >
-                    {/* Frame Corner Accents */}
-                    <div
-                      className={`absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 rounded-tl-xl ${hasObstruction
-                        ? "border-red-500"
-                        : isFaceValidAndStable
-                          ? "border-emerald-400"
-                          : isFaceDetected
-                            ? "border-amber-400"
-                            : "border-slate-400"
-                        }`}
-                    />
-                    <div
-                      className={`absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 rounded-tr-xl ${hasObstruction
-                        ? "border-red-500"
-                        : isFaceValidAndStable
-                          ? "border-emerald-400"
-                          : isFaceDetected
-                            ? "border-amber-400"
-                            : "border-slate-400"
-                        }`}
-                    />
-                    <div
-                      className={`absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 rounded-bl-xl ${hasObstruction
-                        ? "border-red-500"
-                        : isFaceValidAndStable
-                          ? "border-emerald-400"
-                          : isFaceDetected
-                            ? "border-amber-400"
-                            : "border-slate-400"
-                        }`}
-                    />
-                    <div
-                      className={`absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 rounded-br-xl ${hasObstruction
-                        ? "border-red-500"
-                        : isFaceValidAndStable
-                          ? "border-emerald-400"
-                          : isFaceDetected
-                            ? "border-amber-400"
-                            : "border-slate-400"
-                        }`}
-                    />
-
-                    {isFaceDetected && !isFaceValidAndStable && (
-                      <div className="w-12 h-12 rounded-full border-4 border-amber-400 border-t-transparent animate-spin flex items-center justify-center">
-                        <span className="text-amber-400 font-extrabold text-xs -rotate-90">
-                          {stabilityCountdown}s
-                        </span>
-                      </div>
-                    )}
-
-                    {isFaceValidAndStable && (
-                      <div className="px-3 py-1 bg-emerald-600 text-white font-extrabold text-[10px] rounded-full shadow-lg animate-bounce">
-                        ✓ Terverifikasi Otomatis
-                      </div>
-                    )}
-
-                    {hasObstruction && (
-                      <div className="px-3 py-1 bg-red-600 text-white font-extrabold text-[10px] rounded-full shadow-lg text-center leading-tight">
-                        ⚠️ Singkirkan Tangan/Benda
-                      </div>
-                    )}
+                  {/* Bounding Box Frame Indicator */}
+                  <div className="w-44 h-56 rounded-3xl border-2 border-dashed border-white/60 relative flex flex-col items-center justify-center gap-2">
+                    <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-white rounded-tl-xl" />
+                    <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-white rounded-tr-xl" />
+                    <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-white rounded-bl-xl" />
+                    <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-white rounded-br-xl" />
                   </div>
 
                   {/* Subtext info */}
-                  <div className="text-[10px] text-slate-300 bg-slate-900/70 px-3 py-1 rounded-full backdrop-blur-xs font-semibold text-center">
-                    {hasObstruction
-                      ? "Bebaskan area wajah dari tangan / halangan"
-                      : isFaceValidAndStable
-                        ? "Wajah bersih & terverifikasi!"
-                        : "Posisikan wajah tepat di tengah (Tahan 3 Detik)"}
+                  <div className="text-[10px] text-slate-300 bg-slate-900/80 px-3 py-1 rounded-full backdrop-blur-xs font-semibold text-center">
+                    Foto presensi akan disimpan secara resmi untuk verifikasi kehadiran.
                   </div>
                 </div>
               )}
@@ -1585,28 +1624,19 @@ export default function StudentDashboardClient({
 
               <button
                 type="button"
-                disabled={!isCameraActive || !isFaceValidAndStable || isSubmittingAttendance}
+                disabled={!isCameraActive || isSubmittingAttendance}
                 onClick={handleTakeSelfie}
-                className={`flex-1 py-2.5 rounded-xl text-white text-xs font-bold flex items-center justify-center gap-2 transition disabled:opacity-40 cursor-pointer ${isFaceValidAndStable
-                  ? "bg-emerald-600 hover:bg-emerald-700 shadow-md"
-                  : hasObstruction
-                    ? "bg-red-600 cursor-not-allowed"
-                    : "bg-[#0F172A] hover:bg-slate-800"
-                  }`}
+                className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-2 transition disabled:opacity-40 cursor-pointer shadow-md"
               >
                 {isSubmittingAttendance ? (
-                  <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
+                  <Loader2 className="w-4 h-4 animate-spin text-white" />
                 ) : (
-                  <Camera className="w-4 h-4 text-emerald-400" />
+                  <Camera className="w-4 h-4 text-white" />
                 )}
                 <span>
                   {isSubmittingAttendance
                     ? "Menyimpan Presensi..."
-                    : isFaceValidAndStable
-                      ? "Wajah Terverifikasi (Otomatis)"
-                      : hasObstruction
-                        ? "Ada Halangan Tangan/Benda"
-                        : `Verifikasi Wajah (${stabilityCountdown}s)`}
+                    : "Ambil Foto Presensi"}
                 </span>
               </button>
             </div>
@@ -1824,7 +1854,11 @@ export default function StudentDashboardClient({
                 <label className="text-xs font-bold text-slate-700">
                   Tingkat Bimbingan Tutor AI
                 </label>
-                <select className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none">
+                <select
+                  value={tutorGuidanceLevel}
+                  onChange={(e) => setTutorGuidanceLevel(e.target.value)}
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none cursor-pointer"
+                >
                   <option value="sedang">
                     Sedang (Bimbingan Sokratik Bertahap)
                   </option>
@@ -1837,10 +1871,90 @@ export default function StudentDashboardClient({
             </div>
 
             <button
-              onClick={() => setIsSettingsModalOpen(false)}
+              onClick={handleSaveSettings}
               className="w-full py-2.5 bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition cursor-pointer"
             >
               Simpan Pengaturan
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: PUSAT BANTUAN */}
+      {isHelpModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="saas-modal rounded-3xl shadow-2xl border border-slate-200 p-6 max-w-lg w-full relative space-y-5 max-h-[85vh] overflow-y-auto">
+            <button
+              onClick={() => setIsHelpModalOpen(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center space-x-3 border-b border-slate-200 pb-4">
+              <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center">
+                <HelpCircle className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-extrabold text-[#0F172A]">
+                  Pusat Bantuan & Layanan Belajar
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Panduan Penggunaan Aplikasi & Dukungan Sekolah
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <div className="p-4 rounded-2xl bg-indigo-50 border border-indigo-100 space-y-2">
+                <h4 className="font-extrabold text-indigo-900 text-sm flex items-center gap-2">
+                  <span>🤖 Cara Kerja Tutor AI Sokratik</span>
+                </h4>
+                <p className="text-indigo-800 leading-relaxed font-medium">
+                  Tutor AI THINKSY memandu Anda dengan pertanyaan bertahap (*metode Sokratik*). AI tidak memberikan jawaban akhir secara instan agar pemahaman konsep matematika Anda terbentuk secara mandiri.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <h4 className="font-extrabold text-[#0F172A] text-xs uppercase tracking-wider">
+                  Pertanyaan Sering Diajukan (FAQ)
+                </h4>
+
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-1">
+                  <div className="font-bold text-slate-900">1. Bagaimana cara menambah Poin Belajar?</div>
+                  <div className="text-slate-600 leading-relaxed">
+                    Poin didapatkan setiap kali Anda mengklaim misi harian, presensi selfie harian, dan menyelesaikan kuis/latihan dengan benar.
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-1">
+                  <div className="font-bold text-slate-900">2. Mengapa kuis bertimer otomatis terkumpul?</div>
+                  <div className="text-slate-600 leading-relaxed">
+                    Sesi Kuis & Asesmen memiliki batas waktu 15 menit. Saat waktu habis (00:00), sistem secara otomatis mengumpulkan seluruh jawaban Anda ke server.
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-1">
+                  <div className="font-bold text-slate-900">3. Presensi Selfie Harian & Daily Streak</div>
+                  <div className="text-slate-600 leading-relaxed">
+                    Ambil foto selfie presensi setiap hari sekolah. Jika hadir kemarin, streak bertambah 1. Jika terlewat, streak kembali mulai dari 1.
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-slate-100 border border-slate-200 text-center space-y-1">
+                <div className="font-extrabold text-slate-900">Butuh Bantuan Kendala Teknis?</div>
+                <div className="text-slate-500 text-[11px]">
+                  Hubungi Admin Sekolah atau Wali Kelas Anda untuk masalah akun.
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setIsHelpModalOpen(false)}
+              className="w-full py-2.5 bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition cursor-pointer"
+            >
+              Tutup Pusat Bantuan
             </button>
           </div>
         </div>

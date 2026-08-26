@@ -69,7 +69,7 @@ CREATE TABLE profil (
   nama_lengkap    TEXT NOT NULL DEFAULT '',
   peran           peran NOT NULL DEFAULT 'siswa',
   poin            INT NOT NULL DEFAULT 1250,
-  streak          INT NOT NULL DEFAULT 14,
+  streak          INT NOT NULL DEFAULT 0,
   dibuat_pada     TIMESTAMPTZ NOT NULL DEFAULT now(),
   diperbarui_pada TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -244,6 +244,13 @@ CREATE TABLE notifikasi (
   dibaca BOOLEAN NOT NULL DEFAULT false,
   dibuat_pada TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- RLS: notifikasi
+ALTER TABLE notifikasi ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "notifikasi: kelola notifikasi sendiri"
+  ON notifikasi FOR ALL
+  USING (user_id = auth.uid());
 
 -- ============================================================
 -- STEP 3: TRIGGER - AUTO CREATE PROFIL SAAT USER SIGNUP
@@ -490,6 +497,54 @@ CREATE POLICY "undangan: baca undangan sendiri by email"
 CREATE POLICY "undangan: update saat digunakan"
   ON undangan FOR UPDATE
   USING (auth.uid() IS NOT NULL);
+
+-- ============================================================
+-- FUNGSI DATABASE RPC (SECURITY DEFINER): get_peringkat_sekolah
+-- Mengembalikan peringkat siswa per sekolah secara aman tanpa
+-- membuka data pribadi sensitif (seperti email/alamat) siswa lain.
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION get_peringkat_sekolah(p_sekolah_id UUID DEFAULT NULL)
+RETURNS TABLE (
+  rank BIGINT,
+  student_id UUID,
+  nama_lengkap TEXT,
+  poin INT,
+  streak INT,
+  nama_sekolah TEXT
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_user_sekolah_id UUID;
+BEGIN
+  IF p_sekolah_id IS NULL THEN
+    SELECT profil.sekolah_id INTO v_user_sekolah_id
+    FROM profil
+    WHERE profil.id = auth.uid();
+  ELSE
+    v_user_sekolah_id := p_sekolah_id;
+  END IF;
+
+  RETURN QUERY
+  SELECT
+    ROW_NUMBER() OVER (ORDER BY p.poin DESC, p.dibuat_pada ASC)::BIGINT AS rank,
+    p.id AS student_id,
+    p.nama_lengkap,
+    p.poin,
+    p.streak,
+    COALESCE(s.nama, 'Sekolah') AS nama_sekolah
+  FROM profil p
+  LEFT JOIN sekolah s ON s.id = p.sekolah_id
+  WHERE p.peran = 'siswa'
+    AND (v_user_sekolah_id IS NULL OR p.sekolah_id = v_user_sekolah_id)
+  ORDER BY p.poin DESC, p.dibuat_pada ASC;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION get_peringkat_sekolah(UUID) TO authenticated, anon;
 
 -- ============================================================
 -- SELESAI! Semua tabel, trigger, RLS, dan seed data sudah siap.

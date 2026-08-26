@@ -17,8 +17,9 @@ import {
 import Link from "next/link";
 import MarkdownRenderer from "@/components/materi/MarkdownRenderer";
 
-interface QuestionReview {
+export interface QuestionReview {
   id: number;
+  soalId?: string;
   questionText: string;
   studentAnswer: string;
   correctAnswer: string;
@@ -26,57 +27,30 @@ interface QuestionReview {
   explanation: string;
 }
 
-export default function ExamResultClient() {
-  const [openQuestionId, setOpenQuestionId] = useState<number | null>(1);
+export interface ExamResultClientProps {
+  sesiId?: string;
+  judulBab?: string;
+  jenisSesi?: string;
+  score?: number;
+  totalQuestions?: number;
+  correctCount?: number;
+  incorrectCount?: number;
+  reviews?: QuestionReview[];
+}
 
-  // Mock Result Data (88/100 Score, 22 Correct, 3 Incorrect)
-  const score = 88;
-  const totalQuestions = 25;
-  const correctCount = 22;
-  const incorrectCount = 3;
-
-  const reviews: QuestionReview[] = [
-    {
-      id: 1,
-      questionText: `Diketahui barisan aritmatika $3, 7, 11, 15, \\dots$. Tentukan nilai dari suku ke-10 ($U_{10}$)!`,
-      studentAnswer: "39",
-      correctAnswer: "39",
-      isCorrect: true,
-      explanation: `**Langkah Penyelesaian:**\n1. Suku pertama ($a$) = 3\n2. Beda ($b$) = $7 - 3 = 4$\n3. Rumus suku ke-n: $U_n = a + (n - 1)b$\n4. $U_{10} = 3 + (10 - 1) \\times 4 = 3 + 36 = 39$.\n\n**Kesimpulan:** Jawaban Anda **39** adalah BENAR.`,
-    },
-    {
-      id: 2,
-      questionText: `Akar-akar persamaan kuadrat $x^2 - 5x + 6 = 0$ adalah $p$ dan $q$. Tentukan nilai dari $p^2 + q^2$!`,
-      studentAnswer: "13",
-      correctAnswer: "13",
-      isCorrect: true,
-      explanation: `**Langkah Penyelesaian:**\n1. $p + q = -\\frac{b}{a} = 5$\n2. $p \\cdot q = \\frac{c}{a} = 6$\n3. $p^2 + q^2 = (p + q)^2 - 2pq = 5^2 - 2(6) = 25 - 12 = 13$.\n\n**Kesimpulan:** Jawaban Anda **13** adalah BENAR.`,
-    },
-    {
-      id: 3,
-      questionText: `Hitunglah nilai Diskriminan ($D$) dari persamaan kuadrat $2x^2 + 4x - 6 = 0$!`,
-      studentAnswer: "32",
-      correctAnswer: "64",
-      isCorrect: false,
-      explanation: `**Langkah Penyelesaian:**\n1. $a = 2, b = 4, c = -6$\n2. Rumus Diskriminan: $D = b^2 - 4ac$\n3. $D = 4^2 - 4(2)(-6) = 16 + 48 = 64$.\n\n**Analisis Kesalahan:** Perhatikan tanda minus pada $c = -6$. Perkalian $-4 \\times 2 \\times (-6)$ menghasilkan nilai positif $+48$.`,
-    },
-    {
-      id: 4,
-      questionText: `Selesaikan pemfaktoran dari persamaan kuadrat $x^2 - 9 = 0$!`,
-      studentAnswer: "(x - 3)(x + 3) = 0",
-      correctAnswer: "(x - 3)(x + 3) = 0",
-      isCorrect: true,
-      explanation: `**Bentuk Selisih Kuadrat:**\n$$a^2 - b^2 = (a - b)(a + b)$$\nUntuk $x^2 - 9 = (x - 3)(x + 3) = 0$, maka $x = 3$ atau $x = -3$.`,
-    },
-    {
-      id: 5,
-      questionText: `Jika fungsi kuadrat $f(x) = x^2 - 4x + 4$, tentukan titik potong dengan sumbu X!`,
-      studentAnswer: "(2, 0)",
-      correctAnswer: "(2, 0)",
-      isCorrect: true,
-      explanation: `**Titik Potong Sumbu X:**\n$y = 0 \\implies x^2 - 4x + 4 = 0 \\implies (x - 2)^2 = 0 \\implies x = 2$.\nSehingga titik potongnya adalah $(2, 0)$.`,
-    },
-  ];
+export default function ExamResultClient({
+  sesiId,
+  judulBab = "Bab Pembelajaran",
+  jenisSesi = "Latihan",
+  score = 0,
+  totalQuestions = 0,
+  correctCount = 0,
+  incorrectCount = 0,
+  reviews = [],
+}: ExamResultClientProps) {
+  const [openQuestionId, setOpenQuestionId] = useState<number | null>(
+    reviews.length > 0 ? reviews[0].id : null
+  );
 
   return (
     <main className="min-h-screen bg-[#F8FAFC] text-slate-900 pb-20 font-sans">
@@ -121,7 +95,7 @@ export default function ExamResultClient() {
               Selamat! Kamu Mencapai Skor {score}! 🎉
             </h1>
             <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-              Kamu berhasil menyelesaikan 25 soal dengan baik. Tinjau kembali rincian jawaban & pembahasan di bawah untuk memperdalam pemahamanmu.
+              Kamu berhasil menyelesaikan {totalQuestions} soal ({judulBab}) dengan baik. Tinjau kembali rincian jawaban & pembahasan di bawah untuk memperdalam pemahamanmu.
             </p>
 
             {/* Reward Points Earned */}

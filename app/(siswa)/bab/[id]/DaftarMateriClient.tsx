@@ -35,6 +35,9 @@ interface DaftarMateriClientProps {
   urutanBab: number;
   listMateri: MateriItem[];
   initialMateriId?: string;
+  chapterProgressPercent?: number;
+  answeredCount?: number;
+  totalSoalCount?: number;
 }
 
 export default function DaftarMateriClient({
@@ -44,6 +47,9 @@ export default function DaftarMateriClient({
   urutanBab,
   listMateri,
   initialMateriId,
+  chapterProgressPercent = 0,
+  answeredCount = 0,
+  totalSoalCount = 0,
 }: DaftarMateriClientProps) {
   // If a specific materiId is selected, show Detail Materi Reading view (image_71b8f5.png)
   const [selectedMateriId, setSelectedMateriId] = useState<string | null>(
@@ -82,7 +88,7 @@ export default function DaftarMateriClient({
           <div className="flex items-center gap-3">
             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Progress Bab: 25% Selesai</span>
+              <span>Progress Bab: {chapterProgressPercent}% Selesai</span>
             </div>
           </div>
         </div>
@@ -109,7 +115,7 @@ export default function DaftarMateriClient({
                 </p>
               </div>
 
-              {/* Progress Gauge 25% */}
+              {/* Progress Gauge Real Database Ratio */}
               <div className="saas-card p-5 rounded-3xl border border-slate-200 shadow-xs flex items-center gap-4 shrink-0 bg-slate-50">
                 <div className="relative w-16 h-16 flex items-center justify-center">
                   <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
@@ -122,7 +128,7 @@ export default function DaftarMateriClient({
                     />
                     <path
                       className="text-[#0F172A]"
-                      strokeDasharray="25, 100"
+                      strokeDasharray={`${chapterProgressPercent}, 100`}
                       strokeWidth="3.5"
                       strokeLinecap="round"
                       stroke="currentColor"
@@ -131,15 +137,15 @@ export default function DaftarMateriClient({
                     />
                   </svg>
                   <span className="absolute text-sm font-extrabold text-[#0F172A]">
-                    25%
+                    {chapterProgressPercent}%
                   </span>
                 </div>
                 <div>
                   <div className="text-xs font-extrabold text-[#0F172A]">
-                    25% Selesai
+                    {chapterProgressPercent}% Selesai
                   </div>
                   <div className="text-[10px] text-slate-500 font-medium mt-0.5">
-                    1 dari 4 Modul Tuntas
+                    {answeredCount} dari {totalSoalCount > 0 ? totalSoalCount : displayModules.length} Soal Dikerjakan
                   </div>
                 </div>
               </div>
@@ -153,7 +159,7 @@ export default function DaftarMateriClient({
                   <span>Modul Pembelajaran Bab Ini</span>
                 </h2>
                 <span className="text-xs text-slate-500 font-semibold">
-                  {displayModules.length + 1} Sesi Terjadwal
+                  {displayModules.length} Modul Terjadwal
                 </span>
               </div>
 
@@ -222,7 +228,7 @@ export default function DaftarMateriClient({
                     <div>
                       <div className="flex items-center gap-2">
                         <h3 className="text-sm font-extrabold text-[#0F172A]">
-                          2.4 Evaluasi Akhir / Asesmen Bab
+                          Evaluasi Akhir / Asesmen Bab
                         </h3>
                         <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
                           Kuis In-Class
@@ -264,7 +270,7 @@ export default function DaftarMateriClient({
                 </button>
                 <span>/</span>
                 <span className="text-[#0F172A] font-bold">
-                  {selectedMateri?.judul || "2.3 Formula ABC & Diskriminan"}
+                  {selectedMateri?.judul || "Materi Pembelajaran"}
                 </span>
               </div>
 
@@ -330,32 +336,42 @@ export default function DaftarMateriClient({
                     <span>Isi Modul (Outline)</span>
                   </div>
                   <div className="space-y-1.5 text-xs text-slate-600 font-medium">
-                    <a
-                      href="#"
-                      className="block p-2 rounded-xl bg-slate-100 text-[#0F172A] font-bold"
+                    <button
+                      onClick={() => {
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
+                      className="w-full text-left p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-[#0F172A] font-bold transition cursor-pointer"
                     >
-                      1. Konsep Utama
-                    </a>
-                    <a
-                      href="#"
-                      className="block p-2 rounded-xl hover:bg-slate-50 transition"
+                      1. Judul & Konsep Utama
+                    </button>
+                    <button
+                      onClick={() => {
+                        const el = document.querySelector(".prose");
+                        if (el) el.scrollIntoView({ behavior: "smooth" });
+                      }}
+                      className="w-full text-left p-2 rounded-xl hover:bg-slate-100 text-slate-700 transition cursor-pointer"
                     >
-                      2. Rumus & Contoh Soal
-                    </a>
-                    <a
-                      href="#"
-                      className="block p-2 rounded-xl hover:bg-slate-50 transition"
+                      2. Rumus & Penjelasan Rinci
+                    </button>
+                    <button
+                      onClick={() => {
+                        const el = document.getElementById("tutor-chat-box");
+                        if (el) el.scrollIntoView({ behavior: "smooth" });
+                      }}
+                      className="w-full text-left p-2 rounded-xl hover:bg-slate-100 text-slate-700 transition cursor-pointer"
                     >
-                      3. Penjelasan Rinci
-                    </a>
+                      3. Tanya AI Tutor Sokratik
+                    </button>
                   </div>
                 </div>
 
                 {/* Socratic THINKSY AI Tutor Chat Widget */}
-                <TutorChat
-                  materiJudul={selectedMateri?.judul || "Materi Pembelajaran"}
-                  materiKonten={selectedMateri?.konten_markdown || selectedMateri?.konten}
-                />
+                <div id="tutor-chat-box">
+                  <TutorChat
+                    materiJudul={selectedMateri?.judul || "Materi Pembelajaran"}
+                    materiKonten={selectedMateri?.konten_markdown || selectedMateri?.konten}
+                  />
+                </div>
               </div>
             </div>
           </div>

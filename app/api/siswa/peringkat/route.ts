@@ -18,35 +18,43 @@ export async function GET() {
       );
     }
 
-    // STRICTLY FILTER BY ROLE = 'siswa' ONLY using adminSupabase (or fallback to supabase)
-    let { data: leaderboardData, error } = await adminSupabase
+    // 1. Ambil profil user saat ini untuk mengetahui sekolah_id miliknya
+    const { data: userProfil } = await supabase
       .from("profil")
-      .select(`
-        id,
-        nama_lengkap,
-        poin,
-        streak,
-        peran,
-        dibuat_pada,
-        sekolah (
-          nama
-        )
-      `)
-      .eq("peran", "siswa")
-      .order("poin", { ascending: false })
-      .order("dibuat_pada", { ascending: true })
-      .limit(100);
+      .select("sekolah_id")
+      .eq("id", user.id)
+      .single();
 
-    if (error || !leaderboardData || leaderboardData.length <= 1) {
-      const fallbackRes = await supabase
+    const userSekolahId = userProfil?.sekolah_id || null;
+
+    // 2. Panggil RPC SECURITY DEFINER `get_peringkat_sekolah` per sekolah_id
+    const { data: rpcData, error: rpcError } = await supabase.rpc(
+      "get_peringkat_sekolah",
+      { p_sekolah_id: userSekolahId }
+    );
+
+    let leaderboardRows: any[] = [];
+
+    if (!rpcError && rpcData && rpcData.length > 0) {
+      leaderboardRows = rpcData.map((row: any) => ({
+        rank: Number(row.rank),
+        id: row.student_id,
+        name: row.nama_lengkap || "Siswa",
+        points: row.poin || 0,
+        streak: row.streak || 0,
+        school: row.nama_sekolah || "Sekolah",
+        isCurrentUser: row.student_id === user.id,
+      }));
+    } else {
+      // 3. Fallback jika RPC belum di-deploy: Query via adminSupabase difilter ketat per sekolah_id & peran = 'siswa'
+      let query = adminSupabase
         .from("profil")
         .select(`
           id,
           nama_lengkap,
           poin,
           streak,
-          peran,
-          dibuat_pada,
+          sekolah_id,
           sekolah (
             nama
           )
@@ -56,31 +64,28 @@ export async function GET() {
         .order("dibuat_pada", { ascending: true })
         .limit(100);
 
-      if (fallbackRes.data && fallbackRes.data.length > 0) {
-        leaderboardData = fallbackRes.data;
+      if (userSekolahId) {
+        query = query.eq("sekolah_id", userSekolahId);
       }
-    }
 
-    if (error) {
-      console.error("[PERINGKAT ERROR]", error.message);
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+      const { data: fallbackData } = await query;
 
-    // Format output leaderboard
-    const formattedLeaderboard = (leaderboardData || []).map((student, index) => ({
-      rank: index + 1,
-      id: student.id,
-      name: student.nama_lengkap || "Siswa",
-      points: student.poin || 0,
-      streak: student.streak || 0,
-      school: (student.sekolah as any)?.nama || "SMP Negeri 1 Nusantara",
-      isCurrentUser: student.id === user.id,
-    }));
+      leaderboardRows = (fallbackData || []).map((student: any, index: number) => ({
+        rank: index + 1,
+        id: student.id,
+        name: student.nama_lengkap || "Siswa",
+        points: student.poin || 0,
+        streak: student.streak || 0,
+        school: student.sekolah?.nama || "Sekolah",
+        isCurrentUser: student.id === user.id,
+      }));
+    }
 
     return NextResponse.json({
       success: true,
-      leaderboard: formattedLeaderboard,
-      totalStudents: formattedLeaderboard.length,
+      leaderboard: leaderboardRows,
+      totalStudents: leaderboardRows.length,
+      scope: "sekolah",
     });
   } catch (err: any) {
     return NextResponse.json(

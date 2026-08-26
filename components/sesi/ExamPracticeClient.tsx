@@ -26,13 +26,11 @@ interface ExamQuestion {
   pertanyaan: string;
   tipeSoal: "pilihan_ganda" | "esai";
   opsiSoal?: Array<{ id: string; teksOpsi: string }>;
-  kunciJawaban?: string;
-  pembahasan?: string;
 }
 
 interface ExamPracticeClientProps {
   sesiId: string;
-  mode?: "latihan" | "inclass";
+  mode?: "latihan" | "inclass" | "kuis" | "assessment" | "eksplorasi";
   judulSesi?: string;
   soalList: ExamQuestion[];
   namaSiswa?: string;
@@ -42,88 +40,26 @@ export default function ExamPracticeClient({
   sesiId,
   mode = "latihan",
   judulSesi = "UJIAN AKHIR SEMESTER",
-  soalList,
-  namaSiswa = "Budi Kartika",
+  soalList = [],
+  namaSiswa = "Siswa",
 }: ExamPracticeClientProps) {
   const router = useRouter();
-  const isInClassMode = mode === "inclass";
-
-  // Create 25 Math & Science Questions for Outside-Class Practice Exam (image_71b55b.png)
-  const fullQuestions: ExamQuestion[] = Array.from({ length: 25 }, (_, i) => {
-    const idx = i + 1;
-    if (idx === 1) {
-      return {
-        id: `q-1`,
-        pertanyaan: `Diketahui barisan aritmatika $3, 7, 11, 15, \\dots$. Tentukan nilai dari suku ke-10 ($U_{10}$)!`,
-        tipeSoal: "pilihan_ganda",
-        opsiSoal: [
-          { id: "opt-1-a", teksOpsi: "35" },
-          { id: "opt-1-b", teksOpsi: "39" },
-          { id: "opt-1-c", teksOpsi: "43" },
-          { id: "opt-1-d", teksOpsi: "47" },
-        ],
-        kunciJawaban: "opt-1-b",
-        pembahasan: `**Suku ke-n Barisan Aritmatika:**\n$$U_n = a + (n - 1)b$$\nDi mana $a = 3$ dan beda $b = 7 - 3 = 4$.\n$$U_{10} = 3 + (10 - 1) \\times 4 = 3 + 36 = 39$$`,
-      };
-    } else if (idx === 2) {
-      return {
-        id: `q-2`,
-        pertanyaan: `Selesaikan persamaan linear satu variabel berikut: $4x - 7 = 2x + 9$. Berapakah nilai $x$?`,
-        tipeSoal: "pilihan_ganda",
-        opsiSoal: [
-          { id: "opt-2-a", teksOpsi: "6" },
-          { id: "opt-2-b", teksOpsi: "8" },
-          { id: "opt-2-c", teksOpsi: "10" },
-          { id: "opt-2-d", teksOpsi: "12" },
-        ],
-        kunciJawaban: "opt-2-b",
-        pembahasan: `**Penyelesaian PLSV:**\n$$4x - 2x = 9 + 7 \\implies 2x = 16 \\implies x = 8$$`,
-      };
-    } else if (idx === 3) {
-      return {
-        id: `q-3`,
-        pertanyaan: `Berapakah gradien ($m$) dari garis lurus yang melalui titik $(1, 2)$ dan $(3, 10)$?`,
-        tipeSoal: "pilihan_ganda",
-        opsiSoal: [
-          { id: "opt-3-a", teksOpsi: "2" },
-          { id: "opt-3-b", teksOpsi: "3" },
-          { id: "opt-3-c", teksOpsi: "4" },
-          { id: "opt-3-d", teksOpsi: "5" },
-        ],
-        kunciJawaban: "opt-3-c",
-        pembahasan: `**Gradien Garis Lurus:**\n$$m = \\frac{y_2 - y_1}{x_2 - x_1} = \\frac{10 - 2}{3 - 1} = \\frac{8}{2} = 4$$`,
-      };
-    }
-    return {
-      id: `q-${idx}`,
-      pertanyaan: `Soal #${idx} (Teorema Pythagoras): Sebuah segitiga siku-siku memiliki alas ${idx * 3}\\text{ cm} dan tinggi ${idx * 4}\\text{ cm}. Tentukan hipotenusa (sisi miring) segitiga tersebut!`,
-      tipeSoal: "pilihan_ganda",
-      opsiSoal: [
-        { id: `opt-${idx}-a`, teksOpsi: `${idx * 5} cm` },
-        { id: `opt-${idx}-b`, teksOpsi: `${idx * 5 + 2} cm` },
-        { id: `opt-${idx}-c`, teksOpsi: `${idx * 5 + 4} cm` },
-        { id: `opt-${idx}-d`, teksOpsi: `${idx * 5 + 6} cm` },
-      ],
-      kunciJawaban: `opt-${idx}-a`,
-      pembahasan: `**Teorema Pythagoras:**\n$$c = \\sqrt{(${idx * 3})^2 + (${idx * 4})^2} = \\sqrt{${(idx * 3) ** 2 + (idx * 4) ** 2}} = ${idx * 5}\\text{ cm}$$`,
-    };
-  });
-
-  const activeQuestions = isInClassMode
-    ? fullQuestions.slice(0, 10)
-    : fullQuestions;
+  const activeQuestions = soalList;
+  const isInClassMode = mode === "inclass" || mode === "assessment";
+  const hasAI = mode === "latihan" || mode === "eksplorasi";
 
   // Active State
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [flagged, setFlagged] = useState<Record<string, boolean>>({});
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  // Live 30-Minute Countdown Timer (For Outside-Class Practice Exam)
-  const [timeLeftSeconds, setTimeLeftSeconds] = useState(30 * 60);
+  // Live 15-Minute Countdown Timer for Quiz & Exam Assessment
+  const [timeLeftSeconds, setTimeLeftSeconds] = useState(15 * 60);
 
   useEffect(() => {
-    if (isInClassMode) return; // No timer for In-Class Assessment
+    if (submitting) return;
 
     const interval = setInterval(() => {
       setTimeLeftSeconds((prev) => {
@@ -137,7 +73,7 @@ export default function ExamPracticeClient({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isInClassMode]);
+  }, [submitting]);
 
   const formatTimer = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -149,11 +85,13 @@ export default function ExamPracticeClient({
 
   const currentQ = activeQuestions[currentIdx];
 
-  const handleSelectAnswer = (optionId: string) => {
-    setAnswers((prev) => ({ ...prev, [currentQ.id]: optionId }));
+  const handleSelectAnswer = (optionIdOrText: string) => {
+    if (!currentQ) return;
+    setAnswers((prev) => ({ ...prev, [currentQ.id]: optionIdOrText }));
   };
 
   const handleToggleFlag = () => {
+    if (!currentQ) return;
     setFlagged((prev) => ({ ...prev, [currentQ.id]: !prev[currentQ.id] }));
   };
 
@@ -164,14 +102,14 @@ export default function ExamPracticeClient({
   >([
     {
       sender: "tutor",
-      text: "Halo Budi! Saya THINKSY AI Sokratik Tutor. Saya di sini untuk memberikan petunjuk & konsep tanpa memberikan jawaban langsung. Ada yang ingin kamu tanyakan mengenai soal ini?",
+      text: `Halo ${namaSiswa}! Saya THINKSY AI Sokratik Tutor. Saya di sini untuk memberikan petunjuk & konsep tanpa memberikan jawaban langsung. Ada yang ingin kamu tanyakan mengenai soal ini?`,
     },
   ]);
   const [inputMsg, setInputMsg] = useState("");
   const [isAiLoading, setIsAiLoading] = useState(false);
 
   const handleSendAiMessage = async () => {
-    if (!inputMsg.trim() || isAiLoading) return;
+    if (!inputMsg.trim() || isAiLoading || !currentQ) return;
 
     const userText = inputMsg;
     setInputMsg("");
@@ -179,11 +117,13 @@ export default function ExamPracticeClient({
     setIsAiLoading(true);
 
     try {
-      const response = await fetch("/api/tutor", {
+      const response = await fetch("/api/tutor/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          pesan: userText,
+          sesiId,
+          soalId: currentQ.id,
+          message: userText,
           materiJudul: `Soal #${currentIdx + 1}`,
           materiKonten: `${currentQ.pertanyaan}\n\nATURAN PENTING: Jangan memberikan jawaban langsung! Berikan bimbingan Sokratik bertahap.`,
         }),
@@ -194,8 +134,8 @@ export default function ExamPracticeClient({
         {
           sender: "tutor",
           text:
-            data.jawaban ||
-            "Mari kita periksa bentuk umum persamaannya terlebih dahulu. Apakah kamu ingat rumus suku ke-n atau rumus ABC?",
+            data.reply ||
+            "Mari kita periksa konsep utamanya terlebih dahulu. Langkah pertama apa yang ingin kamu coba?",
         },
       ]);
     } catch {
@@ -203,7 +143,7 @@ export default function ExamPracticeClient({
         ...prev,
         {
           sender: "tutor",
-          text: "Coba tinjau kembali koefisien a, b, dan c dari soal ini. Langkah pertama apa yang ingin kamu coba?",
+          text: "Coba tinjau kembali langkah awal penyelesaian dari soal ini. Apa yang bisa dikelompokkan dulu?",
         },
       ]);
     } finally {
@@ -211,12 +151,76 @@ export default function ExamPracticeClient({
     }
   };
 
-  const handleFinishExam = () => {
-    // Save answers & score simulation, redirect to Quiz Result Review Screen (image_71b4df.png)
-    router.push(`/hasil/${sesiId}?mode=${mode}`);
+  const handleFinishExam = async () => {
+    setIsSubmitModalOpen(false);
+    setSubmitting(true);
+    try {
+      const payloadAnswers = activeQuestions.map((q) => {
+        const userAns = answers[q.id];
+        return {
+          soalId: q.id,
+          opsiDipilihId: q.tipeSoal === "pilihan_ganda" ? userAns : undefined,
+          jawabanTeks: q.tipeSoal === "esai" ? userAns : undefined,
+        };
+      });
+
+      const res = await fetch("/api/quiz/grade-essay", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sesiId,
+          jawabanList: payloadAnswers,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Gagal mengirimkan kuis.");
+      }
+
+      router.push(`/hasil/${sesiId}`);
+    } catch (err: any) {
+      alert(err.message || "Gagal mengirimkan kuis.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const answeredCount = Object.keys(answers).length;
+
+  if (submitting) {
+    return (
+      <div className="min-h-screen bg-mesh-gradient flex flex-col items-center justify-center p-6 text-center">
+        <div className="saas-card rounded-3xl p-8 max-w-md w-full border border-slate-200 shadow-xl bg-white space-y-4">
+          <Loader2 className="w-10 h-10 text-[#0F172A] animate-spin mx-auto" />
+          <h2 className="text-xl font-extrabold text-[#0F172A]">Menilai Jawaban Kuis...</h2>
+          <p className="text-xs text-slate-500">
+            Sistem server sedang memproses penilaian otomatis dan analisis AI. Mohon tunggu sebentar.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentQ) {
+    return (
+      <div className="min-h-screen bg-mesh-gradient flex flex-col items-center justify-center p-6 text-center">
+        <div className="saas-card rounded-3xl p-8 max-w-md w-full border border-slate-200 shadow-xl bg-white space-y-4">
+          <BrainCircuit className="w-10 h-10 text-[#0F172A] mx-auto" />
+          <h2 className="text-xl font-extrabold text-[#0F172A]">Kuis Tidak Memuat Soal</h2>
+          <p className="text-xs text-slate-500">
+            Tidak ada soal yang tersedia untuk sesi kuis ini. Silakan kembali ke beranda.
+          </p>
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center gap-2 py-3 px-6 rounded-2xl bg-[#0F172A] text-white text-xs font-bold"
+          >
+            Kembali ke Beranda
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col font-sans">
@@ -252,13 +256,15 @@ export default function ExamPracticeClient({
             )}
 
             {/* Socratic AI Assistant Floating Button */}
-            <button
-              onClick={() => setIsAiOpen(true)}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white text-xs font-bold shadow-md transition cursor-pointer"
-            >
-              <Sparkles className="w-4 h-4 text-amber-400" />
-              <span className="hidden sm:inline">Tutor AI Sokratik</span>
-            </button>
+            {hasAI && (
+              <button
+                onClick={() => setIsAiOpen(true)}
+                className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white text-xs font-bold shadow-md transition cursor-pointer"
+              >
+                <Sparkles className="w-4 h-4 text-amber-400" />
+                <span className="hidden sm:inline">Tutor AI Sokratik</span>
+              </button>
+            )}
           </div>
         </div>
       </header>
