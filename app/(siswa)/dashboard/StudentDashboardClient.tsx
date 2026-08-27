@@ -147,7 +147,7 @@ export default function StudentDashboardClient({
   }, []);
 
   // Dynamic Gamification State (Points, Streak, Presensi)
-  const [learningPoints, setLearningPoints] = useState(userProfile?.poin || 1250);
+  const [learningPoints, setLearningPoints] = useState(userProfile?.poin ?? 0);
   const [dailyStreak, setDailyStreak] = useState(userProfile?.streak ?? 0);
   const [isCheckedIn, setIsCheckedIn] = useState(userProfile?.isCheckedIn || false);
   const [checkInTime, setCheckInTime] = useState<string | null>(

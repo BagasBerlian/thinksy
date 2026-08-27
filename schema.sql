@@ -68,7 +68,7 @@ CREATE TABLE profil (
   sekolah_id      UUID REFERENCES sekolah(id) ON DELETE SET NULL,
   nama_lengkap    TEXT NOT NULL DEFAULT '',
   peran           peran NOT NULL DEFAULT 'siswa',
-  poin            INT NOT NULL DEFAULT 1250,
+  poin            INT NOT NULL DEFAULT 0,
   streak          INT NOT NULL DEFAULT 0,
   dibuat_pada     TIMESTAMPTZ NOT NULL DEFAULT now(),
   diperbarui_pada TIMESTAMPTZ NOT NULL DEFAULT now()

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import GuruLayout from "@/components/guru/GuruLayout";
 import EditorSoalModal from "@/components/guru/EditorSoalModal";
 import MarkdownRenderer from "@/components/materi/MarkdownRenderer";
@@ -37,12 +37,11 @@ export default function BankSoalManualPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [editingQuestion, setEditingQuestion] = useState<QuestionItem | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
-
   const [questions, setQuestions] = useState<QuestionItem[]>([
     {
       id: "#Q-8021",
       pertanyaan: "Diketahui persamaan kuadrat $x^2 - 5x + 6 = 0$. Akar-akar persamaan tersebut adalah...",
-      bab: "ALJEBAR",
+      bab: "Aljabar",
       tipe: "Pilihan Ganda",
       kesulitan: "Mudah",
       kesulitanColor: "bg-emerald-500",
@@ -50,20 +49,49 @@ export default function BankSoalManualPage() {
     {
       id: "#Q-8022",
       pertanyaan: "Buktikan dengan induksi matematika bahwa $1 + 2 + 3 + ... + n = \\frac{n(n+1)}{2}$",
-      bab: "KALKULUS",
+      bab: "Aljabar",
       tipe: "Esai",
       kesulitan: "Sulit",
       kesulitanColor: "bg-red-500",
     },
-    {
-      id: "#Q-8023",
-      pertanyaan: "Tentukan nilai $x$ yang memenuhi persamaan $\\log_2(x) + \\log_2(x-3) = 2$",
-      bab: "ALJEBAR",
-      tipe: "Isian",
-      kesulitan: "Sedang",
-      kesulitanColor: "bg-amber-500",
-    },
   ]);
+
+  useEffect(() => {
+    async function fetchPublishedQuestions() {
+      try {
+        const { createClient } = await import("@/lib/supabase/client");
+        const supabase = createClient();
+        const { data: soalRows } = await supabase
+          .from("soal")
+          .select(`
+            id,
+            pertanyaan,
+            tipe_soal,
+            tingkat_soal,
+            bab (
+              judul
+            )
+          `)
+          .eq("status_soal", "dipublikasi")
+          .order("dibuat_pada", { ascending: false });
+
+        if (soalRows && soalRows.length > 0) {
+          const formatted: QuestionItem[] = soalRows.map((s: any) => ({
+            id: s.id.substring(0, 8),
+            pertanyaan: s.pertanyaan,
+            bab: s.bab?.judul || "Matematika",
+            tipe: s.tipe_soal === "pilihan_ganda" ? "Pilihan Ganda" : s.tipe_soal === "esai" ? "Esai" : "Isian",
+            kesulitan: s.tingkat_soal === "mudah" ? "Mudah" : s.tingkat_soal === "sulit" ? "Sulit" : "Sedang",
+            kesulitanColor: s.tingkat_soal === "mudah" ? "bg-emerald-500" : s.tingkat_soal === "sulit" ? "bg-red-500" : "bg-amber-500",
+          }));
+          setQuestions(formatted);
+        }
+      } catch {
+        // silent fallback
+      }
+    }
+    fetchPublishedQuestions();
+  }, []);
 
   const handleSaveQuestion = (newQ: any) => {
     if (editingQuestion) {
@@ -73,7 +101,7 @@ export default function BankSoalManualPage() {
             ? {
                 ...q,
                 pertanyaan: newQ.pertanyaan,
-                bab: newQ.bab?.includes("Persamaan") ? "ALJEBAR" : "GEOMETRI",
+                bab: newQ.bab || "Matematika",
                 tipe: newQ.tipeSoal === "pilihan_ganda" ? "Pilihan Ganda" : newQ.tipeSoal === "esai" ? "Esai" : "Isian",
                 kesulitan: newQ.kesulitan === "mudah" ? "Mudah" : newQ.kesulitan === "sulit" ? "Sulit" : "Sedang",
                 kesulitanColor: newQ.kesulitan === "mudah" ? "bg-emerald-500" : newQ.kesulitan === "sulit" ? "bg-red-500" : "bg-amber-500",
@@ -87,7 +115,7 @@ export default function BankSoalManualPage() {
       const newItem: QuestionItem = {
         id: newQ.id || `#Q-${Math.floor(1000 + Math.random() * 9000)}`,
         pertanyaan: newQ.pertanyaan,
-        bab: newQ.bab?.includes("Persamaan") ? "ALJEBAR" : "GEOMETRI",
+        bab: newQ.bab || "Matematika",
         tipe: newQ.tipeSoal === "pilihan_ganda" ? "Pilihan Ganda" : newQ.tipeSoal === "esai" ? "Esai" : "Isian",
         kesulitan: newQ.kesulitan === "mudah" ? "Mudah" : newQ.kesulitan === "sulit" ? "Sulit" : "Sedang",
         kesulitanColor: newQ.kesulitan === "mudah" ? "bg-emerald-500" : newQ.kesulitan === "sulit" ? "bg-red-500" : "bg-amber-500",

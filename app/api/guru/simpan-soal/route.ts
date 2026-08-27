@@ -37,7 +37,14 @@ export async function POST(req: Request) {
       );
     }
 
-    // Insert to `soal` table
+    // Fetch teacher profile for sekolah_id
+    const { data: teacherProfil } = await supabase
+      .from("profil")
+      .select("sekolah_id")
+      .eq("id", user.id)
+      .single();
+
+    // Insert to `soal` table (AI generated questions saved as "draft" for curation)
     const { data: insertedSoal, error: insertError } = await supabase
       .from("soal")
       .insert({
@@ -46,10 +53,11 @@ export async function POST(req: Request) {
         tipe_soal: tipeSoal || "pilihan_ganda",
         tingkat_soal: tingkatSoal || "sedang",
         sumber_konten: sumberKonten,
-        status_soal: "dipublikasi",
+        status_soal: sumberKonten === "ai_generated" ? "draft" : "dipublikasi",
         kunci_jawaban: kunciJawaban || "",
         pembahasan: pembahasan || "",
         pembuat_id: user.id,
+        sekolah_id: teacherProfil?.sekolah_id || null,
       })
       .select("id")
       .single();

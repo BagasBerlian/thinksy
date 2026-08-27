@@ -4,8 +4,6 @@ import { createClient } from "@/lib/supabase/server";
 export async function GET(request: Request) {
   try {
     const supabase = await createClient();
-    const { searchParams } = new URL(request.url);
-    const kelasParam = searchParams.get("kelas") || "Semua";
 
     const {
       data: { user },
@@ -14,6 +12,13 @@ export async function GET(request: Request) {
     if (!user) {
       return NextResponse.json({ error: "Tidak terautentikasi." }, { status: 401 });
     }
+
+    // Get teacher profile & sekolah_id
+    const { data: teacherProfil } = await supabase
+      .from("profil")
+      .select("sekolah_id")
+      .eq("id", user.id)
+      .single();
 
     const formattedDate = new Date().toISOString().split("T")[0];
 
@@ -28,16 +33,20 @@ export async function GET(request: Request) {
         waktu_masuk,
         foto_url,
         status,
-        profil:siswa_id (
+        profil:siswa_id!inner (
           id,
-          nama_lengkap
+          nama_lengkap,
+          sekolah_id
         )
       `
       )
-      .eq("tanggal", formattedDate)
-      .order("waktu_masuk", { ascending: false });
+      .eq("tanggal", formattedDate);
 
-    const { data: presensiList, error } = await query;
+    if (teacherProfil?.sekolah_id) {
+      query = query.eq("profil.sekolah_id", teacherProfil.sekolah_id);
+    }
+
+    const { data: presensiList, error } = await query.order("waktu_masuk", { ascending: false });
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
@@ -74,21 +83,28 @@ export async function POST(request: Request) {
       body = {};
     }
 
+    const presensiIds = body.presensiIds || [];
     const formattedDate = new Date().toISOString().split("T")[0];
 
-    // Mark attendance records as verified/confirmed by teacher
-    const { error: updateError } = await supabase
+    let updateQuery = supabase
       .from("presensi")
       .update({ status: "Terverifikasi" })
       .eq("tanggal", formattedDate);
 
+    if (presensiIds.length > 0) {
+      updateQuery = updateQuery.in("id", presensiIds);
+    }
+
+    const { error: updateError, count } = await updateQuery;
+
     if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 500 });
+      return NextResponse.json({ error: "Gagal memverifikasi: " + updateError.message }, { status: 500 });
     }
 
     return NextResponse.json({
       success: true,
-      message: "Absensi kelas berhasil diverifikasi dan disimpan oleh Guru!",
+      count: count || presensiIds.length,
+      message: `Presensi berhasil diverifikasi dan disimpan!`,
     });
   } catch (err: any) {
     return NextResponse.json(

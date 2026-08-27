@@ -293,37 +293,44 @@ export default function GuruDashboardPage() {
     },
   ];
 
-  // Fetch real presensi from API if available
+  const [dbTotalSiswa, setDbTotalSiswa] = useState<number | null>(null);
+  const [dbTotalSoal, setDbTotalSoal] = useState<number | null>(null);
+  const [dbPendingGrading, setDbPendingGrading] = useState<number | null>(null);
+
+  // Fetch real database counts on mount
   useEffect(() => {
-    async function loadPresensi() {
+    async function fetchRealStats() {
       try {
-        const res = await fetch("/api/guru/presensi");
-        if (res.ok) {
-          const data = await res.json();
-          if (data.presensi && data.presensi.length > 0) {
-            const apiPresensi = data.presensi.map((p: any, idx: number) => ({
-              id: p.id || `p-${idx}`,
-              name: p.profil?.nama_lengkap || `Siswa ${idx + 1}`,
-              class: "Kelas 8A",
-              isOnline: true,
-              hasAttended: true,
-              timeIn: p.waktu_masuk ? new Date(p.waktu_masuk).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) + " WIB" : "07:45 WIB",
-              selfieUrl: p.foto_url || sampleStudentsAttendance[idx % sampleStudentsAttendance.length].selfieUrl,
-              status: p.status || "Terverifikasi",
-              scoreAvg: 85,
-            }));
-            setStudentPresenceList((prev) => {
-              const existingIds = new Set(prev.map((s) => s.id));
-              const unique = apiPresensi.filter((s: any) => !existingIds.has(s.id));
-              return [...unique, ...prev];
-            });
-          }
-        }
+        const { createClient } = await import("@/lib/supabase/client");
+        const supabase = createClient();
+        
+        // Count students
+        const { count: studentCount } = await supabase
+          .from("profil")
+          .select("id", { count: "exact", head: true })
+          .eq("peran", "siswa");
+
+        if (typeof studentCount === "number") setDbTotalSiswa(studentCount);
+
+        // Count published questions
+        const { count: soalCount } = await supabase
+          .from("soal")
+          .select("id", { count: "exact", head: true });
+
+        if (typeof soalCount === "number") setDbTotalSoal(soalCount);
+
+        // Count pending essay grading
+        const { count: pendingCount } = await supabase
+          .from("jawaban")
+          .select("id", { count: "exact", head: true })
+          .eq("is_benar", false);
+
+        if (typeof pendingCount === "number") setDbPendingGrading(pendingCount);
       } catch {
-        // fallback
+        // silent fallback
       }
     }
-    loadPresensi();
+    fetchRealStats();
   }, []);
 
   // Load existing classes from API on mount

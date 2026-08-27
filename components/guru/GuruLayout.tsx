@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -52,6 +52,32 @@ export default function GuruLayout({ children, userProfile }: GuruLayoutProps) {
   const [settingsSavedSuccess, setSettingsSavedSuccess] = useState(false);
   const [activeSettingsTab, setActiveSettingsTab] = useState<"profil" | "ai" | "notif" | "keamanan">("profil");
 
+  useEffect(() => {
+    async function fetchLoggedUser() {
+      if (!userProfile) {
+        try {
+          const { createClient } = await import("@/lib/supabase/client");
+          const supabase = createClient();
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const { data: profil } = await supabase
+              .from("profil")
+              .select("nama_lengkap, email, peran")
+              .eq("id", user.id)
+              .single();
+            if (profil) {
+              setSettingsNama(profil.nama_lengkap || user.email?.split("@")[0] || "Pengajar");
+              setSettingsEmail(profil.email || user.email || "");
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
+    }
+    fetchLoggedUser();
+  }, [userProfile]);
+
   const teacherName = settingsNama;
   const teacherRole = userProfile?.peran === "superadmin" ? "Administrator" : "Guru Matematika";
 
@@ -65,7 +91,7 @@ export default function GuruLayout({ children, userProfile }: GuruLayoutProps) {
     {
       id: 2,
       title: "Draft Soal AI Siap Ditinjau",
-      desc: "Anthropic AI telah menghasilkan 12 set soal Eksplorasi Aljabar Baru.",
+      desc: "Gemini AI telah menghasilkan 12 set soal Eksplorasi Aljabar Baru.",
       time: "25 menit yang lalu",
     },
     {

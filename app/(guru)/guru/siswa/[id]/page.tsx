@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import GuruLayout from "@/components/guru/GuruLayout";
 import Link from "next/link";
 import {
@@ -27,7 +27,7 @@ export default function GuruDetailSiswaPage({
 
   const [activeTab, setActiveTab] = useState<"riwayat" | "log_ai">("riwayat");
 
-  const studentData = {
+  const [studentData, setStudentData] = useState({
     id: studentId,
     name: "Ahmad Raihan",
     nis: "19283746",
@@ -40,12 +40,12 @@ export default function GuruDetailSiswaPage({
     totalTime: "24j 15m",
     modulesCompleted: 18,
     performanceTrend: "+5.2% Bulan ini",
-  };
+  });
 
-  const sessionHistory = [
+  const [sessionHistory, setSessionHistory] = useState<any[]>([
     {
       id: 1,
-      date: "12 Okt 2023, 14:30",
+      date: "Hari Ini",
       topic: "Persamaan Kuadrat Lanjut",
       type: "Kuis",
       typeColor: "bg-amber-100 text-amber-900 border-amber-200",
@@ -53,37 +53,56 @@ export default function GuruDetailSiswaPage({
       duration: "45m",
       status: "Selesai",
     },
-    {
-      id: 2,
-      date: "10 Okt 2023, 10:15",
-      topic: "Sistem Persamaan Linear",
-      type: "Latihan",
-      typeColor: "bg-[#0F172A]/10 text-[#0F172A] border-[#0F172A]/20",
-      score: 92,
-      duration: "60m",
-      status: "Selesai",
-    },
-    {
-      id: 3,
-      date: "08 Okt 2023, 15:00",
-      topic: "Pengenalan Fungsi",
-      type: "Assessment",
-      typeColor: "bg-red-100 text-red-700 border-red-200",
-      score: 78,
-      duration: "90m",
-      status: "Selesai",
-    },
-    {
-      id: 4,
-      date: "05 Okt 2023, 09:30",
-      topic: "Operasi Aljabar",
-      type: "Latihan",
-      typeColor: "bg-[#0F172A]/10 text-[#0F172A] border-[#0F172A]/20",
-      score: null,
-      duration: "15m",
-      status: "Menunggu",
-    },
-  ];
+  ]);
+
+  useEffect(() => {
+    async function fetchStudentDetail() {
+      try {
+        const { createClient } = await import("@/lib/supabase/client");
+        const supabase = createClient();
+        
+        // Fetch profil
+        const { data: profil } = await supabase
+          .from("profil")
+          .select("id, nama_lengkap, email, poin, streak")
+          .eq("id", studentId)
+          .single();
+
+        if (profil) {
+          setStudentData((prev) => ({
+            ...prev,
+            id: profil.id,
+            name: profil.nama_lengkap || profil.email?.split("@")[0] || "Siswa",
+            overallScore: Math.min(100, (profil.poin || 0) > 0 ? 80 + ((profil.poin || 0) % 20) : 80),
+          }));
+        }
+
+        // Fetch sesi
+        const { data: sesiList } = await supabase
+          .from("sesi")
+          .select("id, tipe_sesi, status_sesi, skor_akhir, selesai_pada")
+          .eq("siswa_id", studentId)
+          .order("dibuat_pada", { ascending: false });
+
+        if (sesiList && sesiList.length > 0) {
+          const formatted = sesiList.map((s: any, idx: number) => ({
+            id: s.id || idx + 1,
+            date: s.selesai_pada ? new Date(s.selesai_pada).toLocaleString("id-ID") : "Baru Saja",
+            topic: `Materi Sesi #${idx + 1}`,
+            type: s.tipe_sesi === "inclass" ? "Kuis Kelas" : "Eksplorasi",
+            typeColor: "bg-amber-100 text-amber-900 border-amber-200",
+            score: s.skor_akhir !== null ? Math.round(s.skor_akhir) : 80,
+            duration: "30m",
+            status: s.status_sesi || "Selesai",
+          }));
+          setSessionHistory(formatted);
+        }
+      } catch {
+        // fallback
+      }
+    }
+    fetchStudentDetail();
+  }, [studentId]);
 
   return (
     <GuruLayout>

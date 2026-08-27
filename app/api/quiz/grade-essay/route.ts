@@ -32,14 +32,28 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { sesiId, jawabanList = [] } = body;
 
-    const isValidUUID = (str: string) =>
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+    let activeSesiId = sesiId;
 
-    if (!sesiId || !isValidUUID(sesiId)) {
-      return NextResponse.json(
-        { error: "ID Sesi tidak valid. Pastikan sesi sudah dibuat dengan benar sebelum mengumpulkan jawaban." },
-        { status: 400 }
-      );
+    const isValidUUID = (str: string) =>
+      Boolean(str) && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+
+    if (!activeSesiId || !isValidUUID(activeSesiId)) {
+      // Auto-create a valid session UUID in Supabase sesi table for demo/practice sessions
+      const { data: newSesi } = await adminDb
+        .from("sesi")
+        .insert({
+          siswa_id: user.id,
+          tipe_sesi: "kuis",
+          status_sesi: "berlangsung",
+        })
+        .select("id")
+        .single();
+
+      if (newSesi) {
+        activeSesiId = newSesi.id;
+      } else {
+        activeSesiId = "00000000-0000-0000-0000-000000000000";
+      }
     }
 
     const geminiApiKey = process.env.GEMINI_API_KEY;
@@ -82,7 +96,7 @@ export async function POST(req: Request) {
 
         // Upsert Answer to database via adminDb
         await adminDb.from("jawaban").upsert({
-          sesi_id: sesiId,
+          sesi_id: activeSesiId,
           soal_id: soalId,
           opsi_dipilih_id: opsiDipilihId || null,
           is_benar: isBenar,
@@ -101,11 +115,17 @@ export async function POST(req: Request) {
         });
       } else if (soalData.tipe_soal === "esai") {
         // Auto-grade Essay using Google Gemini AI
-        let nilai = 75;
-        let isBenar = true;
-        let umpanBalik = "Jawaban esai telah dicatat.";
+        let nilai = 0;
+        let isBenar = false;
+        let umpanBalik = "Jawaban esai belum dinilai (Perlu ditinjau guru).";
 
-        if (geminiApiKey && jawabanTeks) {
+        const trimmedJawaban = jawabanTeks?.trim() || "";
+
+        if (!trimmedJawaban) {
+          nilai = 0;
+          isBenar = false;
+          umpanBalik = "Jawaban esai kosong.";
+        } else if (geminiApiKey) {
           const evalPrompt = `Kamu adalah Penilai/Evaluator Otomatis Esai Matematika SMP Kelas 8.
 Tugasmu adalah memberikan evaluasi yang objektif, akurat, dan konstruktif.
 
@@ -116,7 +136,7 @@ KUNCI JAWABAN / RUBRIK:
 ${soalData.kunci_jawaban || "Jelaskan konsep dengan rinci."}
 
 JAWABAN SISWA:
-${jawabanTeks}
+${trimmedJawaban}
 
 WAJIB MENGEMBALIKAN FORMAT JSON SAJA (TANPA TEKS LAIN):
 {
@@ -136,9 +156,9 @@ WAJIB MENGEMBALIKAN FORMAT JSON SAJA (TANPA TEKS LAIN):
                 generationConfig: {
                   responseMimeType: "application/json",
                   temperature: 0.2,
-                  maxOutputTokens: 600
-                }
-              })
+                  maxOutputTokens: 600,
+                },
+              }),
             });
 
             if (!apiResponse.ok) {
@@ -155,26 +175,27 @@ WAJIB MENGEMBALIKAN FORMAT JSON SAJA (TANPA TEKS LAIN):
               .trim();
 
             const parsed = JSON.parse(cleanedJsonText);
-            nilai = typeof parsed.nilai === "number" ? parsed.nilai : 75;
+            nilai = typeof parsed.nilai === "number" ? parsed.nilai : 0;
             isBenar = typeof parsed.isBenar === "boolean" ? parsed.isBenar : nilai >= 70;
             umpanBalik = parsed.umpanBalik || "Evaluasi esai selesai.";
 
             // Log AI Token usage
-            if (sekolahId) {
-              const inputTokens = responseData.usageMetadata?.promptTokenCount || 0;
-              const outputTokens = responseData.usageMetadata?.candidatesTokenCount || 0;
-              await adminDb.from("log_ai").insert({
-                sekolah_id: sekolahId,
-                pengguna_id: user.id,
-                fitur: "grading_esai",
-                prompt_tokens: inputTokens,
-                completion_tokens: outputTokens,
-                total_tokens: inputTokens + outputTokens,
-                biaya_usd: (inputTokens * 0.075 + outputTokens * 0.3) / 1000000,
-              });
-            }
+            const inputTokens = responseData.usageMetadata?.promptTokenCount || 0;
+            const outputTokens = responseData.usageMetadata?.candidatesTokenCount || 0;
+            await adminDb.from("log_ai").insert({
+              sekolah_id: sekolahId || null,
+              pengguna_id: user.id,
+              fitur: "grading_esai",
+              prompt_tokens: inputTokens,
+              completion_tokens: outputTokens,
+              total_tokens: inputTokens + outputTokens,
+              biaya_usd: (inputTokens * 0.075 + outputTokens * 0.3) / 1000000,
+            });
           } catch (e) {
             console.error("Error calling Gemini for essay grading:", e);
+            nilai = 0;
+            isBenar = false;
+            umpanBalik = "Penilaian AI gagal diproses (Perlu ditinjau guru).";
           }
         }
 
@@ -183,7 +204,7 @@ WAJIB MENGEMBALIKAN FORMAT JSON SAJA (TANPA TEKS LAIN):
 
         // Upsert Answer to database via adminDb
         await adminDb.from("jawaban").upsert({
-          sesi_id: sesiId,
+          sesi_id: activeSesiId,
           soal_id: soalId,
           jawaban_teks: jawabanTeks || "",
           is_benar: isBenar,
@@ -218,7 +239,7 @@ WAJIB MENGEMBALIKAN FORMAT JSON SAJA (TANPA TEKS LAIN):
         status_sesi: "selesai",
         selesai_pada: new Date().toISOString(),
       })
-      .eq("id", sesiId);
+      .eq("id", activeSesiId);
 
     // Automatically award Learning Points to Student Profile in Database
     let totalPoinSiswa = 0;
@@ -250,6 +271,7 @@ WAJIB MENGEMBALIKAN FORMAT JSON SAJA (TANPA TEKS LAIN):
 
     return NextResponse.json({
       success: true,
+      sesiId: activeSesiId,
       skorAkhir: finalScore,
       earnedPoints,
       totalPoinSiswa,

@@ -173,10 +173,12 @@ KONTEKS MATERI YANG SEDANG DIBUKA USER SAAT INI (Gunakan info ini agar obrolan n
       ]);
     }
 
-    // 8. Log AI Token Usage
-    if (sekolahId) {
-      await supabase.from("log_ai").insert({
-        sekolah_id: sekolahId,
+    // 8. Log AI Token Usage (Always log to log_ai even if sekolahId is NULL)
+    try {
+      const { createAdminClient } = await import("@/lib/supabase/admin");
+      const adminDb = createAdminClient();
+      await adminDb.from("log_ai").insert({
+        sekolah_id: sekolahId || null,
         pengguna_id: user.id,
         fitur: "tutor_sokratik",
         prompt_tokens: inputTokens,
@@ -184,6 +186,8 @@ KONTEKS MATERI YANG SEDANG DIBUKA USER SAAT INI (Gunakan info ini agar obrolan n
         total_tokens: totalTokens,
         biaya_usd: costUsd,
       });
+    } catch (logErr) {
+      console.error("Error writing to log_ai:", logErr);
     }
 
     const remainingQuota = MAX_DAILY_CHAT - (currentCount + 1);

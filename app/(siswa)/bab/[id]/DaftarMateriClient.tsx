@@ -312,17 +312,22 @@ export default function DaftarMateriClient({
                   />
                 </div>
 
-                {/* Bottom Action: Evaluasi Akhir / Asesmen Bab */}
-                <div className="pt-6 border-t border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-4">
-                  <div className="text-xs text-slate-500 font-medium">
-                    Selesai membaca? Lanjutkan ke Asesmen Bab 10 Soal (Tanpa Waktu).
+                {/* Bottom Action: Selesai Membaca -> Lanjut ke Kuis / Asesmen */}
+                <div className="pt-6 border-t border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-4 bg-amber-50/50 p-4 rounded-2xl border border-amber-200/80">
+                  <div>
+                    <div className="text-xs font-extrabold text-[#0F172A]">
+                      Sudah Selesai Membaca Jurnal & Materi?
+                    </div>
+                    <div className="text-[11px] text-slate-500 font-medium">
+                      Uji pemahaman Anda dengan mengerjakan kuis latihan / asesmen topik ini.
+                    </div>
                   </div>
                   <Link
-                    href={`/quiz/sesi-demo?mode=inclass&babId=${babId}`}
-                    className="w-full sm:w-auto py-3 px-6 rounded-2xl bg-[#0F172A] hover:bg-[#1E293B] text-white text-xs font-bold flex items-center justify-center gap-2 transition duration-200 cursor-pointer shadow-md"
+                    href={`/quiz/sesi-demo?mode=inclass&babId=${babId}&materiId=${selectedMateriId}`}
+                    className="w-full sm:w-auto py-3 px-6 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-extrabold flex items-center justify-center gap-2 transition duration-200 cursor-pointer shadow-md shrink-0"
                   >
-                    <Sparkles className="w-4 h-4 text-amber-400" />
-                    <span>Evaluasi Akhir / Asesmen Bab</span>
+                    <Sparkles className="w-4 h-4 text-white" />
+                    <span>Selesai Membaca — Lanjut Mengerjakan Kuis →</span>
                   </Link>
                 </div>
               </div>

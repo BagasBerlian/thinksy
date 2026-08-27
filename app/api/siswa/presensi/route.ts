@@ -129,7 +129,7 @@ export async function POST(request: Request) {
       },
       user: {
         nama_lengkap: currentProfil?.nama_lengkap || user.email,
-        poin: currentProfil?.poin ?? 1250,
+        poin: currentProfil?.poin ?? 0,
         streak: newStreak,
       },
     });

@@ -108,7 +108,7 @@ export default function AIQuestionGeneratorPage() {
           <div className="absolute top-0 right-0 w-80 h-80 bg-[#E9C77B]/10 rounded-full blur-3xl pointer-events-none" />
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Bot className="w-7 h-7 text-[#E9C77B]" />
-            Generator Soal Otomatis (Anthropic AI)
+            Generator Soal Otomatis (Gemini AI)
           </h1>
           <p className="mt-2 text-slate-200 text-xs sm:text-sm max-w-xl">
             Buat draft soal Pilihan Ganda & Esai lengkap dengan ekspresi rumus KaTeX, kunci jawaban, dan pembahasan mendalam dalam hitungan detik.
@@ -310,7 +310,7 @@ export default function AIQuestionGeneratorPage() {
                   Belum Ada Draft Soal
                 </p>
                 <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                  Isi spesifikasi di sebelah kiri dan klik tombol "Generate Draft Soal" untuk meminta Anthropic AI menyusun soal baru.
+                  Isi spesifikasi di sebelah kiri dan klik tombol "Generate Draft Soal" untuk meminta Gemini AI menyusun soal baru.
                 </p>
               </div>
             )}

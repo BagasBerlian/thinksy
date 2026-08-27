@@ -178,7 +178,7 @@ export default function ExamPracticeClient({
         throw new Error(data.error || "Gagal mengirimkan kuis.");
       }
 
-      router.push(`/hasil/${sesiId}`);
+      router.push(`/hasil/${data.sesiId || sesiId}`);
     } catch (err: any) {
       alert(err.message || "Gagal mengirimkan kuis.");
     } finally {
@@ -301,37 +301,65 @@ export default function ExamPracticeClient({
               <MarkdownRenderer content={currentQ.pertanyaan} />
             </div>
 
-            {/* Multiple Choice Radio Options */}
-            <div className="space-y-3 pt-2">
-              {currentQ.opsiSoal?.map((opsi, oIdx) => {
-                const labelLetter = String.fromCharCode(65 + oIdx); // A, B, C, D
-                const isSelected = answers[currentQ.id] === opsi.id;
-                return (
-                  <button
-                    key={opsi.id}
-                    onClick={() => handleSelectAnswer(opsi.id)}
-                    className={`w-full p-4 rounded-2xl border text-left flex items-center gap-4 transition duration-200 cursor-pointer ${
-                      isSelected
-                        ? "bg-[#0F172A] text-white border-[#0F172A] shadow-md"
-                        : "bg-white/80 hover:bg-white text-slate-800 border-slate-200/80 hover:border-slate-400"
-                    }`}
-                  >
-                    <div
-                      className={`w-8 h-8 rounded-xl flex items-center justify-center font-extrabold text-xs shrink-0 ${
+            {/* Answer Input Area: Essay Textarea vs Multiple Choice */}
+            {currentQ.tipeSoal === "esai" ? (
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-extrabold text-[#0F172A]">
+                    Tuliskan Uraian & Langkah Jawaban Esai Anda:
+                  </label>
+                  <span className="text-[10px] font-bold text-[#0F172A] bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-md">
+                    Evaluasi AI Sokratik
+                  </span>
+                </div>
+                <textarea
+                  rows={6}
+                  value={answers[currentQ.id] || ""}
+                  onChange={(e) =>
+                    setAnswers((prev) => ({
+                      ...prev,
+                      [currentQ.id]: e.target.value,
+                    }))
+                  }
+                  placeholder="Ketikkan jawaban esai Anda secara lengkap dan rinci di sini..."
+                  className="w-full p-4 rounded-2xl border border-slate-200 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0F172A] bg-slate-50/50 shadow-xs"
+                />
+                <p className="text-[11px] text-slate-500 italic">
+                  *Ketik jawaban Anda di atas, lalu klik <strong>"Soal Selanjutnya"</strong> untuk melanjutkan.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3 pt-2">
+                {currentQ.opsiSoal?.map((opsi, oIdx) => {
+                  const labelLetter = String.fromCharCode(65 + oIdx); // A, B, C, D
+                  const isSelected = answers[currentQ.id] === opsi.id;
+                  return (
+                    <button
+                      key={opsi.id}
+                      onClick={() => handleSelectAnswer(opsi.id)}
+                      className={`w-full p-4 rounded-2xl border text-left flex items-center gap-4 transition duration-200 cursor-pointer ${
                         isSelected
-                          ? "bg-amber-400 text-[#0F172A]"
-                          : "bg-slate-100 text-slate-700"
+                          ? "bg-[#0F172A] text-white border-[#0F172A] shadow-md"
+                          : "bg-white/80 hover:bg-white text-slate-800 border-slate-200/80 hover:border-slate-400"
                       }`}
                     >
-                      {labelLetter}
-                    </div>
-                    <div className="text-xs sm:text-sm font-semibold flex-1">
-                      {opsi.teksOpsi}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+                      <div
+                        className={`w-8 h-8 rounded-xl flex items-center justify-center font-extrabold text-xs shrink-0 ${
+                          isSelected
+                            ? "bg-amber-400 text-[#0F172A]"
+                            : "bg-slate-100 text-slate-700"
+                        }`}
+                      >
+                        {labelLetter}
+                      </div>
+                      <div className="text-xs sm:text-sm font-semibold flex-1">
+                        {opsi.teksOpsi}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Navigation Action Buttons */}

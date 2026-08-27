@@ -16,7 +16,7 @@ export default async function SiswaDashboardPage() {
     nama_lengkap: "Budi Kartika",
     email: "budi.kartika@sekolah.sch.id",
     peran: "siswa",
-    poin: 1250,
+    poin: 0,
     streak: 0,
     rank: 3,
     totalStudents: 120,
