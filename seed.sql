@@ -2,15 +2,26 @@
 -- SEED DATA - KURIKULUM MERDEKA MATEMATIKA SMP KELAS 8 (FASE D)
 -- ============================================================================
 
--- 1. SEED SEKOLAH DUMMY (SMP NEGERI 1 NUSANTARA)
-INSERT INTO sekolah (id, nama, npsn, alamat)
+-- 1. SEED SEKOLAH DUMMY (SMK MUHAMMADIYAH 1 PLAYEN)
+INSERT INTO sekolah (id, nama, npsn, alamat, motto, deskripsi, bg_image_url, links)
 VALUES (
     'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-    'SMP Negeri 1 Nusantara',
-    '20101010',
-    'Jl. Pendidikan No. 1, Jakarta'
+    'SMK Muhammadiyah 1 Playen',
+    '20402099',
+    'Jl. Logandeng No. 1, Playen, Gunungkidul, D.I. Yogyakarta',
+    'Pusat Keunggulan • Unggul, Terampil, Berkarakter & Berdaya Saing Global',
+    'SMK Muhammadiyah 1 Playen (Muspla) adalah Sekolah Pusat Keunggulan yang berkomitmen mencetak generasi muda yang cerdas, beriman, dan menguasai teknologi serta keahlian industri masa depan.',
+    '/images/smk-muh1-playen.jpg',
+    '[{"label": "Website Resmi", "url": "https://smkmuh1playen.sch.id", "icon": "Globe"}, {"label": "Portal PPDB", "url": "https://ppdb.smkmuh1playen.sch.id", "icon": "ExternalLink"}, {"label": "Instagram", "url": "https://instagram.com/smkmuh1playen", "icon": "Instagram"}]'::jsonb
 )
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET
+  nama = EXCLUDED.nama,
+  npsn = EXCLUDED.npsn,
+  alamat = EXCLUDED.alamat,
+  motto = EXCLUDED.motto,
+  deskripsi = EXCLUDED.deskripsi,
+  bg_image_url = EXCLUDED.bg_image_url,
+  links = EXCLUDED.links;
 
 -- 2. SEED BAB MATEMATIKA KELAS 8 (FASE D)
 INSERT INTO bab (id, sekolah_id, judul, deskripsi, urutan)

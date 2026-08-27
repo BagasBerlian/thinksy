@@ -30,13 +30,54 @@ export default async function SiswaDashboardPage() {
   let totalSoalCount = 0;
   let learningProgressPercent = 0;
 
+  let sekolahData: {
+    id: string;
+    nama: string;
+    motto?: string | null;
+    deskripsi?: string | null;
+    bg_image_url?: string | null;
+    links?: { label: string; url: string; icon?: string }[] | null;
+    alamat?: string | null;
+    npsn?: string | null;
+  } | null = null;
+
   if (user) {
     // Get user profile data
     const { data: profil } = await supabase
       .from("profil")
-      .select("nama_lengkap, peran, poin, streak")
+      .select("nama_lengkap, peran, poin, streak, sekolah_id")
       .eq("id", user.id)
       .single();
+
+    if (profil?.sekolah_id) {
+      const { data: sek } = await supabase
+        .from("sekolah")
+        .select("id, nama, motto, deskripsi, bg_image_url, links, alamat, npsn")
+        .eq("id", profil.sekolah_id)
+        .single();
+
+      if (sek) {
+        let parsedLinks = [];
+        if (typeof sek.links === "string") {
+          try {
+            parsedLinks = JSON.parse(sek.links);
+          } catch {}
+        } else if (Array.isArray(sek.links)) {
+          parsedLinks = sek.links;
+        }
+
+        sekolahData = {
+          id: sek.id,
+          nama: sek.nama,
+          motto: sek.motto,
+          deskripsi: sek.deskripsi,
+          bg_image_url: sek.bg_image_url,
+          links: parsedLinks,
+          alamat: sek.alamat,
+          npsn: sek.npsn,
+        };
+      }
+    }
 
     const currentPoin = profil?.poin ?? 0;
     const currentStreak = profil?.streak ?? 0;
@@ -297,9 +338,27 @@ export default async function SiswaDashboardPage() {
     ],
   };
 
+  if (!user && !sekolahData) {
+    sekolahData = {
+      id: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+      nama: "SMK Muhammadiyah 1 Playen",
+      npsn: "20402099",
+      alamat: "Jl. Logandeng No. 1, Playen, Gunungkidul, D.I. Yogyakarta",
+      motto: "Pusat Keunggulan • Unggul, Terampil, Berkarakter & Berdaya Saing Global",
+      deskripsi: "SMK Muhammadiyah 1 Playen (Muspla) adalah Sekolah Pusat Keunggulan yang berkomitmen mencetak generasi muda yang cerdas, beriman, dan menguasai teknologi serta keahlian industri masa depan.",
+      bg_image_url: "/images/smk-muh1-playen.jpg",
+      links: [
+        { label: "Website Resmi", url: "https://smkmuh1playen.sch.id", icon: "Globe" },
+        { label: "Portal PPDB", url: "https://ppdb.smkmuh1playen.sch.id", icon: "ExternalLink" },
+        { label: "Instagram", url: "https://instagram.com/smkmuh1playen", icon: "Instagram" }
+      ]
+    };
+  }
+
   return (
     <StudentDashboardClient
       userProfile={userProfile}
+      sekolahData={sekolahData}
       deadlinesData={deadlines}
       schedulesData={schedules}
       chapters={listBab || []}
