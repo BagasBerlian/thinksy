@@ -302,8 +302,9 @@ export default function StudentDashboardClient({
       const res = await fetch("/api/siswa/misi");
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data.misi)) {
-          setDailyMissions(data.misi);
+        const list = data.missions || data.misi;
+        if (Array.isArray(list) && list.length > 0) {
+          setDailyMissions(list);
         }
       }
     } catch {
@@ -353,7 +354,11 @@ export default function StudentDashboardClient({
           message: data.message || `Selamat! +${data.poinDitambahkan || 20} Poin ditambahkan.`,
           time: "Baru saja",
         });
-        if (data.poinTotal) setLearningPoints(data.poinTotal);
+        if (typeof data.poinTotal === "number") {
+          setLearningPoints(data.poinTotal);
+        } else {
+          setLearningPoints((prev) => prev + (data.poinDitambahkan || 20));
+        }
         fetchMissionsFromDB();
         setTimeout(() => setToastNotification(null), 5000);
       } else {

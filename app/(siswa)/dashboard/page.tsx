@@ -38,7 +38,7 @@ export default async function SiswaDashboardPage() {
       .eq("id", user.id)
       .single();
 
-    const currentPoin = profil?.poin ?? 1250;
+    const currentPoin = profil?.poin ?? 0;
     const currentStreak = profil?.streak ?? 0;
 
     // Calculate completed quiz count (status_sesi = 'selesai')
@@ -49,18 +49,6 @@ export default async function SiswaDashboardPage() {
       .eq("status_sesi", "selesai");
 
     completedQuizCount = quizDoneCount || 0;
-
-    // Points earned directly from completed quizzes (1 quiz = 15 points)
-    const pointsFromQuizzes = completedQuizCount * 15;
-    const dynamicPoin = Math.max(currentPoin, pointsFromQuizzes);
-
-    // If dynamic points differ from DB poin, sync to profil table
-    if (dynamicPoin !== currentPoin) {
-      await supabase
-        .from("profil")
-        .update({ poin: dynamicPoin })
-        .eq("id", user.id);
-    }
 
     // Calculate dynamic student rank among ALL users with peran = 'siswa' sorted by learning points
     let { data: allStudents } = await adminSupabase
@@ -94,12 +82,12 @@ export default async function SiswaDashboardPage() {
 
     totalSoalCount = dbTotalSoal || 10;
 
-    const { data: answeredRows } = await supabase
+    const { data: answeredRows } = await adminSupabase
       .from("jawaban")
       .select("soal_id, sesi!inner(siswa_id)")
       .eq("sesi.siswa_id", user.id);
 
-    const answeredSet = new Set(answeredRows?.map((r) => r.soal_id));
+    const answeredSet = new Set(answeredRows?.map((r: any) => r.soal_id));
     answeredSoalCount = answeredSet.size;
 
     if (totalSoalCount > 0) {
@@ -135,7 +123,7 @@ export default async function SiswaDashboardPage() {
       nama_lengkap: profil?.nama_lengkap || user.email?.split("@")[0] || "Budi Kartika",
       email: user.email || "budi.kartika@sekolah.sch.id",
       peran: profil?.peran || "siswa",
-      poin: dynamicPoin,
+      poin: currentPoin,
       streak: currentStreak,
       rank: studentRank,
       totalStudents: totalSiswaCount,

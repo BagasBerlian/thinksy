@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export async function GET() {
   try {
     const supabase = await createClient();
+    const adminDb = createAdminClient();
 
     const {
       data: { user },
@@ -19,80 +20,99 @@ export async function GET() {
 
     const todayStr = new Date().toISOString().split("T")[0];
 
-    // 1. Ambil misi harian siswa untuk tanggal hari ini
-    const { data: existingMisi } = await supabase
-      .from("misi_harian")
-      .select("*")
-      .eq("siswa_id", user.id)
-      .eq("tanggal", todayStr);
-
-    if (existingMisi && existingMisi.length > 0) {
-      return NextResponse.json({
-        success: true,
-        missions: existingMisi,
-      });
-    }
-
-    // 2. Jika belum ada misi hari ini, hitung progres awal dari aktivitas hari ini
-    const { data: presensi } = await supabase
+    // Check today's real activity
+    const { data: presensi } = await adminDb
       .from("presensi")
       .select("id")
       .eq("siswa_id", user.id)
       .eq("tanggal", todayStr)
       .maybeSingle();
 
-    const { data: completedSesi } = await supabase
+    const { data: completedSesi } = await adminDb
       .from("sesi")
       .select("id")
       .eq("siswa_id", user.id)
       .eq("status_sesi", "selesai");
 
-    const defaultMissions = [
-      {
-        siswa_id: user.id,
-        judul: "Absen Pagi Tepat Waktu",
-        progres_saat_ini: presensi ? 1 : 0,
-        target_max: 1,
-        poin_hadiah: 20,
-        diklaim: false,
-        tanggal: todayStr,
-      },
-      {
-        siswa_id: user.id,
-        judul: "Selesaikan 1 Latihan Matematika",
-        progres_saat_ini: (completedSesi?.length || 0) > 0 ? 1 : 0,
-        target_max: 1,
-        poin_hadiah: 30,
-        diklaim: false,
-        tanggal: todayStr,
-      },
-      {
-        siswa_id: user.id,
-        judul: "Tanya 1 Pertanyaan ke Tutor AI",
-        progres_saat_ini: 0,
-        target_max: 1,
-        poin_hadiah: 25,
-        diklaim: false,
-        tanggal: todayStr,
-      },
-    ];
+    const isPresensiPresent = Boolean(presensi);
+    const hasCompletedSesi = Boolean(completedSesi && completedSesi.length > 0);
 
-    const { data: createdMissions, error: insertErr } = await supabase
+    // 1. Ambil misi harian siswa untuk tanggal hari ini via adminDb
+    let { data: existingMisi } = await adminDb
       .from("misi_harian")
-      .insert(defaultMissions)
-      .select();
+      .select("*")
+      .eq("siswa_id", user.id)
+      .eq("tanggal", todayStr);
 
-    if (insertErr) {
-      console.error("[MISI GET INSERT ERROR]", insertErr.message);
-      return NextResponse.json(
-        { error: "Gagal membuat misi harian: " + insertErr.message },
-        { status: 500 }
-      );
+    if (!existingMisi || existingMisi.length === 0) {
+      // Create default daily missions with real UUIDs in database
+      const defaultMissions = [
+        {
+          siswa_id: user.id,
+          judul: "Presensi Selfie Harian",
+          progres_saat_ini: isPresensiPresent ? 1 : 0,
+          target_max: 1,
+          poin_hadiah: 20,
+          diklaim: false,
+          tanggal: todayStr,
+        },
+        {
+          siswa_id: user.id,
+          judul: "Selesaikan 1 Kuis / Latihan",
+          progres_saat_ini: hasCompletedSesi ? 1 : 0,
+          target_max: 1,
+          poin_hadiah: 50,
+          diklaim: false,
+          tanggal: todayStr,
+        },
+        {
+          siswa_id: user.id,
+          judul: "Eksplorasi Soal Sokratik",
+          progres_saat_ini: 0,
+          target_max: 3,
+          poin_hadiah: 30,
+          diklaim: false,
+          tanggal: todayStr,
+        },
+      ];
+
+      const { data: createdMissions, error: insertErr } = await adminDb
+        .from("misi_harian")
+        .insert(defaultMissions)
+        .select();
+
+      if (insertErr) {
+        console.error("[MISI GET INSERT ERROR]", insertErr.message);
+      } else if (createdMissions) {
+        existingMisi = createdMissions;
+      }
+    } else {
+      // Dynamically sync progress for existing unclaimed missions
+      for (const m of existingMisi) {
+        if (!m.diklaim) {
+          let updatedProgress = m.progres_saat_ini;
+          if (m.judul.includes("Presensi") && isPresensiPresent) {
+            updatedProgress = 1;
+          } else if (m.judul.includes("Kuis") && hasCompletedSesi) {
+            updatedProgress = 1;
+          }
+          if (updatedProgress !== m.progres_saat_ini) {
+            m.progres_saat_ini = updatedProgress;
+            await adminDb
+              .from("misi_harian")
+              .update({ progres_saat_ini: updatedProgress })
+              .eq("id", m.id);
+          }
+        }
+      }
     }
+
+    const missionsList = existingMisi || [];
 
     return NextResponse.json({
       success: true,
-      missions: createdMissions || defaultMissions,
+      missions: missionsList,
+      misi: missionsList,
     });
   } catch (err: any) {
     return NextResponse.json(
@@ -136,15 +156,97 @@ export async function POST(request: Request) {
       );
     }
 
-    // 1. Ambil misi harian berdasarkan ID UUID dan siswa_id
-    const { data: misi, error: misiError } = await supabase
-      .from("misi_harian")
-      .select("*")
-      .eq("id", targetMisiId)
-      .eq("siswa_id", user.id)
-      .single();
+    const isValidUUID = (str: string) =>
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
 
-    if (misiError || !misi) {
+    let misi: any = null;
+
+    if (isValidUUID(targetMisiId)) {
+      const { data } = await adminDb
+        .from("misi_harian")
+        .select("*")
+        .eq("id", targetMisiId)
+        .eq("siswa_id", user.id)
+        .maybeSingle();
+      misi = data;
+    }
+
+    const todayStr = new Date().toISOString().split("T")[0];
+
+    // Fallback lookup: Jika targetMisiId berupa ID fallback ("m1", "m2", "m3") atau UUID belum ada
+    if (!misi) {
+      let { data: todayMissions } = await adminDb
+        .from("misi_harian")
+        .select("*")
+        .eq("siswa_id", user.id)
+        .eq("tanggal", todayStr);
+
+      if (!todayMissions || todayMissions.length === 0) {
+        const { data: presensi } = await adminDb
+          .from("presensi")
+          .select("id")
+          .eq("siswa_id", user.id)
+          .eq("tanggal", todayStr)
+          .maybeSingle();
+
+        const { data: completedSesi } = await adminDb
+          .from("sesi")
+          .select("id")
+          .eq("siswa_id", user.id)
+          .eq("status_sesi", "selesai");
+
+        const defaultMissions = [
+          {
+            siswa_id: user.id,
+            judul: "Presensi Selfie Harian",
+            progres_saat_ini: presensi ? 1 : 0,
+            target_max: 1,
+            poin_hadiah: 20,
+            diklaim: false,
+            tanggal: todayStr,
+          },
+          {
+            siswa_id: user.id,
+            judul: "Selesaikan 1 Kuis / Latihan",
+            progres_saat_ini: (completedSesi && completedSesi.length > 0) ? 1 : 0,
+            target_max: 1,
+            poin_hadiah: 50,
+            diklaim: false,
+            tanggal: todayStr,
+          },
+          {
+            siswa_id: user.id,
+            judul: "Eksplorasi Soal Sokratik",
+            progres_saat_ini: 0,
+            target_max: 3,
+            poin_hadiah: 30,
+            diklaim: false,
+            tanggal: todayStr,
+          },
+        ];
+
+        const { data: created } = await adminDb
+          .from("misi_harian")
+          .insert(defaultMissions)
+          .select();
+        todayMissions = created || [];
+      }
+
+      if (todayMissions && todayMissions.length > 0) {
+        if (targetMisiId === "m1" || targetMisiId?.toLowerCase().includes("presensi")) {
+          misi = todayMissions.find((m: any) => m.judul.toLowerCase().includes("presensi"));
+        } else if (targetMisiId === "m2" || targetMisiId?.toLowerCase().includes("kuis")) {
+          misi = todayMissions.find((m: any) => m.judul.toLowerCase().includes("kuis") || m.judul.toLowerCase().includes("latihan"));
+        } else if (targetMisiId === "m3" || targetMisiId?.toLowerCase().includes("sokratik")) {
+          misi = todayMissions.find((m: any) => m.judul.toLowerCase().includes("sokratik") || m.judul.toLowerCase().includes("tutor"));
+        }
+        if (!misi) {
+          misi = todayMissions[0];
+        }
+      }
+    }
+
+    if (!misi) {
       return NextResponse.json(
         { success: false, error: "Misi tidak ditemukan." },
         { status: 404 }
@@ -159,7 +261,18 @@ export async function POST(request: Request) {
       );
     }
 
-    // 3. Verifikasi pencapaian target progres
+    // 3. Verifikasi pencapaian target progres (jika misi presensi & user sudah presensi hari ini, izinkan klaim)
+    const { data: checkPresensi } = await adminDb
+      .from("presensi")
+      .select("id")
+      .eq("siswa_id", user.id)
+      .eq("tanggal", todayStr)
+      .maybeSingle();
+
+    if (misi.judul.toLowerCase().includes("presensi") && checkPresensi) {
+      misi.progres_saat_ini = 1;
+    }
+
     if (Number(misi.progres_saat_ini) < Number(misi.target_max)) {
       return NextResponse.json(
         {
@@ -171,10 +284,10 @@ export async function POST(request: Request) {
     }
 
     // 4. Update status diklaim=true pada tabel misi_harian
-    const { error: claimErr } = await supabase
+    const { error: claimErr } = await adminDb
       .from("misi_harian")
-      .update({ diklaim: true })
-      .eq("id", targetMisiId)
+      .update({ diklaim: true, progres_saat_ini: misi.progres_saat_ini })
+      .eq("id", misi.id)
       .eq("siswa_id", user.id);
 
     if (claimErr) {
@@ -191,7 +304,7 @@ export async function POST(request: Request) {
       .eq("id", user.id)
       .single();
 
-    const poinAwal = profil?.poin ?? 1250;
+    const poinAwal = profil?.poin ?? 0;
     const poinDitambahkan = Number(misi.poin_hadiah || 20);
     const poinTotal = poinAwal + poinDitambahkan;
 
@@ -202,7 +315,7 @@ export async function POST(request: Request) {
 
     // 6. Catat notifikasi klaim
     try {
-      await supabase.from("notifikasi").insert({
+      await adminDb.from("notifikasi").insert({
         user_id: user.id,
         judul: "Klaim Misi Harian Berhasil",
         pesan: `Selamat! Anda berhasil mengklaim +${poinDitambahkan} poin dari misi "${misi.judul}".`,

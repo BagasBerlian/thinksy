@@ -80,8 +80,8 @@ export async function POST(req: Request) {
         totalScoreSum += nilai;
         totalQuestionsGraded += 1;
 
-        // Upsert Answer to database
-        await supabase.from("jawaban").upsert({
+        // Upsert Answer to database via adminDb
+        await adminDb.from("jawaban").upsert({
           sesi_id: sesiId,
           soal_id: soalId,
           opsi_dipilih_id: opsiDipilihId || null,
@@ -163,7 +163,7 @@ WAJIB MENGEMBALIKAN FORMAT JSON SAJA (TANPA TEKS LAIN):
             if (sekolahId) {
               const inputTokens = responseData.usageMetadata?.promptTokenCount || 0;
               const outputTokens = responseData.usageMetadata?.candidatesTokenCount || 0;
-              await supabase.from("log_ai").insert({
+              await adminDb.from("log_ai").insert({
                 sekolah_id: sekolahId,
                 pengguna_id: user.id,
                 fitur: "grading_esai",
@@ -181,8 +181,8 @@ WAJIB MENGEMBALIKAN FORMAT JSON SAJA (TANPA TEKS LAIN):
         totalScoreSum += nilai;
         totalQuestionsGraded += 1;
 
-        // Upsert Answer to database
-        await supabase.from("jawaban").upsert({
+        // Upsert Answer to database via adminDb
+        await adminDb.from("jawaban").upsert({
           sesi_id: sesiId,
           soal_id: soalId,
           jawaban_teks: jawabanTeks || "",
@@ -211,7 +211,7 @@ WAJIB MENGEMBALIKAN FORMAT JSON SAJA (TANPA TEKS LAIN):
     const earnedPoints = 15;
 
     // Update Sesi status & final score in Supabase
-    await supabase
+    await adminDb
       .from("sesi")
       .update({
         skor_akhir: finalScore,
@@ -221,17 +221,17 @@ WAJIB MENGEMBALIKAN FORMAT JSON SAJA (TANPA TEKS LAIN):
       .eq("id", sesiId);
 
     // Automatically award Learning Points to Student Profile in Database
-    let totalPoinSiswa = 1250;
+    let totalPoinSiswa = 0;
     try {
-      const { data: currentProfil } = await supabase
+      const { data: currentProfil } = await adminDb
         .from("profil")
         .select("poin")
         .eq("id", user.id)
         .single();
 
-      totalPoinSiswa = (currentProfil?.poin || 1250) + earnedPoints;
+      totalPoinSiswa = (currentProfil?.poin ?? 0) + earnedPoints;
 
-      await supabase
+      await adminDb
         .from("profil")
         .update({ poin: totalPoinSiswa })
         .eq("id", user.id);
