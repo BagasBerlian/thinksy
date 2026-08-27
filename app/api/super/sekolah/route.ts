@@ -25,7 +25,7 @@ export async function GET() {
 
   const { data: sekolahList, error } = await supabase
     .from("sekolah")
-    .select("id, nama, npsn, alamat, dibuat_pada")
+    .select("id, nama, npsn, alamat, motto, deskripsi, bg_image_url, links, dibuat_pada")
     .order("dibuat_pada", { ascending: false });
 
   if (error) {
@@ -57,14 +57,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Akses ditolak." }, { status: 403 });
   }
 
-  let body: { nama: string; npsn?: string; alamat?: string };
+  let body: {
+    nama: string;
+    npsn?: string;
+    alamat?: string;
+    motto?: string;
+    deskripsi?: string;
+    bg_image_url?: string;
+    links?: any[];
+  };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Request body tidak valid." }, { status: 400 });
   }
 
-  const { nama, npsn, alamat } = body;
+  const { nama, npsn, alamat, motto, deskripsi, bg_image_url, links } = body;
 
   if (!nama || nama.trim().length < 3) {
     return NextResponse.json(
@@ -95,8 +103,12 @@ export async function POST(request: Request) {
       nama: nama.trim(),
       npsn: npsn?.trim() || null,
       alamat: alamat?.trim() || null,
+      motto: motto?.trim() || null,
+      deskripsi: deskripsi?.trim() || null,
+      bg_image_url: bg_image_url?.trim() || null,
+      links: links || [],
     })
-    .select("id, nama, npsn, alamat, dibuat_pada")
+    .select("id, nama, npsn, alamat, motto, deskripsi, bg_image_url, links, dibuat_pada")
     .single();
 
   if (insertError) {

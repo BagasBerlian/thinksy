@@ -54,11 +54,15 @@ CREATE TYPE fitur_ai AS ENUM ('tutor_sokratik', 'grading_esai', 'generate_soal')
 
 -- 2.1 Tabel Sekolah (Master Tenant)
 CREATE TABLE sekolah (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  nama        TEXT NOT NULL,
-  npsn        TEXT UNIQUE,
-  alamat      TEXT,
-  dibuat_pada TIMESTAMPTZ NOT NULL DEFAULT now()
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nama         TEXT NOT NULL,
+  npsn         TEXT UNIQUE,
+  alamat       TEXT,
+  motto        TEXT,
+  deskripsi    TEXT,
+  bg_image_url TEXT,
+  links        JSONB DEFAULT '[]'::jsonb,
+  dibuat_pada  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- 2.2 Tabel Profil (Extends auth.users Supabase)
