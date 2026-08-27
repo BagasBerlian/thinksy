@@ -103,8 +103,8 @@ export default function DaftarMateriClient({
             {/* Header Hero Card */}
             <div className="saas-card rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white">
               <div className="space-y-2 max-w-2xl">
-                <span className="inline-block text-xs font-extrabold text-[#0F172A] bg-amber-100 border border-amber-200 px-3 py-1 rounded-full">
-                  Matematika Kelas 8 (Fase D) • Bab {urutanBab || 1}
+                <span className="inline-block text-xs font-extrabold text-[#0F172A] bg-emerald-100 border border-emerald-300 px-3.5 py-1.5 rounded-full">
+                  Kurikulum Merdeka • Fase D (Matematika Kelas 8) • Bab {urutanBab || 1}
                 </span>
                 <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0F172A] tracking-tight">
                   {judulBab || "Bab 1: Pola Bilangan & Barisan Bilangan"}

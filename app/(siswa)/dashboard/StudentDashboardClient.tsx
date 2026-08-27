@@ -34,6 +34,7 @@ import {
   Loader2,
   RefreshCw,
   Award,
+  GraduationCap,
 } from "lucide-react";
 import Link from "next/link";
 import { logoutAction } from "../../(auth)/actions";
@@ -93,6 +94,26 @@ interface StudentDashboardProps {
   answeredSoalCount?: number;
   totalSoalCount?: number;
   learningProgressPercent?: number;
+  activeClassesData?: Array<{
+    id: string;
+    code: string;
+    title: string;
+    teacher: string;
+    room: string;
+    elemenFocus: string;
+    description: string;
+    schedule: string;
+    studentsCount: number;
+    activeBab: string;
+    badge: string;
+    badgeColor: string;
+  }>;
+  kurikulumMetadata?: {
+    kurikulumName: string;
+    fase: string;
+    mataPelajaran: string;
+    elemenCP: Array<{ id: string; nama: string; deskripsi: string }>;
+  };
 }
 
 export default function StudentDashboardClient({
@@ -104,7 +125,12 @@ export default function StudentDashboardClient({
   answeredSoalCount = 0,
   totalSoalCount = 10,
   learningProgressPercent = 0,
+  activeClassesData = [],
+  kurikulumMetadata,
 }: StudentDashboardProps) {
+  // Active Class State (Multi Classes Kurikulum Merdeka)
+  const [selectedClassId, setSelectedClassId] = useState<string>("8a");
+
   // Navigation Tabs State
   const [activeTab, setActiveTab] = useState<
     "Belajar" | "Kursus Saya" | "Peringkat" | "Pencapaian"
@@ -803,6 +829,11 @@ export default function StudentDashboardClient({
               {/* Greetings & Student Rank */}
               <div className="space-y-4 max-w-2xl">
                 <div className="flex flex-wrap items-center gap-2">
+                  <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-extrabold shadow-2xs">
+                    <BookOpen className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Kurikulum Merdeka • Fase D (SMP Kelas 8)</span>
+                  </div>
+
                   <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-[#0F172A] text-xs font-bold">
                     <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                     <span>THINKSY Platform</span>
@@ -928,6 +959,78 @@ export default function StudentDashboardClient({
                   </div>
                 </div>
               </div>
+            </div>
+          </section>
+
+          {/* SECTION: SELEKSI & DAFTAR KELAS AKTIF (KURIKULUM MERDEKA) */}
+          <section className="saas-card rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-sm bg-white space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base font-extrabold text-[#0F172A] flex items-center gap-2">
+                    <GraduationCap className="w-5 h-5 text-blue-600" />
+                    <span>Kelas Aktif Saya (Kurikulum Merdeka)</span>
+                  </h2>
+                  <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-800 border border-blue-200">
+                    {activeClassesData.length} Kelas Terdaftar
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  Pilih salah satu kelas aktif di bawah ini untuk melihat materi, pengajar, dan topik Capaian Pembelajaran.
+                </p>
+              </div>
+            </div>
+
+            {/* Grid 4 Pilihan Kelas Aktif */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {activeClassesData.map((cls) => {
+                const isSelected = selectedClassId === cls.id;
+                return (
+                  <div
+                    key={cls.id}
+                    onClick={() => setSelectedClassId(cls.id)}
+                    className={`p-5 rounded-2xl border transition-all duration-200 cursor-pointer flex flex-col justify-between space-y-4 ${
+                      isSelected
+                        ? "bg-[#0F172A] text-white border-slate-800 shadow-lg scale-[1.02]"
+                        : "bg-slate-50 hover:bg-slate-100 text-slate-900 border-slate-200 shadow-xs"
+                    }`}
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span
+                          className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-md border ${
+                            isSelected
+                              ? "bg-amber-400/20 text-amber-300 border-amber-400/30"
+                              : cls.badgeColor
+                          }`}
+                        >
+                          {cls.badge}
+                        </span>
+                        <span className={`text-xs font-mono font-bold ${isSelected ? "text-slate-400" : "text-slate-500"}`}>
+                          {cls.code}
+                        </span>
+                      </div>
+                      <h3 className={`text-xs sm:text-sm font-extrabold leading-snug ${isSelected ? "text-white" : "text-[#0F172A]"}`}>
+                        {cls.title}
+                      </h3>
+                      <p className={`text-[11px] leading-relaxed font-medium ${isSelected ? "text-slate-300" : "text-slate-600"}`}>
+                        {cls.description}
+                      </p>
+                    </div>
+
+                    <div className="space-y-2 pt-2 border-t border-slate-200/40 text-[11px]">
+                      <div className="flex items-center gap-1.5 font-bold">
+                        <User className={`w-3.5 h-3.5 ${isSelected ? "text-amber-400" : "text-blue-600"}`} />
+                        <span className={isSelected ? "text-slate-200" : "text-slate-700"}>{cls.teacher}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 font-semibold">
+                        <BookOpen className={`w-3.5 h-3.5 ${isSelected ? "text-emerald-400" : "text-emerald-600"}`} />
+                        <span className={isSelected ? "text-slate-300" : "text-slate-600"}>{cls.elemenFocus}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </section>
 

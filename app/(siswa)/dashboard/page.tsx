@@ -225,6 +225,78 @@ export default async function SiswaDashboardPage() {
     )
     .order("urutan", { ascending: true });
 
+  // 6. Active Classes Data (Kurikulum Merdeka)
+  const activeClassesData = [
+    {
+      id: "8a",
+      code: "8A",
+      title: "Matematika 8–A (Reguler - Kurikulum Merdeka)",
+      teacher: "Ibu Siti Rahmawati, M.Pd.",
+      room: "Ruang 204",
+      elemenFocus: "Elemen Aljabar & Geometri Dasar",
+      description: "Kelas reguler utama matematika SMP Kelas 8 sesuai Capaian Pembelajaran Fase D Kurikulum Merdeka.",
+      schedule: "Senin & Rabu, 08:00 - 09:30 WIB",
+      studentsCount: 32,
+      activeBab: "Bab 4: Sistem Persamaan Linear Dua Variabel (SPLDV)",
+      badge: "Utama / Reguler",
+      badgeColor: "bg-blue-100 text-blue-800 border-blue-200",
+    },
+    {
+      id: "8b",
+      code: "8B",
+      title: "Matematika 8–B (Penguatan Sokratik & Remedial)",
+      teacher: "Budi Santoso, S.Pd. & thinksy AI",
+      room: "Ruang 301 / Lab Komputer",
+      elemenFocus: "Elemen Bilangan & Bentuk Aljabar",
+      description: "Kelas pendalaman konsep matematika dengan bantuan Tutor AI Sokratik bertahap.",
+      schedule: "Selasa & Kamis, 10:00 - 11:30 WIB",
+      studentsCount: 30,
+      activeBab: "Bab 2: Bentuk Aljabar & PLSV/PTLSV",
+      badge: "Pendalaman Sokratik",
+      badgeColor: "bg-[#0F172A]/10 text-[#0F172A] border-[#0F172A]/20",
+    },
+    {
+      id: "8c",
+      code: "8C",
+      title: "Matematika 8–C (Pengayaan HOTS & AKM)",
+      teacher: "Ibu Ratna Dewi, M.Si.",
+      room: "Ruang 105",
+      elemenFocus: "Elemen Pengukuran, Geometri & Statistika",
+      description: "Kelas pengayaan soal tantangan penalaran matematika tinggi (HOTS) dan persiapan AKM.",
+      schedule: "Rabu & Jumat, 13:00 - 14:30 WIB",
+      studentsCount: 28,
+      activeBab: "Bab 6: Teorema Pythagoras & Aplikasi Kontekstual",
+      badge: "Pengayaan HOTS",
+      badgeColor: "bg-emerald-100 text-emerald-800 border-emerald-200",
+    },
+    {
+      id: "8d",
+      code: "8D",
+      title: "Kelas Pendalaman 8–D (Persiapan Asesmen Sumatif)",
+      teacher: "thinksy AI Tutor & Tim Guru Matematika",
+      room: "Lab Multimedia",
+      elemenFocus: "Elemen Analisis Data, Peluang & Tryout CP",
+      description: "Kelas intensif latihan soal dan review kisi-kisi Asesmen Sumatif Akhir Semester Kurikulum Merdeka.",
+      schedule: "Jumat, 08:00 - 10:00 WIB",
+      studentsCount: 35,
+      activeBab: "Bab 8: Statistika Pemusatan Data & Peluang",
+      badge: "Persiapan Asesmen",
+      badgeColor: "bg-amber-100 text-amber-900 border-amber-200",
+    },
+  ];
+
+  const kurikulumMetadata = {
+    kurikulumName: "Kurikulum Merdeka",
+    fase: "Fase D (SMP Kelas 8)",
+    mataPelajaran: "Matematika",
+    elemenCP: [
+      { id: "bilangan", nama: "Elemen Bilangan", deskripsi: "Pola Bilangan, Barisan & Deret Aritmetika/Geometri" },
+      { id: "aljabar", nama: "Elemen Aljabar", deskripsi: "Bentuk Aljabar, PLSV/PTLSV, SPLDV, & Fungsi Linear" },
+      { id: "geometri", nama: "Elemen Pengukuran & Geometri", deskripsi: "Teorema Pythagoras, Lingkaran, & Bangun Ruang Sisi Datar" },
+      { id: "analisis_data", nama: "Elemen Analisis Data & Peluang", deskripsi: "Statistika (Mean, Median, Modus) & Peluang Kejadian" },
+    ],
+  };
+
   return (
     <StudentDashboardClient
       userProfile={userProfile}
@@ -235,6 +307,8 @@ export default async function SiswaDashboardPage() {
       answeredSoalCount={answeredSoalCount}
       totalSoalCount={totalSoalCount}
       learningProgressPercent={learningProgressPercent}
+      activeClassesData={activeClassesData}
+      kurikulumMetadata={kurikulumMetadata}
     />
   );
 }
