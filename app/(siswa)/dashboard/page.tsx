@@ -138,13 +138,19 @@ export default async function SiswaDashboardPage() {
       );
     }
 
-    // Check today's attendance status
-    const formattedDate = new Date().toISOString().split("T")[0];
+    // Check today's attendance status in WIB timezone (Asia/Jakarta)
+    const todayWIB = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Jakarta",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+
     const { data: presensiToday } = await supabase
       .from("presensi")
       .select("waktu_masuk, foto_url, status")
       .eq("siswa_id", user.id)
-      .eq("tanggal", formattedDate)
+      .eq("tanggal", todayWIB)
       .maybeSingle();
 
     let isCheckedIn = false;
@@ -154,6 +160,7 @@ export default async function SiswaDashboardPage() {
     if (presensiToday) {
       isCheckedIn = true;
       checkInTime = new Date(presensiToday.waktu_masuk).toLocaleTimeString("id-ID", {
+        timeZone: "Asia/Jakarta",
         hour: "2-digit",
         minute: "2-digit",
       });

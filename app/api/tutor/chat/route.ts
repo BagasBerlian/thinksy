@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { autoClaimMisi } from "@/app/api/siswa/misi/route";
 
 export async function POST(req: Request) {
   try {
@@ -174,9 +175,11 @@ KONTEKS MATERI YANG SEDANG DIBUKA USER SAAT INI (Gunakan info ini agar obrolan n
     }
 
     // 8. Log AI Token Usage (Always log to log_ai even if sekolahId is NULL)
+    let misiClaimResult = { claimed: false, poinDitambahkan: 0 };
     try {
       const { createAdminClient } = await import("@/lib/supabase/admin");
       const adminDb = createAdminClient();
+
       await adminDb.from("log_ai").insert({
         sekolah_id: sekolahId || null,
         pengguna_id: user.id,
@@ -186,6 +189,15 @@ KONTEKS MATERI YANG SEDANG DIBUKA USER SAAT INI (Gunakan info ini agar obrolan n
         total_tokens: totalTokens,
         biaya_usd: costUsd,
       });
+
+      // AUTO-KLAIM misi sokratik jika ini interaksi pertama hari ini
+      // currentCount adalah jumlah log SEBELUM insert ini, jadi jika 0 = ini yang pertama
+      if (currentCount === 0) {
+        misiClaimResult = await autoClaimMisi(supabase, user.id, "sokratik");
+        if (!misiClaimResult.claimed) {
+          misiClaimResult = await autoClaimMisi(supabase, user.id, "eksplorasi");
+        }
+      }
     } catch (logErr) {
       console.error("Error writing to log_ai:", logErr);
     }
@@ -198,6 +210,8 @@ KONTEKS MATERI YANG SEDANG DIBUKA USER SAAT INI (Gunakan info ini agar obrolan n
       usage: {
         totalTokens,
       },
+      misiAutoClaimed: misiClaimResult.claimed,
+      misiPoinDitambahkan: misiClaimResult.poinDitambahkan,
     });
   } catch (error: any) {
     console.error("Error in Tutor AI Route:", error);

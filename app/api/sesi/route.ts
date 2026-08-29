@@ -1,6 +1,17 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { autoClaimMisi } from "@/app/api/siswa/misi/route";
+
+// ─── Helper: Tanggal hari ini dalam WIB ──────────────────────────────────────
+function getTodayWIB(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
 
 // POST: Mulai Sesi Belajar Baru
 export async function POST(req: Request) {
@@ -175,12 +186,46 @@ export async function PUT(req: Request) {
       );
     }
 
+    // AUTO-KLAIM misi kuis jika ini sesi selesai pertama hari ini
+    let misiClaimResult = { claimed: false, poinDitambahkan: 0, poinTotal: 0 };
+    try {
+      const todayWIB = getTodayWIB();
+      const todayStart = `${todayWIB}T00:00:00+07:00`;
+      const tomorrowDate = new Date(`${todayWIB}T00:00:00+07:00`);
+      tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+      const tomorrowStart = tomorrowDate.toISOString().split("T")[0] + "T00:00:00+07:00";
+
+      // Cek apakah ini sesi selesai PERTAMA hari ini (bukan termasuk sesi yang baru selesai ini)
+      const { data: sesiSebelumnya } = await adminDb
+        .from("sesi")
+        .select("id")
+        .eq("siswa_id", updatedSesi!.siswa_id)
+        .eq("status_sesi", "selesai")
+        .gte("selesai_pada", todayStart)
+        .lt("selesai_pada", tomorrowStart)
+        .neq("id", sesiId) // Exclude sesi yang baru saja selesai
+        .limit(1);
+
+      // Jika tidak ada sesi selesai sebelumnya hari ini → ini yang pertama → auto klaim
+      if (!sesiSebelumnya || sesiSebelumnya.length === 0) {
+        misiClaimResult = await autoClaimMisi(supabase, updatedSesi!.siswa_id, "kuis");
+        // Fallback: coba keyword "latihan" jika "kuis" tidak ditemukan
+        if (!misiClaimResult.claimed) {
+          misiClaimResult = await autoClaimMisi(supabase, updatedSesi!.siswa_id, "latihan");
+        }
+      }
+    } catch (misiErr) {
+      console.error("[MISI AUTO-CLAIM KUIS ERROR]", misiErr);
+    }
+
     return NextResponse.json({
       success: true,
       sesiId,
       skorAkhir: finalScore,
       sesi: updatedSesi,
       message: "Sesi belajar telah selesai!",
+      misiAutoClaimed: misiClaimResult.claimed,
+      misiPoinDitambahkan: misiClaimResult.poinDitambahkan,
     });
   } catch (error: any) {
     return NextResponse.json(

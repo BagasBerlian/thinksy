@@ -176,6 +176,7 @@ export default function StudentDashboardClient({
   // Daily Missions State
   const [dailyMissions, setDailyMissions] = useState<any[]>([]);
   const [isClaimingMissionId, setIsClaimingMissionId] = useState<string | null>(null);
+  const [isMissionsLoading, setIsMissionsLoading] = useState(true);
 
   // Guard tab for unassigned student
   useEffect(() => {
@@ -355,21 +356,46 @@ export default function StudentDashboardClient({
   };
 
   const fetchMissionsFromDB = async () => {
+    setIsMissionsLoading(true);
     try {
       const res = await fetch("/api/siswa/misi");
       if (res.ok) {
         const data = await res.json();
         const list = data.missions || data.misi;
-        if (Array.isArray(list) && list.length > 0) {
+        if (Array.isArray(list)) {
           setDailyMissions(list);
         }
       }
     } catch {
-      // silent fail fallback
+      // silent fail
+    } finally {
+      setIsMissionsLoading(false);
+    }
+  };
+
+  const fetchPresensiStatusFromDB = async () => {
+    try {
+      const res = await fetch("/api/siswa/presensi");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.isCheckedIn) {
+          setIsCheckedIn(true);
+          setCheckInTime(data.checkInTime || null);
+          setCapturedSelfie(data.foto_url || null);
+        } else {
+          // Reset presensi untuk hari baru (WIB Asia/Jakarta)
+          setIsCheckedIn(false);
+          setCheckInTime(null);
+          setCapturedSelfie(null);
+        }
+      }
+    } catch {
+      // silent fail
     }
   };
 
   useEffect(() => {
+    fetchPresensiStatusFromDB();
     fetchNotificationsFromDB();
     fetchLeaderboardFromDB();
     fetchMissionsFromDB();
@@ -393,7 +419,7 @@ export default function StudentDashboardClient({
     setTimeout(() => setToastNotification(null), 5000);
   };
 
-  // Claim Daily Mission with strict server validation (ONLY show success if res.ok && data.success === true)
+  // Claim Daily Mission — server validates apakah siswa benar-benar sudah melakukan misi
   const handleClaimMission = async (misiId: string) => {
     setIsClaimingMissionId(misiId);
     try {
@@ -419,10 +445,23 @@ export default function StudentDashboardClient({
         fetchMissionsFromDB();
         setTimeout(() => setToastNotification(null), 5000);
       } else {
-        alert(data.error || "Gagal mengklaim misi. Pastikan target progres telah tercapai.");
+        // Tampilkan pesan kesalahan dari server jika user belum menyelesaikan aktivitas misi
+        setToastNotification({
+          show: true,
+          title: "Misi Belum Selesai ⚠️",
+          message: data.error || "Kamu belum menyelesaikan target misi ini hari ini. Silakan kerjakan terlebih dahulu!",
+          time: "Baru saja",
+        });
+        setTimeout(() => setToastNotification(null), 6000);
       }
     } catch (err: any) {
-      alert("Gagal mengklaim misi (kesalahan jaringan): " + err.message);
+      setToastNotification({
+        show: true,
+        title: "Kesalahan Koneksi ⚠️",
+        message: "Gagal terhubung ke server. Coba lagi.",
+        time: "Baru saja",
+      });
+      setTimeout(() => setToastNotification(null), 5000);
     } finally {
       setIsClaimingMissionId(null);
     }
@@ -508,6 +547,12 @@ export default function StudentDashboardClient({
         if (typeof data.user?.streak === "number") {
           setDailyStreak(data.user.streak);
         }
+        if (typeof data.user?.poin === "number") {
+          setLearningPoints(data.user.poin);
+        }
+
+        // Update missions list automatically after check-in
+        fetchMissionsFromDB();
 
         // Show React Toast Notification at top-right
         setToastNotification({
@@ -1117,127 +1162,227 @@ export default function StudentDashboardClient({
                 </p>
               </div>
             )}
-            <section className={`saas-card rounded-3xl p-6 border border-slate-200 shadow-sm bg-white space-y-4 ${!sekolahData ? "filter blur-[2.5px] select-none pointer-events-none opacity-60" : ""}`}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-9 h-9 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold">
-                    🎯
+            <section className={`saas-card rounded-3xl p-6 border border-slate-200/90 shadow-sm bg-white space-y-5 ${!sekolahData ? "filter blur-[2.5px] select-none pointer-events-none opacity-60" : ""}`}>
+              {/* Header Misi Harian */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-amber-500 via-orange-500 to-amber-600 text-white flex items-center justify-center shadow-md shadow-amber-500/20 shrink-0">
+                    <Target className="w-6 h-6" />
                   </div>
                   <div>
-                    <h2 className="text-base font-extrabold text-[#0F172A]">
-                      Misi Harian Siswa
-                    </h2>
-                    <p className="text-xs text-slate-500">
-                      Selesaikan target belajar untuk mengklaim tambahan Poin Belajar.
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-lg font-black text-slate-900 tracking-tight">
+                        Misi Harian Siswa
+                      </h2>
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100/90 text-amber-900 border border-amber-300/60 uppercase tracking-wider">
+                        <Sparkles className="w-3 h-3 text-amber-600 fill-amber-500" /> Daily Quest
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 font-medium mt-0.5">
+                      Selesaikan tantangan belajar harian untuk mengklaim bonus Poin & tingkatkan peringkatmu!
                     </p>
                   </div>
                 </div>
-                <span className="text-xs font-bold text-amber-700 bg-amber-50 px-3 py-1 rounded-full border border-amber-200">
-                  Poin & Presensi
-                </span>
+
+                {/* Ringkasan Progres Misi Harian */}
+                <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-slate-50 border border-slate-200/80 shadow-xs shrink-0 self-start sm:self-auto">
+                  <Trophy className="w-4 h-4 text-amber-500 fill-amber-400" />
+                  <span className="text-xs font-bold text-slate-700">
+                    <strong className="text-slate-900 font-black">
+                      {dailyMissions.filter((m) => m.diklaim).length}
+                    </strong>{" "}
+                    / {dailyMissions.length || 3} Selesai
+                  </span>
+                </div>
               </div>
 
+              {/* Grid Kartu Misi Harian */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {(dailyMissions.length > 0
-                  ? dailyMissions
-                  : [
-                      {
-                        id: "m1",
-                        judul: "Presensi Selfie Harian",
-                        deskripsi: "Absen selfie kamera kehadiran hari ini.",
-                        progres_saat_ini: isCheckedIn ? 1 : 0,
-                        target_max: 1,
-                        poin_hadiah: 20,
-                        diklaim: false,
-                      },
-                      {
-                        id: "m2",
-                        judul: "Selesaikan 1 Kuis / Latihan",
-                        deskripsi: "Kerjakan 1 sesi kuis/latihan matematika.",
-                        progres_saat_ini: completedQuizCount >= 1 ? 1 : 0,
-                        target_max: 1,
-                        poin_hadiah: 50,
-                        diklaim: false,
-                      },
-                      {
-                        id: "m3",
-                        judul: "Eksplorasi Soal Sokratik",
-                        deskripsi: "Tanya AI Sokratik dalam mode eksplorasi.",
-                        progres_saat_ini: answeredSoalCount >= 3 ? 3 : answeredSoalCount,
-                        target_max: 3,
-                        poin_hadiah: 30,
-                        diklaim: false,
-                      },
-                    ]
-                ).map((misi) => {
-                  const isCompleted = Number(misi.progres_saat_ini) >= Number(misi.target_max);
-                  const isClaimed = Boolean(misi.diklaim);
-
-                  return (
+                {isMissionsLoading ? (
+                  // Skeleton Loading State
+                  [...Array(3)].map((_, i) => (
                     <div
-                      key={misi.id}
-                      className={`p-4 rounded-2xl border flex flex-col justify-between space-y-3 transition ${
-                        isClaimed
-                          ? "bg-slate-50 border-slate-200 opacity-60"
-                          : isCompleted
-                          ? "bg-amber-50/50 border-amber-300 shadow-xs"
-                          : "bg-white border-slate-200"
-                      }`}
+                      key={i}
+                      className="p-5 rounded-3xl border bg-slate-50/80 border-slate-100 space-y-4 animate-pulse"
                     >
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <h3 className="text-xs font-extrabold text-[#0F172A]">
-                            {misi.judul}
-                          </h3>
-                          <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-200 shrink-0">
-                            +{misi.poin_hadiah || 20} Poin
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-slate-500 font-medium">
-                          {misi.deskripsi || "Selesaikan target misi."}
-                        </p>
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="w-10 h-10 bg-slate-200 rounded-2xl shrink-0" />
+                        <div className="h-4 bg-slate-200 rounded w-1/2" />
+                        <div className="h-5 bg-amber-100 rounded-xl w-16" />
                       </div>
-
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between text-[10px] font-bold">
-                          <span className="text-slate-400">Progres Target</span>
-                          <span className="text-slate-700">
-                            {misi.progres_saat_ini}/{misi.target_max}
-                          </span>
-                        </div>
-
-                        {isClaimed ? (
-                          <button
-                            disabled
-                            className="w-full py-1.5 rounded-xl bg-slate-200 text-slate-500 text-xs font-bold"
-                          >
-                            Sudah Diklaim ✓
-                          </button>
-                        ) : isCompleted ? (
-                          <button
-                            onClick={() => handleClaimMission(misi.id)}
-                            disabled={isClaimingMissionId === misi.id}
-                            className="w-full py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-extrabold transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                          >
-                            {isClaimingMissionId === misi.id ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            ) : (
-                              <Award className="w-3.5 h-3.5" />
-                            )}
-                            <span>Klaim +{misi.poin_hadiah || 20} Poin</span>
-                          </button>
-                        ) : (
-                          <button
-                            disabled
-                            className="w-full py-1.5 rounded-xl bg-slate-100 text-slate-400 text-xs font-semibold cursor-not-allowed"
-                          >
-                            Belum Selesai
-                          </button>
-                        )}
-                      </div>
+                      <div className="h-3 bg-slate-200 rounded w-full" />
+                      <div className="h-2 bg-slate-200 rounded-full w-full" />
+                      <div className="h-9 bg-slate-200 rounded-2xl w-full" />
                     </div>
-                  );
-                })}
+                  ))
+                ) : dailyMissions.length === 0 ? (
+                  // Empty State
+                  <div className="col-span-3 text-center py-8 bg-slate-50/60 rounded-3xl border border-dashed border-slate-200 text-slate-400 text-xs font-semibold flex flex-col items-center justify-center gap-2">
+                    <Target className="w-8 h-8 text-slate-300" />
+                    <span>Misi harian tidak tersedia. Pastikan akun Anda terhubung ke sekolah.</span>
+                  </div>
+                ) : (
+                  dailyMissions.map((misi) => {
+                    const isCompleted = Number(misi.progres_saat_ini) >= Number(misi.target_max);
+                    const isClaimed = Boolean(misi.diklaim);
+
+                    const judulLower = misi.judul.toLowerCase();
+                    const isPresensi = judulLower.includes("presensi");
+                    const isKuis = judulLower.includes("kuis") || judulLower.includes("latihan");
+
+                    return (
+                      <div
+                        key={misi.id}
+                        className={`group relative rounded-3xl border p-5 transition-all duration-300 flex flex-col justify-between space-y-4 overflow-hidden ${
+                          isClaimed
+                            ? "bg-gradient-to-b from-emerald-50/60 via-white to-emerald-50/20 border-emerald-200/90 shadow-xs"
+                            : isCompleted
+                            ? "bg-gradient-to-b from-amber-50/80 via-white to-orange-50/30 border-amber-400/90 shadow-md shadow-amber-500/10 ring-2 ring-amber-400/30"
+                            : "bg-white hover:bg-slate-50/60 border-slate-200/90 hover:border-slate-300 shadow-xs hover:shadow-md"
+                        }`}
+                      >
+                        {/* Accent Bar di Atas Kartu */}
+                        <div
+                          className={`absolute top-0 left-0 right-0 h-1 transition-all ${
+                            isClaimed
+                              ? "bg-gradient-to-r from-emerald-400 to-teal-500"
+                              : isCompleted
+                              ? "bg-gradient-to-r from-amber-400 via-orange-500 to-amber-500"
+                              : "bg-slate-200 group-hover:bg-slate-300"
+                          }`}
+                        />
+
+                        <div className="space-y-3">
+                          {/* Header Kartu: Ikon Lucide + Judul + Pill Poin */}
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-start gap-3">
+                              <div
+                                className={`p-2.5 rounded-2xl shrink-0 transition-transform group-hover:scale-105 ${
+                                  isClaimed
+                                    ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
+                                    : isCompleted
+                                    ? "bg-amber-100 text-amber-800 border border-amber-200 shadow-xs"
+                                    : isPresensi
+                                    ? "bg-blue-50 text-blue-600 border border-blue-100"
+                                    : isKuis
+                                    ? "bg-violet-50 text-violet-600 border border-violet-100"
+                                    : "bg-emerald-50 text-emerald-600 border border-emerald-100"
+                                }`}
+                              >
+                                {isPresensi ? (
+                                  <Camera className="w-5 h-5" />
+                                ) : isKuis ? (
+                                  <BookOpen className="w-5 h-5" />
+                                ) : (
+                                  <BrainCircuit className="w-5 h-5" />
+                                )}
+                              </div>
+
+                              <div>
+                                <h3 className="text-sm font-extrabold text-slate-900 group-hover:text-amber-950 transition-colors leading-snug">
+                                  {misi.judul}
+                                </h3>
+                                <p className="text-xs text-slate-500 font-medium mt-1 leading-relaxed">
+                                  {misi.deskripsi || "Selesaikan target misi ini hari ini."}
+                                </p>
+                              </div>
+                            </div>
+
+                            <span
+                              className={`inline-flex items-center gap-1 text-[11px] font-black px-2.5 py-1 rounded-xl shrink-0 transition-all ${
+                                isClaimed
+                                  ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                                  : isCompleted
+                                  ? "bg-gradient-to-r from-amber-400 to-orange-400 text-amber-950 font-black shadow-xs border border-amber-300 animate-pulse"
+                                  : "bg-amber-50 text-amber-900 border border-amber-200/80"
+                              }`}
+                            >
+                              <Gift className="w-3.5 h-3.5 text-amber-600" />
+                              <span>+{misi.poin_hadiah || 20} Poin</span>
+                            </span>
+                          </div>
+
+                          {/* Progress Bar & Indikator Angka */}
+                          <div className="space-y-1.5 pt-1">
+                            <div className="flex items-center justify-between text-[11px] font-bold">
+                              <span className="text-slate-400 flex items-center gap-1">
+                                <Clock className="w-3 h-3 text-slate-400" /> Progres Target
+                              </span>
+                              <span
+                                className={
+                                  isCompleted
+                                    ? "text-emerald-700 font-black"
+                                    : "text-slate-700 font-extrabold"
+                                }
+                              >
+                                {misi.progres_saat_ini} / {misi.target_max}
+                              </span>
+                            </div>
+                            <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden p-0.5 border border-slate-200/50">
+                              <div
+                                className={`h-full rounded-full transition-all duration-500 ${
+                                  isClaimed
+                                    ? "bg-gradient-to-r from-emerald-400 to-teal-500"
+                                    : isCompleted
+                                    ? "bg-gradient-to-r from-amber-400 via-orange-500 to-amber-500 shadow-xs shadow-amber-500/50"
+                                    : "bg-slate-300"
+                                }`}
+                                style={{
+                                  width: `${Math.min(
+                                    100,
+                                    Math.round(
+                                      (Number(misi.progres_saat_ini) / Number(misi.target_max)) *
+                                        100
+                                    )
+                                  )}%`,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Tombol Aksi Misi */}
+                        <div className="pt-2">
+                          {isClaimed ? (
+                            <button
+                              disabled
+                              className="w-full py-2.5 rounded-2xl bg-emerald-100/90 text-emerald-800 text-xs font-black flex items-center justify-center gap-2 cursor-not-allowed border border-emerald-200 shadow-2xs"
+                            >
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                              <span>Sudah Diklaim ✓</span>
+                            </button>
+                          ) : isCompleted ? (
+                            <button
+                              onClick={() => handleClaimMission(misi.id)}
+                              disabled={isClaimingMissionId === misi.id}
+                              className="w-full py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 hover:from-amber-600 hover:to-orange-600 active:scale-[0.98] text-white text-xs font-black transition-all shadow-md shadow-amber-500/30 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                            >
+                              {isClaimingMissionId === misi.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Sparkles className="w-4 h-4 fill-white" />
+                              )}
+                              <span>Klaim +{misi.poin_hadiah || 20} Poin</span>
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleClaimMission(misi.id)}
+                              disabled={isClaimingMissionId === misi.id}
+                              className="w-full py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 active:scale-[0.98] text-slate-700 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 border border-slate-200 shadow-2xs"
+                            >
+                              {isClaimingMissionId === misi.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Award className="w-4 h-4 text-slate-500" />
+                              )}
+                              <span>Klaim +{misi.poin_hadiah || 20} Poin</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </section>
           </div>
