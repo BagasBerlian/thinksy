@@ -58,8 +58,8 @@ export default function ExamResultClient({
       <header className="sticky top-0 z-40 saas-nav border-b border-slate-200 shadow-xs">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 py-3.5">
           <div className="flex items-center space-x-3">
-            <div className="h-9 w-9 rounded-xl bg-[#0F172A] flex items-center justify-center font-bold text-white shadow-xs border border-slate-700">
-              <BrainCircuit className="w-5 h-5 text-amber-400" />
+            <div className="h-9 w-9 rounded-xl overflow-hidden shadow-xs border border-slate-200 bg-white flex items-center justify-center p-0.5">
+              <img src="/logo.png" alt="THINKSY Logo" className="w-full h-full object-contain" />
             </div>
             <div>
               <span className="font-extrabold text-[#0F172A] block text-base tracking-tight">

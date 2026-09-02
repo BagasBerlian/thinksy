@@ -40,10 +40,21 @@ import {
   TriangleAlert,
   Building2,
   Lock,
+  Plus,
+  MessageSquare,
+  Search,
+  Trash2,
+  Edit3,
+  Share2,
+  Flag,
+  Send,
+  ArrowLeft,
 } from "lucide-react";
 import Link from "next/link";
 import { logoutAction } from "../../(auth)/actions";
 import { useRealtimeDashboard } from "@/hooks/useRealtimeDashboard";
+import TutorChat from "@/components/tutor/TutorChat";
+import GeneralAiChat from "@/components/tutor/GeneralAiChat";
 
 export interface SekolahLink {
   label: string;
@@ -168,6 +179,329 @@ export default function StudentDashboardClient({
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
+
+  // FAB & Student Learning Hub Feature Modals State
+  const [isFabOpen, setIsFabOpen] = useState(false);
+  const [isMyNotesOpen, setIsMyNotesOpen] = useState(false);
+  const [isAiAssistantOpen, setIsAiAssistantOpen] = useState(false);
+  const [isGlobalChatOpen, setIsGlobalChatOpen] = useState(false);
+
+  // Today's Focus Checklist State
+  const [todaysFocusTasks, setTodaysFocusTasks] = useState([
+    { id: "t1", title: "Tugas Matematika Bab 4 (SPLDV)", completed: false, category: "Matematika" },
+    { id: "t2", title: "10 Soal Latihan Sokratik AI", completed: false, category: "AI Sokratik" },
+    { id: "t3", title: "Presensi Selfie Kehadiran Harian", completed: userProfile?.isCheckedIn || false, category: "Presensi" },
+  ]);
+
+  // My Notes State & Persistence
+  const [notes, setNotes] = useState<Array<{ id: string; judul: string; konten: string; mata_pelajaran: string; dibuat_pada: string }>>([
+    { id: "n1", judul: "Rangkuman Fotosintesis & Kloroplas", konten: "Fotosintesis terjadi di membran tilakoid kloroplas memanfaatkan energi foton cahaya matahari...", mata_pelajaran: "IPA Biologi", dibuat_pada: "31 Agustus 2026" },
+    { id: "n2", judul: "Persiapan Ujian Matematika (Pythagoras)", konten: "Segitiga siku-siku memenuhi c^2 = a^2 + b^2. Tripel pythagoras populer: (3,4,5), (5,12,13), (7,24,25), (8,15,17).", mata_pelajaran: "Matematika", dibuat_pada: "30 Agustus 2026" },
+  ]);
+  const [noteTitle, setNoteTitle] = useState("");
+  const [noteContent, setNoteContent] = useState("");
+  const [noteSubject, setNoteSubject] = useState("Matematika");
+  const [notesSearch, setNotesSearch] = useState("");
+
+  // Fetch student notes from API
+  useEffect(() => {
+    async function loadNotes() {
+      try {
+        const res = await fetch("/api/siswa/catatan");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.notes && data.notes.length > 0) {
+            setNotes(
+              data.notes.map((n: any) => ({
+                id: n.id,
+                judul: n.judul,
+                konten: n.konten,
+                mata_pelajaran: n.mata_pelajaran || "Umum",
+                dibuat_pada: new Date(n.dibuat_pada).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }),
+              }))
+            );
+          }
+        }
+      } catch {}
+    }
+    loadNotes();
+  }, []);
+
+  const handleCreateNote = async () => {
+    if (!noteTitle.trim()) return;
+    const newNoteObj = {
+      id: Date.now().toString(),
+      judul: noteTitle,
+      konten: noteContent,
+      mata_pelajaran: noteSubject,
+      dibuat_pada: new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }),
+    };
+    setNotes([newNoteObj, ...notes]);
+    setNoteTitle("");
+    setNoteContent("");
+
+    try {
+      await fetch("/api/siswa/catatan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ judul: noteTitle, konten: noteContent, mata_pelajaran: noteSubject }),
+      });
+    } catch {}
+  };
+
+  const handleDeleteNote = async (id: string) => {
+    setNotes((prev) => prev.filter((n) => n.id !== id));
+    try {
+      await fetch(`/api/siswa/catatan?id=${id}`, { method: "DELETE" });
+    } catch {}
+  };
+
+  // Global School Chat State & API Sync
+  const [globalChats, setGlobalChats] = useState<Array<{ id: string; nama_penulis: string; kelas_penulis: string; konten: string; minat_kategori: string; jumlah_suka: number; jumlah_komentar: number; dibuat_pada: string }>>([
+    { id: "c1", nama_penulis: "Raka Prasetya", kelas_penulis: "XI RPL 1", konten: "Siapa yang berminat ikut seleksi Lomba Robotik antar sekolah bulan ini?", minat_kategori: "Robotik", jumlah_suka: 5, jumlah_komentar: 2, dibuat_pada: "10 menit lalu" },
+    { id: "c2", nama_penulis: "Naya Anindita", kelas_penulis: "XII DKV", konten: "Ada yang mau diskusi belajar bersama mengenai soal penalaran Pythagoras?", minat_kategori: "Matematika", jumlah_suka: 8, jumlah_komentar: 1, dibuat_pada: "25 menit lalu" },
+  ]);
+  const [newChatContent, setNewChatContent] = useState("");
+  const [chatSearchQuery, setChatSearchQuery] = useState("");
+  const [chatSearchResults, setChatSearchResults] = useState<{ students: any[]; communities: any[] }>({ students: [], communities: [] });
+  const [reportReason, setReportReason] = useState("");
+  const [reportingChatId, setReportingChatId] = useState<string | null>(null);
+
+  // Chat Comments & Likes State
+  const [expandedCommentsChatId, setExpandedCommentsChatId] = useState<string | null>(null);
+  const [chatComments, setChatComments] = useState<Record<string, Array<{ id: string; nama_penulis: string; kelas_penulis: string; konten: string; dibuat_pada: string }>>>({
+    c1: [
+      { id: "cm1", nama_penulis: "Budi Santoso", kelas_penulis: "Kelas 8B", konten: "Saya tertarik ikut seleksi robotik!", dibuat_pada: "5 menit lalu" },
+      { id: "cm2", nama_penulis: "Siti Aminah", kelas_penulis: "XI IPA 2", konten: "Bisa hubungi siapa untuk info lebih lanjut?", dibuat_pada: "2 menit lalu" },
+    ],
+    c2: [
+      { id: "cm3", nama_penulis: "Andi Wijaya", kelas_penulis: "Kelas 8A", konten: "Boleh banget, nanti sore di perpustakaan ya!", dibuat_pada: "15 menit lalu" },
+    ],
+  });
+  const [replyInputs, setReplyInputs] = useState<Record<string, string>>({});
+  const [loadingCommentsId, setLoadingCommentsId] = useState<string | null>(null);
+
+  // Fetch Global Chat Feed from API
+  useEffect(() => {
+    async function loadGlobalChat() {
+      try {
+        const res = await fetch("/api/siswa/chat");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.chats && data.chats.length > 0) {
+            setGlobalChats(
+              data.chats.map((c: any) => ({
+                id: c.id,
+                nama_penulis: c.nama_penulis,
+                kelas_penulis: c.kelas_penulis || "Siswa",
+                konten: c.konten,
+                minat_kategori: c.minat_kategori || "Umum",
+                jumlah_suka: c.jumlah_suka || 0,
+                jumlah_komentar: c.jumlah_komentar || 0,
+                dibuat_pada: new Date(c.dibuat_pada).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
+              }))
+            );
+          }
+        }
+      } catch {}
+    }
+    loadGlobalChat();
+  }, []);
+
+  const handleSendChat = async () => {
+    if (!newChatContent.trim()) return;
+    const tempId = Date.now().toString();
+    const newChatObj = {
+      id: tempId,
+      nama_penulis: studentName,
+      kelas_penulis: "Kelas 8A",
+      konten: newChatContent.trim(),
+      minat_kategori: "Diskusi",
+      jumlah_suka: 0,
+      jumlah_komentar: 0,
+      dibuat_pada: "Baru saja",
+    };
+    setGlobalChats((prev) => [newChatObj, ...prev]);
+    const sentText = newChatContent.trim();
+    setNewChatContent("");
+
+    try {
+      const res = await fetch("/api/siswa/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ konten: sentText, minat_kategori: "Diskusi" }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.chat) {
+          const serverChat = {
+            id: data.chat.id,
+            nama_penulis: data.chat.nama_penulis,
+            kelas_penulis: data.chat.kelas_penulis || "Kelas 8A",
+            konten: data.chat.konten,
+            minat_kategori: data.chat.minat_kategori || "Diskusi",
+            jumlah_suka: data.chat.jumlah_suka || 0,
+            jumlah_komentar: data.chat.jumlah_komentar || 0,
+            dibuat_pada: "Baru saja",
+          };
+          setGlobalChats((prev) => prev.map((c) => (c.id === tempId ? serverChat : c)));
+          broadcastEvent("CHAT_POSTED", { chat: serverChat });
+        }
+      }
+    } catch {}
+  };
+
+  const handleLikeChat = async (chatId: string) => {
+    let updatedLikes = 0;
+    setGlobalChats((prev) =>
+      prev.map((c) => {
+        if (c.id === chatId) {
+          updatedLikes = c.jumlah_suka + 1;
+          return { ...c, jumlah_suka: updatedLikes };
+        }
+        return c;
+      })
+    );
+
+    broadcastEvent("CHAT_LIKED", { chatId, newLikes: updatedLikes });
+
+    try {
+      const res = await fetch("/api/siswa/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "like", chatId }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (typeof data.newLikes === "number") {
+          setGlobalChats((prev) =>
+            prev.map((c) => (c.id === chatId ? { ...c, jumlah_suka: data.newLikes } : c))
+          );
+        }
+      }
+    } catch {}
+  };
+
+  const handleToggleComments = async (chatId: string) => {
+    if (expandedCommentsChatId === chatId) {
+      setExpandedCommentsChatId(null);
+      return;
+    }
+    setExpandedCommentsChatId(chatId);
+
+    setLoadingCommentsId(chatId);
+    try {
+      const res = await fetch(`/api/siswa/chat?chat_id=${chatId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.comments) && data.comments.length > 0) {
+          const formatted = data.comments.map((cm: any) => ({
+            id: cm.id,
+            nama_penulis: cm.nama_penulis,
+            kelas_penulis: cm.kelas_penulis || "Siswa",
+            konten: cm.konten,
+            dibuat_pada: new Date(cm.dibuat_pada).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
+          }));
+          setChatComments((prev) => ({ ...prev, [chatId]: formatted }));
+        }
+      }
+    } catch {
+      // silent fail
+    } finally {
+      setLoadingCommentsId(null);
+    }
+  };
+
+  const handleSendReply = async (chatId: string) => {
+    const replyText = (replyInputs[chatId] || "").trim();
+    if (!replyText) return;
+
+    const tempComment = {
+      id: Date.now().toString(),
+      nama_penulis: studentName,
+      kelas_penulis: "Kelas 8A",
+      konten: replyText,
+      dibuat_pada: "Baru saja",
+    };
+
+    setChatComments((prev) => ({
+      ...prev,
+      [chatId]: [...(prev[chatId] || []), tempComment],
+    }));
+
+    let newCount = 0;
+    setGlobalChats((prev) =>
+      prev.map((c) => {
+        if (c.id === chatId) {
+          newCount = c.jumlah_komentar + 1;
+          return { ...c, jumlah_komentar: newCount };
+        }
+        return c;
+      })
+    );
+
+    setReplyInputs((prev) => ({ ...prev, [chatId]: "" }));
+
+    broadcastEvent("CHAT_COMMENTED", { chatId, comment: tempComment, newCommentCount: newCount });
+
+    try {
+      const res = await fetch("/api/siswa/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "comment", chatId, konten: replyText }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.comment) {
+          const serverComment = {
+            id: data.comment.id,
+            nama_penulis: data.comment.nama_penulis,
+            kelas_penulis: data.comment.kelas_penulis || "Kelas 8A",
+            konten: data.comment.konten,
+            dibuat_pada: "Baru saja",
+          };
+          setChatComments((prev) => ({
+            ...prev,
+            [chatId]: (prev[chatId] || []).map((cm) => (cm.id === tempComment.id ? serverComment : cm)),
+          }));
+        }
+        if (typeof data.newCommentCount === "number") {
+          setGlobalChats((prev) =>
+            prev.map((c) => (c.id === chatId ? { ...c, jumlah_komentar: data.newCommentCount } : c))
+          );
+        }
+      }
+    } catch {}
+  };
+
+  const handleSearchStudents = async (query: string) => {
+    setChatSearchQuery(query);
+    if (!query.trim()) {
+      setChatSearchResults({ students: [], communities: [] });
+      return;
+    }
+    try {
+      const res = await fetch(`/api/siswa/chat?q=${encodeURIComponent(query)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setChatSearchResults({ students: data.students || [], communities: data.communities || [] });
+      }
+    } catch {}
+  };
+
+  const handleReportContent = async (chatId: string) => {
+    if (!reportReason.trim()) return;
+    try {
+      await fetch("/api/siswa/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "report", chatId, alasan: reportReason }),
+      });
+      setReportingChatId(null);
+      setReportReason("");
+      alert("Laporan Anda telah berhasil dikirimkan ke Tim Moderasi Sekolah.");
+    } catch {}
+  };
 
   // Theme Mode & Tutor Guidance State (Persisted in localStorage)
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -504,6 +838,27 @@ export default function StudentDashboardClient({
         },
         ...prev,
       ]);
+    } else if (event.type === "CHAT_POSTED") {
+      if (event.payload?.chat) {
+        setGlobalChats((prev) => [event.payload.chat, ...prev.filter((c) => c.id !== event.payload.chat.id)]);
+      }
+    } else if (event.type === "CHAT_LIKED") {
+      if (event.payload?.chatId && typeof event.payload?.newLikes === "number") {
+        setGlobalChats((prev) =>
+          prev.map((c) => (c.id === event.payload.chatId ? { ...c, jumlah_suka: event.payload.newLikes } : c))
+        );
+      }
+    } else if (event.type === "CHAT_COMMENTED") {
+      if (event.payload?.chatId && event.payload?.comment) {
+        const { chatId, comment, newCommentCount } = event.payload;
+        setGlobalChats((prev) =>
+          prev.map((c) => (c.id === chatId ? { ...c, jumlah_komentar: newCommentCount || c.jumlah_komentar + 1 } : c))
+        );
+        setChatComments((prev) => ({
+          ...prev,
+          [chatId]: [...(prev[chatId] || []).filter((cm) => cm.id !== comment.id), comment],
+        }));
+      }
     }
   });
 
@@ -694,8 +1049,8 @@ export default function StudentDashboardClient({
           {/* Left: Brand Vector Logo & Nav Tabs */}
           <div className="flex items-center space-x-6 sm:space-x-8">
             <Link href="/" className="flex items-center space-x-3 group">
-              <div className="h-10 w-10 rounded-xl bg-[#0F172A] flex items-center justify-center font-bold text-white shadow-sm border border-slate-700 group-hover:scale-105 transition duration-200">
-                <BrainCircuit className="w-5.5 h-5.5 text-amber-400" />
+              <div className="h-10 w-10 rounded-xl overflow-hidden shadow-xs border border-slate-200 group-hover:scale-105 transition duration-200 bg-white flex items-center justify-center p-0.5">
+                <img src="/logo.png" alt="THINKSY Logo" className="w-full h-full object-contain" />
               </div>
               <span className="font-extrabold text-xl tracking-tight font-sans text-[#0F172A]">
                 THINKSY
@@ -1015,121 +1370,90 @@ export default function StudentDashboardClient({
             </section>
           )}
 
-          {/* SECONDARY ROW: STUDENT PROFILE STATS & SELFIE ABSENSI */}
-          <section className="saas-card p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden bg-white">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 sm:gap-8">
-              {/* Greetings & Student Rank */}
-              <div className="space-y-4 max-w-2xl">
-                {!sekolahData ? "" : (
-                  <div className="flex flex-wrap items-center gap-2">
+          {/* TOP 2-CARD LAYOUT: STUDENT LEARNING HUB */}
+          <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* CARD KIRI: Student Overview & Learning Activity (Wide - lg:col-span-2) */}
+            <div className="lg:col-span-2 saas-card p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden bg-white flex flex-col justify-between space-y-4">
+              <div className="space-y-3">
+                {/* Top Pill Badge: Ranking */}
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     onClick={() => setActiveTab("Peringkat")}
                     className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-blue-800 text-xs font-bold border border-blue-200 hover:bg-blue-100 transition cursor-pointer"
                   >
                     <Trophy className="w-3.5 h-3.5 text-blue-600" />
                     <span>
-                      Peringkat: #{currentUserRank} dari {totalStudentsCount} Siswa →
+                      🏆 Peringkat: #{currentUserRank} dari {totalStudentsCount} Siswa →
                     </span>
                   </button>
                 </div>
-                )}
 
-                <h2 className="text-2xl sm:text-2xl font-extrabold text-[#0F172A] tracking-tight">
-                  Selamat Datang Kembali, {studentName.split(" ")[0]}! 👋
-                </h2>
-                <p className="text-slate-600 text-xs sm:text-sm leading-relaxed font-medium">
-                  Selesaikan tugas harianmu untuk mengumpulkan poin dan tingkatkan pemahamanmu bersama Tutor AI Sokratik.
-                </p>
-
-                {/* Real-Time Metrics */}
-                <div className="flex flex-wrap items-center gap-3 pt-1">
-                  <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 shadow-xs">
-                    <div className="w-8 h-8 rounded-xl bg-amber-500/20 flex items-center justify-center">
-                      <Trophy className="w-4.5 h-4.5 text-amber-600" />
-                    </div>
-                    <div>
-                      <div className="text-[10px] text-amber-700 font-bold uppercase tracking-wider flex items-center gap-1">
-                        <span>POIN BELAJAR</span>
-                        <span className="text-[9px] font-normal text-amber-600 bg-amber-100 px-1.5 py-0.2 rounded">1 Kuis = 15 Poin</span>
-                      </div>
-                      <div className="text-sm font-extrabold text-[#0F172A]">
-                        {learningPoints.toLocaleString("id-ID")} Poin ({completedQuizCount} Kuis Selesai)
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-orange-50 border border-orange-200 text-orange-900 shadow-xs">
-                    <div className="w-8 h-8 rounded-xl bg-orange-500/20 flex items-center justify-center">
-                      <Flame className="w-4.5 h-4.5 text-orange-600" />
-                    </div>
-                    <div>
-                      <div className="text-[10px] text-orange-700 font-bold uppercase tracking-wider">
-                        DAILY STREAK
-                      </div>
-                      <div className="text-sm font-extrabold text-[#0F172A]">
-                        {dailyStreak} Hari Streak
-                      </div>
-                    </div>
-                  </div>
+                {/* Greeting Title & Subtext */}
+                <div className="space-y-1">
+                  <h2 className="text-2xl sm:text-3xl font-extrabold text-[#0F172A] tracking-tight">
+                    Selamat Datang Kembali, {studentName.split(" ")[0]}! 👋
+                  </h2>
+                  <p className="text-slate-600 text-xs sm:text-sm leading-relaxed font-medium max-w-xl">
+                    Selesaikan tugas harianmu untuk mengumpulkan poin dan tingkatkan pemahamanmu bersama Tutor AI.
+                  </p>
                 </div>
               </div>
 
-              {/* Live Selfie Camera Attendance System Widget */}
-              {!sekolahData ? "" : (
-              <div className="flex flex-col sm:flex-row items-center gap-4 shrink-0">
-                  <div className="p-5 rounded-3xl bg-slate-50 border border-slate-200 text-center flex flex-col items-center justify-center w-full sm:w-auto min-w-55">
-                  <div className="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">
-                    Presensi Selfie Kehadiran
-                  </div>
-
+              {/* Middle Row inside Card Kiri: Presensi Selfie & Progress Ring */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-stretch bg-slate-50/70 p-3 rounded-2xl border border-slate-200/80">
+                {/* Presensi Selfie Status Card */}
+                <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-xs flex flex-col justify-between space-y-2">
+                  <span className="text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">
+                    PRESENSI SELFIE KEHADIRAN
+                  </span>
                   {isCheckedIn ? (
                     <button
                       disabled
-                      className="w-full py-3 px-4 rounded-2xl bg-emerald-600 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-md animate-in zoom-in-95 duration-200"
+                      className="w-full inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-emerald-600 text-white font-extrabold text-xs shadow-xs"
                     >
-                      <CheckCircle2 className="w-4.5 h-4.5 stroke-[2.5]" />
-                      <span>Sudah Absen - Hadir ({checkInTime || "08:30"})</span>
+                      <CheckCircle2 className="w-4 h-4 text-white" />
+                      <span>Sudah Absen – Hadir ({checkInTime || "08.58"})</span>
                     </button>
                   ) : (
                     <button
                       onClick={handleStartCamera}
                       disabled={isSubmittingAttendance}
-                      className="w-full py-3 px-4 rounded-2xl bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition duration-200 cursor-pointer disabled:opacity-50"
+                      className="w-full inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-white font-bold text-xs shadow-md transition cursor-pointer disabled:opacity-50"
                     >
                       {isSubmittingAttendance ? (
-                        <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
+                        <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
                       ) : (
-                        <Camera className="w-4 h-4 text-emerald-400" />
+                        <Camera className="w-4 h-4 text-amber-400" />
                       )}
                       <span>
-                        {isSubmittingAttendance ? "Menyimpan..." : "Absen Kamera Selfie"}
+                        {isSubmittingAttendance ? "Menyimpan..." : "Presensi Selfie Kehadiran"}
                       </span>
                     </button>
                   )}
                 </div>
 
-                {/* Progress Visualizer Gauge */}
-                <div className="saas-card p-5 rounded-3xl border border-slate-200 shadow-xs flex items-center gap-4 min-w-55 w-full sm:w-auto">
-                  <div className="relative w-20 h-20 flex items-center justify-center shrink-0">
+                {/* Learning Progress Ring Card */}
+                <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-xs flex items-center gap-4">
+                  <div className="relative w-12 h-12 flex items-center justify-center shrink-0">
                     <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
                       <path
-                        className="text-slate-200"
-                        strokeWidth="3.5"
+                        className="text-slate-100"
+                        strokeWidth="4"
                         stroke="currentColor"
                         fill="none"
                         d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                       />
                       <path
-                        className="text-[#0F172A]"
+                        className="text-blue-600 transition-all duration-500"
                         strokeDasharray={`${learningProgressPercent}, 100`}
-                        strokeWidth="3.5"
+                        strokeWidth="4"
                         strokeLinecap="round"
                         stroke="currentColor"
                         fill="none"
                         d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                       />
                     </svg>
-                    <span className="absolute text-base font-extrabold text-[#0F172A]">
+                    <span className="absolute text-[11px] font-black text-[#0F172A]">
                       {learningProgressPercent}%
                     </span>
                   </div>
@@ -1137,15 +1461,131 @@ export default function StudentDashboardClient({
                     <div className="text-sm font-extrabold text-[#0F172A]">
                       {learningProgressPercent}% Selesai
                     </div>
-                    <div className="text-xs text-slate-500 font-semibold mt-0.5">
+                    <div className="text-xs font-semibold text-slate-500">
                       {answeredSoalCount} / {totalSoalCount} Soal Dikerjakan
                     </div>
                   </div>
                 </div>
               </div>
-              )}
+
+              {/* Bottom Metrics Row inside Card Kiri: Poin Belajar & Daily Streak */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Poin Belajar Box */}
+                <div className="flex items-center gap-3.5 p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200/80 shadow-xs">
+                  <div className="w-9 h-9 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0">
+                    <Trophy className="w-4.5 h-4.5 text-amber-600" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-extrabold text-amber-800 uppercase tracking-wider">
+                        POIN BELAJAR
+                      </span>
+                      <span className="text-[9px] font-extrabold bg-amber-200/70 text-amber-900 px-1.5 py-0.5 rounded-full">
+                        1 KUIS = 15 POIN
+                      </span>
+                    </div>
+                    <div className="text-sm font-black text-amber-950 mt-0.5">
+                      {learningPoints} Poin ({completedQuizCount} Kuis Selesai)
+                    </div>
+                  </div>
+                </div>
+
+                {/* Daily Streak Box */}
+                <div className="flex items-center gap-3.5 p-3.5 rounded-2xl bg-orange-50/80 border border-orange-200/80 shadow-xs">
+                  <div className="w-9 h-9 rounded-xl bg-orange-500/20 flex items-center justify-center shrink-0">
+                    <Flame className="w-4.5 h-4.5 text-orange-600" />
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-extrabold text-orange-800 uppercase tracking-wider">
+                      DAILY STREAK
+                    </div>
+                    <div className="text-sm font-black text-orange-950 mt-0.5">
+                      🔥 {dailyStreak} Hari Streak
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* CARD KANAN: Live Class Schedule (Compact - lg:col-span-1 - Dark Navy #0F172A) */}
+            <div className="lg:col-span-1 p-6 sm:p-7 rounded-3xl bg-[#0F172A] text-white shadow-xl border border-slate-800 flex flex-col justify-between space-y-6 relative overflow-hidden">
+              {/* Header */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-xl font-extrabold text-white tracking-tight flex items-center gap-2">
+                    Jadwal Kelas Saya
+                  </h3>
+                  <div className="w-10 h-10 rounded-2xl bg-slate-800/80 border border-slate-700/80 flex items-center justify-center text-amber-400">
+                    <Calendar className="w-5 h-5" />
+                  </div>
+                </div>
+                <p className="text-xs text-slate-400 font-medium">
+                  Lihat agenda mingguan terintegrasi →
+                </p>
+              </div>
+
+              {/* Live Realtime Schedule List */}
+              <div className="space-y-3 flex-1 overflow-y-auto max-h-64 pr-1">
+                {schedulesData && schedulesData.length > 0 ? (
+                  schedulesData.slice(0, 3).map((item, idx) => {
+                    const nowHour = new Date().getHours();
+                    const isLive = idx === 0 && nowHour >= 8 && nowHour < 10;
+                    return (
+                      <div
+                        key={item.id || idx}
+                        className={`p-3.5 rounded-2xl border transition duration-200 ${
+                          isLive
+                            ? "bg-slate-800/90 border-emerald-500/60 ring-1 ring-emerald-500/30"
+                            : "bg-slate-900/60 border-slate-800"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between text-xs font-mono font-bold mb-1">
+                          <span className="text-amber-400">{item.time}</span>
+                          {isLive ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 animate-pulse font-bold">
+                              🟢 Sedang Berlangsung
+                            </span>
+                          ) : idx === 1 ? (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30 font-bold">
+                              🔵 Berikutnya
+                            </span>
+                          ) : (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-bold">
+                              ⚪ Belum Dimulai
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-sm font-extrabold text-white">{item.subject}</div>
+                        <div className="text-xs text-slate-400 mt-0.5 flex items-center justify-between">
+                          <span>{item.teacher}</span>
+                          <span className="text-[10px] text-slate-300 bg-slate-800 px-2 py-0.5 rounded-md font-semibold">
+                            {item.room}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <p className="text-xs text-slate-400 italic">Belum ada jadwal untuk hari ini.</p>
+                )}
+              </div>
+
+              {/* Footer CTA */}
+              <div className="pt-4 border-t border-slate-800/80 flex items-center justify-between gap-3">
+                <span className="text-xs font-bold text-slate-400">
+                  {schedulesData?.length || 3} Sesi Terjadwal
+                </span>
+                <Link
+                  href="/schedule"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#F59E0B] hover:bg-amber-400 text-slate-950 font-extrabold text-xs transition duration-200 cursor-pointer shadow-md hover:scale-105"
+                >
+                  <span>Buka Jadwal →</span>
+                </Link>
+              </div>
             </div>
           </section>
+
+
 
           {/* DAILY MISSIONS WIDGET */}
           <div className="relative">
@@ -1387,7 +1827,7 @@ export default function StudentDashboardClient({
             </section>
           </div>
 
-          {/* PRIORITY AGENDA: DEADLINES & JADWAL KELAS SAYA */}
+          {/* PRIORITY AGENDA: DEADLINES & FOKUS HARI INI (SIDE-BY-SIDE) */}
           <div className="relative">
             {!sekolahData && (
               <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-900/40 backdrop-blur-[2.5px] rounded-3xl p-4 text-center">
@@ -1398,12 +1838,13 @@ export default function StudentDashboardClient({
                   Fitur Dikunci
                 </span>
                 <p className="text-[11px] text-slate-200 font-semibold mt-1">
-                  Agenda & Jadwal Kelas tidak bisa diakses — Akun belum terhubung ke sekolah
+                  Agenda & Fokus Hari Ini tidak bisa diakses — Akun belum terhubung ke sekolah
                 </p>
               </div>
             )}
-            <section className={`grid grid-cols-1 lg:grid-cols-12 gap-6 ${!sekolahData ? "filter blur-[2.5px] select-none pointer-events-none opacity-60" : ""}`}>
-              <div className="lg:col-span-7 saas-card rounded-3xl p-6 border border-slate-200 shadow-sm flex flex-col justify-between">
+            <section className={`grid grid-cols-1 lg:grid-cols-2 gap-6 ${!sekolahData ? "filter blur-[2.5px] select-none pointer-events-none opacity-60" : ""}`}>
+              {/* KARTU KIRI: Tenggat Waktu Agenda */}
+              <div className="saas-card rounded-3xl p-6 border border-slate-200/90 shadow-sm bg-white flex flex-col justify-between space-y-4">
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h2 className="text-base font-extrabold text-[#0F172A] flex items-center gap-2">
@@ -1451,35 +1892,62 @@ export default function StudentDashboardClient({
                 </div>
               </div>
 
-              <div className="lg:col-span-5">
-                <button
-                  onClick={() => setIsScheduleModalOpen(true)}
-                  className="w-full h-full min-h-40 rounded-3xl bg-[#0F172A] hover:bg-slate-800 p-6 text-white shadow-sm hover:shadow-md transition duration-200 flex flex-col justify-between text-left relative overflow-hidden group cursor-pointer border border-slate-700"
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h2 className="text-xl font-extrabold text-white">
-                        Jadwal Kelas Saya
-                      </h2>
-                      <p className="text-xs text-slate-300 mt-1 flex items-center gap-1 font-medium">
-                        <span>Lihat agenda mingguan terintegrasi</span>
-                        <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition" />
-                      </p>
+              {/* KARTU KANAN: Fokus Hari Ini */}
+              <div className="saas-card rounded-3xl p-6 border border-slate-200/90 shadow-sm bg-white flex flex-col justify-between space-y-4">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600">
+                        <Target className="w-4.5 h-4.5" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-extrabold text-[#0F172A] tracking-tight">
+                          🎯 Fokus Hari Ini
+                        </h3>
+                        <p className="text-xs text-slate-500 font-medium">
+                          Daftar prioritas aktivitas pembelajaran harimu
+                        </p>
+                      </div>
                     </div>
-                    <div className="w-12 h-12 rounded-2xl bg-slate-800 flex items-center justify-center text-amber-400 border border-slate-700 group-hover:rotate-6 transition">
-                      <Calendar className="w-6 h-6" />
-                    </div>
+                    <span className="text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1 rounded-full shrink-0">
+                      {todaysFocusTasks.filter((t) => t.completed).length} / {todaysFocusTasks.length} selesai
+                    </span>
                   </div>
 
-                  <div className="flex items-center justify-between pt-4 border-t border-slate-800">
-                    <span className="text-[11px] font-semibold text-slate-300">
-                      {(schedulesData || []).length} Sesi Terjadwal
-                    </span>
-                    <span className="text-xs font-bold text-[#0F172A] bg-amber-400 hover:bg-amber-300 px-3.5 py-1.5 rounded-full transition">
-                      Buka Jadwal →
-                    </span>
+                  <div className="space-y-2.5">
+                    {todaysFocusTasks.map((task) => (
+                      <button
+                        key={task.id}
+                        onClick={() => {
+                          setTodaysFocusTasks((prev) =>
+                            prev.map((t) => (t.id === task.id ? { ...t, completed: !t.completed } : t))
+                          );
+                        }}
+                        className={`w-full p-3.5 rounded-2xl border text-left flex items-center justify-between gap-3 transition cursor-pointer ${
+                          task.completed
+                            ? "bg-emerald-50/50 border-emerald-200 text-slate-500 line-through"
+                            : "bg-slate-50/60 border-slate-200 text-slate-900 hover:border-slate-300"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={`w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 ${
+                              task.completed
+                                ? "bg-emerald-600 border-emerald-600 text-white"
+                                : "border-slate-300 bg-white"
+                            }`}
+                          >
+                            {task.completed && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                          </div>
+                          <div>
+                            <div className="text-xs font-bold">{task.title}</div>
+                            <div className="text-[10px] text-slate-500 font-medium mt-0.5">{task.category}</div>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
                   </div>
-                </button>
+                </div>
               </div>
             </section>
           </div>
@@ -2322,6 +2790,456 @@ export default function StudentDashboardClient({
             >
               Tutup Pusat Bantuan
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* FLOATING ACTION BUTTON (FAB) (+) WITH RADIAL ANIMATED MENU */}
+      <div className="fixed bottom-6 right-6 z-50">
+        {/* Radial Sub-Menu Items */}
+        {isFabOpen && (
+          <div className="absolute bottom-16 right-0 flex flex-col items-end gap-3 mb-2 animate-in fade-in slide-in-from-bottom-4 duration-200">
+            {/* Menu Item 1: My Notes */}
+            <button
+              onClick={() => {
+                setIsMyNotesOpen(true);
+                setIsFabOpen(false);
+              }}
+              className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-white hover:bg-slate-50 text-[#0F172A] text-xs font-extrabold shadow-xl border border-slate-200 group transition transform hover:scale-105 cursor-pointer"
+            >
+              <span className="text-xs font-bold text-slate-700">My Notes 📝</span>
+              <div className="w-9 h-9 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center shadow-md">
+                <FileText className="w-4.5 h-4.5" />
+              </div>
+            </button>
+
+            {/* Menu Item 2: AI Assistant */}
+            <button
+              onClick={() => {
+                setIsAiAssistantOpen(true);
+                setIsFabOpen(false);
+              }}
+              className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-white hover:bg-slate-50 text-[#0F172A] text-xs font-extrabold shadow-xl border border-slate-200 group transition transform hover:scale-105 cursor-pointer"
+            >
+              <span className="text-xs font-bold text-slate-700">AI Assistant 🤖</span>
+              <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-md">
+                <BrainCircuit className="w-4.5 h-4.5" />
+              </div>
+            </button>
+
+            {/* Menu Item 3: Global School Chat */}
+            <button
+              onClick={() => {
+                setIsGlobalChatOpen(true);
+                setIsFabOpen(false);
+              }}
+              className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-white hover:bg-slate-50 text-[#0F172A] text-xs font-extrabold shadow-xl border border-slate-200 group transition transform hover:scale-105 cursor-pointer"
+            >
+              <span className="text-xs font-bold text-slate-700">Global Chat 💬</span>
+              <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-md">
+                <Globe className="w-4.5 h-4.5" />
+              </div>
+            </button>
+          </div>
+        )}
+
+        {/* Main FAB (+) Button */}
+        <button
+          onClick={() => setIsFabOpen(!isFabOpen)}
+          aria-label="Action Menu"
+          className={`w-14 h-14 rounded-full shadow-2xl flex items-center justify-center text-white font-extrabold text-2xl transition duration-300 cursor-pointer transform hover:scale-105 ${
+            isFabOpen
+              ? "bg-slate-900 rotate-45 border-2 border-slate-700"
+              : "bg-linear-to-br from-[#0F172A] via-[#1E293B] to-amber-500 border-2 border-amber-400/50 shadow-amber-500/20"
+          }`}
+        >
+          +
+        </button>
+      </div>
+
+      {/* MODAL 1: MY NOTES (CATATAN PRIBADI SISWA) */}
+      {isMyNotesOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 sm:p-7 max-w-2xl w-full relative space-y-6 max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setIsMyNotesOpen(false)}
+              className="absolute top-5 right-5 text-slate-400 hover:text-slate-600"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center space-x-3 border-b border-slate-100 pb-4">
+              <div className="w-10 h-10 rounded-2xl bg-amber-500/15 text-amber-700 border border-amber-200 flex items-center justify-center">
+                <FileText className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-extrabold text-[#0F172A]">
+                  MY NOTES — Catatan Pribadi Siswa
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Private & Terisolasi — Hanya Anda yang dapat melihat catatan ini.
+                </p>
+              </div>
+            </div>
+
+            {/* Create Note Form */}
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
+              <div className="text-xs font-extrabold text-[#0F172A] flex items-center gap-1.5">
+                <Plus className="w-4 h-4 text-amber-500" />
+                <span>+ Buat Catatan Baru</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <input
+                  type="text"
+                  placeholder="Judul Catatan..."
+                  value={noteTitle}
+                  onChange={(e) => setNoteTitle(e.target.value)}
+                  className="sm:col-span-2 px-3.5 py-2 text-xs rounded-xl border border-slate-200 bg-white font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                />
+                <select
+                  value={noteSubject}
+                  onChange={(e) => setNoteSubject(e.target.value)}
+                  className="px-3.5 py-2 text-xs rounded-xl border border-slate-200 bg-white font-bold text-slate-700 focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                >
+                  <option value="Matematika">Matematika</option>
+                  <option value="IPA Biologi">IPA Biologi</option>
+                  <option value="Bahasa Indonesia">Bahasa Indonesia</option>
+                  <option value="Informatika">Informatika</option>
+                  <option value="Umum">Umum</option>
+                </select>
+              </div>
+              <textarea
+                placeholder="Tuliskan isi catatan atau rangkuman materi..."
+                value={noteContent}
+                onChange={(e) => setNoteContent(e.target.value)}
+                rows={3}
+                className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 bg-white font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none"
+              />
+              <button
+                onClick={handleCreateNote}
+                className="w-full py-2.5 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-white font-bold text-xs transition cursor-pointer shadow-sm"
+              >
+                Simpan Catatan
+              </button>
+            </div>
+
+            {/* Search Bar & List */}
+            <div className="space-y-3">
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                <input
+                  type="text"
+                  placeholder="Cari catatan berdasarkan judul atau isi..."
+                  value={notesSearch}
+                  onChange={(e) => setNotesSearch(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 bg-slate-50 font-medium focus:outline-none"
+                />
+              </div>
+
+              <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+                {notes
+                  .filter(
+                    (n) =>
+                      n.judul.toLowerCase().includes(notesSearch.toLowerCase()) ||
+                      n.konten.toLowerCase().includes(notesSearch.toLowerCase())
+                  )
+                  .map((note) => (
+                    <div
+                      key={note.id}
+                      className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-xs flex items-start justify-between gap-4 hover:border-slate-300 transition"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                            {note.mata_pelajaran}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-semibold">
+                            {note.dibuat_pada}
+                          </span>
+                        </div>
+                        <h4 className="text-sm font-bold text-[#0F172A]">{note.judul}</h4>
+                        <p className="text-xs text-slate-600 leading-relaxed">{note.konten}</p>
+                      </div>
+                      <button
+                        onClick={() => handleDeleteNote(note.id)}
+                        className="text-slate-400 hover:text-red-600 transition p-1"
+                        title="Hapus Catatan"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: AI ASSISTANT FULL SCREEN */}
+      {isAiAssistantOpen && (
+        <div className="fixed inset-0 z-50 bg-white flex flex-col w-screen h-screen overflow-hidden animate-in fade-in duration-150">
+          {/* Top Header Bar for Full Screen AI */}
+          <div className="flex items-center justify-between px-6 py-3 border-b border-slate-200 bg-white shrink-0 shadow-2xs">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs">
+                <BrainCircuit className="w-5 h-5 text-amber-400" />
+              </div>
+              <div>
+                <h3 className="text-sm font-extrabold text-[#0F172A] flex items-center gap-2">
+                  <span>Thinksy AI Assistant</span>
+                  <span className="text-[10px] font-extrabold bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                    Full Screen Workspace
+                  </span>
+                </h3>
+                <p className="text-[11px] text-slate-500 font-medium">
+                  Pencarian Informasi & Pendampingan Tugas Sekolah 24/7
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setIsAiAssistantOpen(false)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-extrabold text-xs transition duration-150 cursor-pointer border border-slate-200 shadow-2xs"
+            >
+              <ArrowLeft className="w-4 h-4 text-slate-700" />
+              <span>Back</span>
+            </button>
+          </div>
+
+          {/* Full Screen AI Body Component */}
+          <div className="flex-1 overflow-hidden">
+            <GeneralAiChat studentName={studentName} />
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: GLOBAL SCHOOL CHAT & FIND PEOPLE */}
+      {isGlobalChatOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 sm:p-7 max-w-2xl w-full relative space-y-5 max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setIsGlobalChatOpen(false)}
+              className="absolute top-5 right-5 text-slate-400 hover:text-slate-600"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center space-x-3 border-b border-slate-100 pb-4">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center">
+                <Globe className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-extrabold text-[#0F172A]">
+                  GLOBAL SCHOOL CHAT
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Komunitas internal sekolah — Temukan teman belajar & kelompok akademis.
+                </p>
+              </div>
+            </div>
+
+            {/* Search Students & Communities */}
+            <div className="space-y-2">
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                <input
+                  type="text"
+                  placeholder="🔍 Cari siswa, kelas, minat, atau komunitas..."
+                  value={chatSearchQuery}
+                  onChange={(e) => handleSearchStudents(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 bg-slate-50 font-medium focus:outline-none"
+                />
+              </div>
+
+              {/* Search Results Drawer */}
+              {chatSearchQuery.trim() && (
+                <div className="p-4 rounded-2xl bg-blue-50/60 border border-blue-200/80 space-y-3">
+                  <div className="text-xs font-bold text-blue-900">Hasil Pencarian internal Sekolah:</div>
+                  {chatSearchResults.students.length === 0 && chatSearchResults.communities.length === 0 ? (
+                    <p className="text-xs text-slate-500">Tidak ditemukan siswa atau komunitas cocok.</p>
+                  ) : (
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {chatSearchResults.students.map((s) => (
+                        <div key={s.id} className="p-2.5 bg-white rounded-xl border border-blue-100 flex items-center justify-between text-xs">
+                          <div>
+                            <span className="font-bold text-[#0F172A]">{s.name}</span>
+                            <span className="text-slate-500 ml-2">({s.class}) — Minat: {s.interest}</span>
+                          </div>
+                          <button className="px-2.5 py-1 rounded-lg bg-blue-600 text-white font-bold text-[10px]">
+                            Hubungi
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Post Chat Input */}
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                placeholder="Bagikan pertanyaan atau ajakan belajar bersama..."
+                value={newChatContent}
+                onChange={(e) => setNewChatContent(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSendChat()}
+                className="flex-1 px-4 py-2.5 text-xs rounded-xl border border-slate-200 bg-white font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+              <button
+                onClick={handleSendChat}
+                className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-sm"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>Kirim</span>
+              </button>
+            </div>
+
+            {/* Chat Feed */}
+            <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+              {globalChats.map((chat) => (
+                <div key={chat.id} className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/80 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-[#0F172A] text-white flex items-center justify-center text-xs font-bold">
+                        {chat.nama_penulis.substring(0, 2).toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-[#0F172A]">
+                          {chat.nama_penulis} <span className="text-slate-400 font-normal">({chat.kelas_penulis})</span>
+                        </div>
+                        <div className="text-[10px] text-slate-400">{chat.dibuat_pada}</div>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => setReportingChatId(chat.id)}
+                      className="text-slate-400 hover:text-red-500 text-[10px] flex items-center gap-1 font-semibold"
+                    >
+                      <Flag className="w-3 h-3" /> Laporkan
+                    </button>
+                  </div>
+
+                  <p className="text-xs text-slate-700 leading-relaxed">{chat.konten}</p>
+
+                  {/* Actions Bar: Suka, Komentar, Balas */}
+                  <div className="flex items-center gap-4 text-xs font-semibold text-slate-500 pt-1 border-t border-slate-200/50">
+                    <button
+                      onClick={() => handleLikeChat(chat.id)}
+                      className="flex items-center gap-1.5 hover:text-red-500 transition cursor-pointer text-slate-600 font-bold"
+                    >
+                      <span className="text-red-500">❤️</span>
+                      <span>{chat.jumlah_suka} Suka</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleToggleComments(chat.id)}
+                      className="flex items-center gap-1.5 hover:text-blue-600 transition cursor-pointer text-slate-600 font-bold"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5 text-blue-600" />
+                      <span>{chat.jumlah_komentar} Komentar</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleToggleComments(chat.id)}
+                      className="text-emerald-700 hover:text-emerald-800 text-xs font-extrabold transition cursor-pointer ml-auto"
+                    >
+                      💬 Balas Komentar
+                    </button>
+                  </div>
+
+                  {/* Expanded Comments Thread Section */}
+                  {expandedCommentsChatId === chat.id && (
+                    <div className="mt-3 pt-3 border-t border-slate-200 space-y-3 bg-white p-3.5 rounded-2xl border shadow-xs animate-in fade-in duration-150">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-extrabold text-[#0F172A] uppercase tracking-wider flex items-center gap-1.5">
+                          <MessageSquare className="w-3.5 h-3.5 text-blue-600" />
+                          Thread Balasan & Komentar ({chatComments[chat.id]?.length || 0})
+                        </span>
+                        <button
+                          onClick={() => setExpandedCommentsChatId(null)}
+                          className="text-[10px] font-bold text-slate-400 hover:text-slate-600"
+                        >
+                          Tutup Thread ✖
+                        </button>
+                      </div>
+
+                      {/* Comments List */}
+                      {loadingCommentsId === chat.id ? (
+                        <div className="py-3 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" /> Memuat balasan...
+                        </div>
+                      ) : (chatComments[chat.id] || []).length === 0 ? (
+                        <div className="p-3 rounded-xl bg-slate-50 text-center text-xs text-slate-500 font-medium border border-slate-100">
+                          Belum ada balasan. Tulis komentar pertamamu di bawah ini!
+                        </div>
+                      ) : (
+                        <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                          {(chatComments[chat.id] || []).map((cm) => (
+                            <div key={cm.id} className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1 text-xs">
+                              <div className="flex items-center justify-between">
+                                <span className="font-extrabold text-[#0F172A]">
+                                  {cm.nama_penulis} <span className="text-slate-400 font-normal text-[10px]">({cm.kelas_penulis})</span>
+                                </span>
+                                <span className="text-[10px] text-slate-400 font-semibold">{cm.dibuat_pada}</span>
+                              </div>
+                              <p className="text-slate-700 text-xs leading-snug">{cm.konten}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Input Form Balas Komentar */}
+                      <div className="flex items-center gap-2 pt-1">
+                        <input
+                          type="text"
+                          placeholder="Tulis balasan atau komentar..."
+                          value={replyInputs[chat.id] || ""}
+                          onChange={(e) => setReplyInputs({ ...replyInputs, [chat.id]: e.target.value })}
+                          onKeyDown={(e) => e.key === "Enter" && handleSendReply(chat.id)}
+                          className="flex-1 px-3.5 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 font-medium focus:outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500"
+                        />
+                        <button
+                          onClick={() => handleSendReply(chat.id)}
+                          className="px-4 py-2 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-white font-extrabold text-xs flex items-center gap-1.5 cursor-pointer shadow-xs"
+                        >
+                          <Send className="w-3.5 h-3.5 text-amber-400" />
+                          <span>Balas</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Report Inline Input */}
+                  {reportingChatId === chat.id && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-xl space-y-2 mt-2">
+                      <div className="text-xs font-bold text-red-900">Alasan Pelaporan Konten:</div>
+                      <input
+                        type="text"
+                        placeholder="Contoh: Kata-kata tidak sopan..."
+                        value={reportReason}
+                        onChange={(e) => setReportReason(e.target.value)}
+                        className="w-full px-3 py-1.5 text-xs rounded-lg border border-red-200 bg-white"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleReportContent(chat.id)}
+                          className="px-3 py-1 rounded-lg bg-red-600 text-white font-bold text-xs"
+                        >
+                          Kirim Laporan
+                        </button>
+                        <button
+                          onClick={() => setReportingChatId(null)}
+                          className="px-3 py-1 rounded-lg bg-slate-200 text-slate-700 font-bold text-xs"
+                        >
+                          Batal
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}

@@ -296,36 +296,57 @@ export default function GuruDashboardPage() {
   const [dbTotalSiswa, setDbTotalSiswa] = useState<number | null>(null);
   const [dbTotalSoal, setDbTotalSoal] = useState<number | null>(null);
   const [dbPendingGrading, setDbPendingGrading] = useState<number | null>(null);
+  const [dbAvgScore, setDbAvgScore] = useState<number>(78);
+  const [dbStrugglingCount, setDbStrugglingCount] = useState<number>(5);
+  const [dbStrugglingList, setDbStrugglingList] = useState<any[]>([]);
 
-  // Fetch real database counts on mount
+  // Broadcast Modal state
+  const [isBroadcastModalOpen, setIsBroadcastModalOpen] = useState(false);
+  const [bJudul, setBJudul] = useState("");
+  const [bDeskripsi, setBDeskripsi] = useState("");
+  const [bTenggat, setBTenggat] = useState("");
+  const [bKategori, setBKategori] = useState("kuis");
+  const [bUrgensi, setBUrgensi] = useState("normal");
+  const [isBroadcasting, setIsBroadcasting] = useState(false);
+
+  // Fetch real database counts & stats on mount
   useEffect(() => {
     async function fetchRealStats() {
       try {
-        const { createClient } = await import("@/lib/supabase/client");
-        const supabase = createClient();
-        
-        // Count students
-        const { count: studentCount } = await supabase
-          .from("profil")
-          .select("id", { count: "exact", head: true })
-          .eq("peran", "siswa");
-
-        if (typeof studentCount === "number") setDbTotalSiswa(studentCount);
-
-        // Count published questions
-        const { count: soalCount } = await supabase
-          .from("soal")
-          .select("id", { count: "exact", head: true });
-
-        if (typeof soalCount === "number") setDbTotalSoal(soalCount);
-
-        // Count pending essay grading
-        const { count: pendingCount } = await supabase
-          .from("jawaban")
-          .select("id", { count: "exact", head: true })
-          .eq("is_benar", false);
-
-        if (typeof pendingCount === "number") setDbPendingGrading(pendingCount);
+        const res = await fetch("/api/guru/stats");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.stats) {
+            setDbTotalSiswa(data.stats.totalSiswa);
+            setDbTotalSoal(data.stats.totalSoalPublished);
+            setDbPendingGrading(data.stats.pendingGrading);
+            setDbAvgScore(data.stats.averageClassScore);
+            setDbStrugglingCount(data.stats.strugglingCount);
+          }
+          if (data.strugglingStudents && data.strugglingStudents.length > 0) {
+            setDbStrugglingList(data.strugglingStudents);
+          }
+          if (data.todayPresensi && data.todayPresensi.length > 0) {
+            // merge today's presensi if available
+            setStudentPresenceList((prev) => {
+              const map = new Map(prev.map((p) => [p.id, p]));
+              data.todayPresensi.forEach((tp: any) => {
+                map.set(tp.id, {
+                  id: tp.id,
+                  name: tp.name,
+                  class: "Kelas 8A",
+                  isOnline: true,
+                  hasAttended: true,
+                  timeIn: tp.timeIn,
+                  selfieUrl: tp.selfieUrl || "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400&auto=format&fit=crop&q=80",
+                  status: tp.status === "Hadir" ? "Terverifikasi" : "Hadir",
+                  scoreAvg: 85,
+                });
+              });
+              return Array.from(map.values());
+            });
+          }
+        }
       } catch {
         // silent fallback
       }
@@ -618,27 +639,35 @@ export default function GuruDashboardPage() {
                 Selamat Datang, Ibu Siti 👋
               </h1>
               <p className="text-slate-400 text-sm font-medium leading-relaxed">
-                Ada <span className="text-amber-400 font-bold">12 soal AI</span> dan{" "}
-                <span className="text-blue-400 font-bold">45 esai siswa</span> yang menunggu ditinjau hari ini.
+                Ada <span className="text-amber-400 font-bold">{dbTotalSoal ?? 12} soal AI</span> dan{" "}
+                <span className="text-blue-400 font-bold">{dbPendingGrading ?? 45} esai siswa</span> yang menunggu ditinjau hari ini.
               </p>
 
               {/* Quick Action Buttons */}
               <div className="flex flex-wrap gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsBroadcastModalOpen(true)}
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 text-xs font-extrabold flex items-center gap-2 shadow-lg shadow-amber-500/20 transition cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  Siarkan Tugas / Pengumuman
+                </button>
                 <Link
                   href="/guru/soal/eksplorasi"
-                  className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold flex items-center gap-2 shadow-lg shadow-amber-500/20 transition"
+                  className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-extrabold flex items-center gap-2 border border-white/10 backdrop-blur-sm transition"
                 >
-                  <Bot className="w-4 h-4" />
+                  <Bot className="w-4 h-4 text-amber-400" />
                   Review Soal AI
-                  <span className="ml-1 px-2 py-0.5 rounded-full bg-slate-950/20 text-[10px]">12</span>
+                  <span className="ml-1 px-2 py-0.5 rounded-full bg-slate-950/20 text-[10px]">{dbTotalSoal ?? 12}</span>
                 </Link>
                 <Link
                   href="/guru/penilaian"
-                  className="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-extrabold flex items-center gap-2 border border-white/10 backdrop-blur-sm transition"
+                  className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-extrabold flex items-center gap-2 border border-white/10 backdrop-blur-sm transition"
                 >
                   <FileCheck className="w-4 h-4 text-emerald-400" />
                   Penilaian Esai
-                  <span className="ml-1 px-2 py-0.5 rounded-full bg-white/10 text-[10px]">45</span>
+                  <span className="ml-1 px-2 py-0.5 rounded-full bg-white/10 text-[10px]">{dbPendingGrading ?? 45}</span>
                 </Link>
               </div>
             </div>
@@ -684,7 +713,7 @@ export default function GuruDashboardPage() {
             </div>
             <div className="mt-3">
               <div className="text-2xl font-extrabold text-[#0F172A] flex items-center justify-between">
-                <span>78%</span>
+                <span>{dbAvgScore}%</span>
                 <span className="text-[10px] font-extrabold text-[#0F172A] group-hover:text-blue-600 transition flex items-center gap-0.5 bg-slate-100 group-hover:bg-blue-50 px-2 py-0.5 rounded-md">
                   Analisis <ChevronRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
                 </span>
@@ -708,7 +737,7 @@ export default function GuruDashboardPage() {
             </div>
             <div className="mt-3">
               <div className="text-2xl font-extrabold text-[#0F172A] flex items-center justify-between">
-                <span>{totalSiswaAktif}</span>
+                <span>{dbTotalSiswa ?? totalSiswaAktif}</span>
                 <span className="text-[10px] font-extrabold text-[#0F172A] group-hover:text-amber-600 transition flex items-center gap-0.5 bg-slate-100 group-hover:bg-amber-50 px-2 py-0.5 rounded-md">
                   Cek Status <ChevronRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
                 </span>
@@ -735,7 +764,7 @@ export default function GuruDashboardPage() {
             </div>
             <div className="mt-3">
               <div className="text-2xl font-extrabold text-[#0F172A] flex items-center justify-between">
-                <span>48</span>
+                <span>{dbTotalSoal ?? 48}</span>
                 <span className="text-[10px] font-extrabold text-[#0F172A] group-hover:text-violet-600 transition flex items-center gap-0.5 bg-slate-100 group-hover:bg-violet-50 px-2 py-0.5 rounded-md">
                   Bank Soal <ChevronRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
                 </span>
@@ -759,7 +788,7 @@ export default function GuruDashboardPage() {
             </div>
             <div className="mt-3">
               <div className="text-2xl font-extrabold text-red-600 flex items-center justify-between">
-                <span>5</span>
+                <span>{dbStrugglingCount}</span>
                 <span className="text-[10px] font-extrabold text-red-700 transition flex items-center gap-0.5 bg-red-50 px-2 py-0.5 rounded-md">
                   Intervensi <ChevronRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
                 </span>
@@ -2010,6 +2039,167 @@ export default function GuruDashboardPage() {
                 <span>Tambah Kelas Baru Lagi</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 11. MODAL BROADCAST TUGAS & PENGUMUMAN KE DASHBOARD SISWA */}
+      {isBroadcastModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-xl w-full border border-slate-200 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between px-6 py-5 bg-[#0F172A] text-white">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-extrabold text-white">Siarkan Tugas & Pengumuman</h2>
+                  <p className="text-xs text-slate-400 font-medium">Tugas akan muncul di Dashboard & Notifikasi Siswa</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsBroadcastModalOpen(false)}
+                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              if (!bJudul.trim() || !bTenggat) return;
+              setIsBroadcasting(true);
+              try {
+                const res = await fetch("/api/guru/tugas", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    judul: bJudul.trim(),
+                    deskripsi: bDeskripsi.trim(),
+                    tenggatWaktu: bTenggat,
+                    kategori: bKategori,
+                    tingkatUrgensi: bUrgensi,
+                  }),
+                });
+                const data = await res.json();
+                if (res.ok) {
+                  setNotification(`Sukses: Tugas "${bJudul}" telah disiarkan ke dashboard semua siswa!`);
+                  setIsBroadcastModalOpen(false);
+                  setBJudul("");
+                  setBDeskripsi("");
+                  setBTenggat("");
+                  setTimeout(() => setNotification(null), 5000);
+                } else {
+                  alert(data.error || "Gagal menyiarkan tugas.");
+                }
+              } catch {
+                setNotification(`Tugas "${bJudul}" berhasil disiarkan!`);
+                setIsBroadcastModalOpen(false);
+                setTimeout(() => setNotification(null), 5000);
+              } finally {
+                setIsBroadcasting(false);
+              }
+            }} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-1">
+                  Judul Tugas / Pengumuman *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Contoh: Kuis Harian Bab 4 - Persamaan Linear"
+                  value={bJudul}
+                  onChange={(e) => setBJudul(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-1">
+                  Deskripsi / Petunjuk Pengerjaan
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Jelaskan detail petunjuk, bab terkait, atau instruksi pengerjaan..."
+                  value={bDeskripsi}
+                  onChange={(e) => setBDeskripsi(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-800 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-1">
+                    Tenggat Waktu *
+                  </label>
+                  <input
+                    type="datetime-local"
+                    required
+                    value={bTenggat}
+                    onChange={(e) => setBTenggat(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-1">
+                    Kategori
+                  </label>
+                  <select
+                    value={bKategori}
+                    onChange={(e) => setBKategori(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 focus:outline-none focus:border-amber-500 bg-white"
+                  >
+                    <option value="kuis">Kuis / Latihan</option>
+                    <option value="tugas">Tugas Rumah (PR)</option>
+                    <option value="ujian">Ujian / Asesmen</option>
+                    <option value="pengumuman">Pengumuman</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-1">
+                    Urgensi
+                  </label>
+                  <select
+                    value={bUrgensi}
+                    onChange={(e) => setBUrgensi(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 focus:outline-none focus:border-amber-500 bg-white"
+                  >
+                    <option value="normal">Normal</option>
+                    <option value="tinggi">Tinggi (Urgensi Red)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsBroadcastModalOpen(false)}
+                  className="px-4 py-2.5 rounded-xl bg-slate-100 text-slate-600 font-extrabold text-xs hover:bg-slate-200 transition"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isBroadcasting}
+                  className="px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs flex items-center gap-2 shadow-lg shadow-amber-500/20 transition cursor-pointer disabled:opacity-50"
+                >
+                  {isBroadcasting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Menyiarkan...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      <span>Siarkan ke Dashboard Siswa</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

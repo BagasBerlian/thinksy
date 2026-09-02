@@ -1,8 +1,8 @@
-import { createClient } from "@/lib/supabase/server";
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
 import { logoutAction } from "../../(auth)/actions";
 import {
-  BrainCircuit,
-  ShieldCheck,
   Building,
   UserCog,
   DollarSign,
@@ -11,85 +11,75 @@ import {
   Search,
   Plus,
   Sparkles,
-  FolderOpen,
   LayoutDashboard,
   ArrowRight,
-  Globe,
-  Zap,
   Server,
   Database,
+  Zap,
   Users,
-  GraduationCap,
+  Loader2,
+  Filter,
+  CheckCircle2,
+  ShieldCheck,
 } from "lucide-react";
 import Link from "next/link";
 
-export default async function SuperAdminDashboard() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+interface TenantBreakdown {
+  id: string;
+  nama: string;
+  npsn: string;
+  alamat: string;
+  dibuat_pada: string;
+  adminCount: number;
+  guruCount: number;
+  siswaCount: number;
+  kelasCount: number;
+}
 
-  let superName = "Super Admin";
-  let superEmail = user?.email || "super@thinksy.ai";
+export default function SuperAdminDashboard() {
+  const [selectedTenant, setSelectedTenant] = useState<string>("all");
+  const [loading, setLoading] = useState(true);
+  const [metrics, setMetrics] = useState({
+    totalSekolah: 0,
+    totalAdmin: 0,
+    totalGuru: 0,
+    totalSiswa: 0,
+    totalKelas: 0,
+    totalBiayaUSD: 0,
+    tenantBreakdown: [] as TenantBreakdown[],
+  });
 
-  if (user) {
-    const { data: profil } = await supabase
-      .from("profil")
-      .select("nama_lengkap")
-      .eq("id", user.id)
-      .single();
-    if (profil?.nama_lengkap) {
-      superName = profil.nama_lengkap;
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const fetchMetrics = useCallback(async () => {
+    setLoading(true);
+    try {
+      const url = new URL("/api/super/metrics", window.location.origin);
+      if (selectedTenant && selectedTenant !== "all") {
+        url.searchParams.set("sekolah_id", selectedTenant);
+      }
+      const res = await fetch(url.toString());
+      if (res.ok) {
+        const data = await res.json();
+        setMetrics(data.metrics);
+      }
+    } catch {
+      // silent fail
+    } finally {
+      setLoading(false);
     }
-  }
+  }, [selectedTenant]);
 
-  const initials = superName
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .substring(0, 2)
-    .toUpperCase();
+  useEffect(() => {
+    fetchMetrics();
+  }, [fetchMetrics]);
 
-  // Fetch real metrics from database
-  const { count: totalSekolah } = await supabase
-    .from("sekolah")
-    .select("id", { count: "exact", head: true });
-
-  const { count: totalAdmin } = await supabase
-    .from("profil")
-    .select("id", { count: "exact", head: true })
-    .eq("peran", "admin_sekolah");
-
-  const { count: totalGuru } = await supabase
-    .from("profil")
-    .select("id", { count: "exact", head: true })
-    .eq("peran", "guru");
-
-  const { count: totalSiswa } = await supabase
-    .from("profil")
-    .select("id", { count: "exact", head: true })
-    .eq("peran", "siswa");
-
-  const { data: biayaData } = await supabase.from("log_ai").select("biaya_usd");
-  let totalBiaya = 0;
-  if (biayaData && biayaData.length > 0) {
-    totalBiaya = biayaData.reduce(
-      (sum: number, row: { biaya_usd: number }) => sum + Number(row.biaya_usd || 0),
-      0
-    );
-  }
-
-  // Fetch recent sekolah for preview
-  const { data: recentSekolah } = await supabase
-    .from("sekolah")
-    .select("id, nama, npsn, alamat, dibuat_pada")
-    .order("dibuat_pada", { ascending: false })
-    .limit(5);
-
-  const sekolahCount = totalSekolah || 0;
-  const adminCount = totalAdmin || 0;
-  const guruCount = totalGuru || 0;
-  const siswaCount = totalSiswa || 0;
+  const filteredTenants = metrics.tenantBreakdown.filter(
+    (t) =>
+      t.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.npsn.includes(searchQuery) ||
+      t.alamat.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div className="min-h-screen bg-[#0B0F17] text-white font-sans flex flex-col">
@@ -99,26 +89,36 @@ export default async function SuperAdminDashboard() {
           {/* Brand Logo */}
           <div className="flex items-center space-x-3">
             <Link href="/super" className="flex items-center space-x-3 group">
-              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center font-bold text-white shadow-lg shadow-amber-500/20 group-hover:scale-105 transition duration-200">
-                <BrainCircuit className="w-5.5 h-5.5 text-white" />
+              <div className="h-10 w-10 rounded-xl overflow-hidden shadow-lg group-hover:scale-105 transition duration-200 bg-white flex items-center justify-center border border-slate-700 p-0.5">
+                <img src="/logo.png" alt="THINKSY Logo" className="w-full h-full object-contain" />
               </div>
               <span className="font-extrabold text-xl tracking-tight text-white">
                 THINKSY{" "}
                 <span className="text-[10px] text-amber-400 font-bold uppercase tracking-wider ml-1 bg-amber-500/15 border border-amber-500/30 px-2.5 py-0.5 rounded-full">
-                  Super Admin
+                  Super Admin Multi-Tenant
                 </span>
               </span>
             </Link>
           </div>
 
-          {/* Search Bar */}
-          <div className="hidden md:flex items-center relative">
-            <Search className="w-4 h-4 text-slate-500 absolute left-3.5" />
-            <input
-              type="text"
-              placeholder="Cari tenant sekolah, admin, atau log..."
-              className="pl-10 pr-4 py-2.5 text-xs rounded-xl bg-slate-900/80 border border-slate-700/50 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 w-80 transition backdrop-blur-sm"
-            />
+          {/* Tenant Switcher Selector */}
+          <div className="hidden md:flex items-center space-x-2 bg-slate-900 border border-slate-700/80 px-3 py-1.5 rounded-xl">
+            <Filter className="w-4 h-4 text-amber-400" />
+            <span className="text-xs font-bold text-slate-400">Filter Tenant:</span>
+            <select
+              value={selectedTenant}
+              onChange={(e) => setSelectedTenant(e.target.value)}
+              className="bg-transparent text-xs font-extrabold text-white focus:outline-none cursor-pointer"
+            >
+              <option value="all" className="bg-slate-900 text-white">
+                🌐 Semua Tenant (Global)
+              </option>
+              {metrics.tenantBreakdown.map((t) => (
+                <option key={t.id} value={t.id} className="bg-slate-900 text-white">
+                  🏫 {t.nama}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Controls */}
@@ -130,14 +130,14 @@ export default async function SuperAdminDashboard() {
 
             <div className="flex items-center space-x-2 bg-slate-800/50 border border-slate-700/50 p-1.5 pr-3 rounded-xl backdrop-blur-sm">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 text-white flex items-center justify-center font-extrabold text-xs shadow-sm">
-                {initials || "SA"}
+                SA
               </div>
               <div className="hidden sm:block text-left">
                 <div className="text-xs font-extrabold text-white truncate max-w-[120px]">
-                  {superName}
+                  Super Admin
                 </div>
                 <div className="text-[10px] text-slate-400 font-semibold truncate max-w-[120px]">
-                  {superEmail}
+                  super@thinksy.ai
                 </div>
               </div>
             </div>
@@ -165,7 +165,7 @@ export default async function SuperAdminDashboard() {
               className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-extrabold text-slate-400 hover:bg-slate-800/50 hover:text-white transition"
             >
               <Building className="w-4 h-4" />
-              <span>Tenant / Sekolah</span>
+              <span>Tenant / Sekolah ({metrics.totalSekolah})</span>
             </Link>
 
             <Link
@@ -173,7 +173,7 @@ export default async function SuperAdminDashboard() {
               className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-extrabold text-slate-400 hover:bg-slate-800/50 hover:text-white transition"
             >
               <UserCog className="w-4 h-4" />
-              <span>Admin Sekolah</span>
+              <span>Admin Sekolah ({metrics.totalAdmin})</span>
             </Link>
           </nav>
 
@@ -194,29 +194,33 @@ export default async function SuperAdminDashboard() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h1 className="text-2xl font-extrabold text-white tracking-tight">
-                Dashboard Super Admin
+                Pusat Kontrol Super Admin Multi-Tenant
               </h1>
               <p className="text-sm text-slate-400 font-medium mt-1">
-                Kontrol utama infrastruktur platform dan alokasi sumber daya.
+                Kelola seluruh institusi sekolah, alokasikan Admin Sekolah, dan pantau sumber daya platform.
               </p>
             </div>
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-bold self-start sm:self-auto">
               <ShieldCheck className="w-4 h-4" />
-              <span>Privileged Access</span>
+              <span>Multi-Tenant Controller</span>
             </div>
           </div>
 
-          {/* STAT WIDGETS — REAL DATA */}
+          {/* STAT WIDGETS — REALTIME MULTI-TENANT */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="group bg-slate-800/40 rounded-2xl border border-slate-700/50 p-5 hover:border-blue-500/30 transition-all duration-300 backdrop-blur-sm">
               <div className="flex items-center justify-between mb-3">
                 <div className="w-10 h-10 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
                   <Building className="w-5 h-5 text-blue-400" />
                 </div>
-                <span className="text-[10px] font-bold text-slate-500 bg-slate-700/50 px-2 py-0.5 rounded-full">Tenant</span>
+                <span className="text-[10px] font-bold text-slate-500 bg-slate-700/50 px-2 py-0.5 rounded-full">
+                  Tenant
+                </span>
               </div>
-              <span className="text-3xl font-extrabold text-white">{sekolahCount}</span>
-              <div className="text-[11px] text-slate-400 font-semibold mt-1">Total Tenant Sekolah</div>
+              <span className="text-3xl font-extrabold text-white">
+                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : metrics.totalSekolah}
+              </span>
+              <div className="text-[11px] text-slate-400 font-semibold mt-1">Total Institusi Sekolah</div>
             </div>
 
             <div className="group bg-slate-800/40 rounded-2xl border border-slate-700/50 p-5 hover:border-amber-500/30 transition-all duration-300 backdrop-blur-sm">
@@ -224,10 +228,14 @@ export default async function SuperAdminDashboard() {
                 <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
                   <UserCog className="w-5 h-5 text-amber-400" />
                 </div>
-                <span className="text-[10px] font-bold text-slate-500 bg-slate-700/50 px-2 py-0.5 rounded-full">Akun</span>
+                <span className="text-[10px] font-bold text-slate-500 bg-slate-700/50 px-2 py-0.5 rounded-full">
+                  Admin
+                </span>
               </div>
-              <span className="text-3xl font-extrabold text-white">{adminCount}</span>
-              <div className="text-[11px] text-slate-400 font-semibold mt-1">Total Admin Sekolah</div>
+              <span className="text-3xl font-extrabold text-white">
+                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : metrics.totalAdmin}
+              </span>
+              <div className="text-[11px] text-slate-400 font-semibold mt-1">Admin Sekolah Teralokasi</div>
             </div>
 
             <div className="group bg-slate-800/40 rounded-2xl border border-slate-700/50 p-5 hover:border-purple-500/30 transition-all duration-300 backdrop-blur-sm">
@@ -235,12 +243,18 @@ export default async function SuperAdminDashboard() {
                 <div className="w-10 h-10 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
                   <Users className="w-5 h-5 text-purple-400" />
                 </div>
-                <span className="text-[10px] font-bold text-slate-500 bg-slate-700/50 px-2 py-0.5 rounded-full">Pengguna</span>
+                <span className="text-[10px] font-bold text-slate-500 bg-slate-700/50 px-2 py-0.5 rounded-full">
+                  Pengguna
+                </span>
               </div>
               <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-extrabold text-white">{guruCount + siswaCount}</span>
+                <span className="text-3xl font-extrabold text-white">
+                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : metrics.totalGuru + metrics.totalSiswa}
+                </span>
               </div>
-              <div className="text-[11px] text-slate-400 font-semibold mt-1">{guruCount} Guru · {siswaCount} Siswa</div>
+              <div className="text-[11px] text-slate-400 font-semibold mt-1">
+                {metrics.totalGuru} Guru · {metrics.totalSiswa} Siswa
+              </div>
             </div>
 
             <div className="group bg-slate-800/40 rounded-2xl border border-slate-700/50 p-5 hover:border-emerald-500/30 transition-all duration-300 backdrop-blur-sm">
@@ -248,30 +262,30 @@ export default async function SuperAdminDashboard() {
                 <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
                   <DollarSign className="w-5 h-5 text-emerald-400" />
                 </div>
-                <span className="text-[10px] font-bold text-slate-500 bg-slate-700/50 px-2 py-0.5 rounded-full">API</span>
+                <span className="text-[10px] font-bold text-slate-500 bg-slate-700/50 px-2 py-0.5 rounded-full">
+                  Penggunaan AI
+                </span>
               </div>
-              <span className="text-3xl font-extrabold text-emerald-400">${totalBiaya.toFixed(4)}</span>
-              <div className="text-[11px] text-slate-400 font-semibold mt-1">AI Usage Cost</div>
+              <span className="text-3xl font-extrabold text-emerald-400">
+                ${metrics.totalBiayaUSD.toFixed(4)}
+              </span>
+              <div className="text-[11px] text-slate-400 font-semibold mt-1">Total Biaya API AI</div>
             </div>
           </div>
 
           {/* HERO CONTROL CONTAINER */}
           <section className="relative bg-gradient-to-br from-slate-800/60 via-slate-900/60 to-slate-800/60 rounded-2xl p-6 sm:p-8 border border-slate-700/50 overflow-hidden backdrop-blur-sm">
-            {/* Decorative */}
-            <div className="absolute top-0 right-0 w-60 h-60 bg-amber-500/5 rounded-full blur-3xl -translate-y-1/3 translate-x-1/3" />
-            <div className="absolute bottom-0 left-0 w-40 h-40 bg-blue-500/5 rounded-full blur-3xl translate-y-1/3 -translate-x-1/3" />
-
             <div className="relative space-y-5">
               <div className="space-y-3">
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 text-xs font-bold">
                   <Sparkles className="w-3.5 h-3.5" />
-                  Control Panel
+                  Manajemen Multi-Tenant
                 </div>
                 <h2 className="text-xl font-extrabold text-white tracking-tight">
-                  Pusat Kontrol Infrastruktur
+                  Infrastruktur Multi-Sekolah Terintegrasi
                 </h2>
                 <p className="text-sm text-slate-400 font-medium leading-relaxed max-w-xl">
-                  Sistem THINKSY siap beroperasi. Daftarkan tenant sekolah baru atau kelola akun Admin Sekolah untuk memantau performa platform.
+                  Daftarkan tenant sekolah baru, kelola dan alokasikan akun Admin Sekolah, atau pantau data terisolasi untuk tiap-tiap institusi.
                 </p>
               </div>
 
@@ -295,106 +309,83 @@ export default async function SuperAdminDashboard() {
             </div>
           </section>
 
-          {/* SYSTEM STATUS GRID */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-slate-800/30 rounded-2xl border border-slate-700/40 p-5 flex items-center gap-4 backdrop-blur-sm">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shrink-0">
-                <Server className="w-5 h-5 text-emerald-400" />
-              </div>
-              <div>
-                <div className="text-xs font-extrabold text-white flex items-center gap-1.5">
-                  Server Status
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                </div>
-                <div className="text-[11px] text-emerald-400 font-bold mt-0.5">Operational</div>
-              </div>
-            </div>
-
-            <div className="bg-slate-800/30 rounded-2xl border border-slate-700/40 p-5 flex items-center gap-4 backdrop-blur-sm">
-              <div className="w-10 h-10 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center shrink-0">
-                <Database className="w-5 h-5 text-blue-400" />
-              </div>
-              <div>
-                <div className="text-xs font-extrabold text-white flex items-center gap-1.5">
-                  Database
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                </div>
-                <div className="text-[11px] text-blue-400 font-bold mt-0.5">Supabase PostgreSQL</div>
+          {/* TENANT BREAKDOWN TABLE */}
+          <section className="bg-slate-800/20 rounded-2xl border border-slate-700/40 overflow-hidden backdrop-blur-sm space-y-4 p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <h3 className="text-base font-extrabold text-white flex items-center gap-2">
+                <Building className="w-5 h-5 text-amber-400" />
+                Daftar Tenant Sekolah Terdaftar
+              </h3>
+              <div className="relative max-w-xs w-full">
+                <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Cari sekolah..."
+                  className="w-full pl-10 pr-4 py-2 bg-slate-900 border border-slate-700/60 rounded-xl text-xs font-medium text-white focus:outline-none"
+                />
               </div>
             </div>
 
-            <div className="bg-slate-800/30 rounded-2xl border border-slate-700/40 p-5 flex items-center gap-4 backdrop-blur-sm">
-              <div className="w-10 h-10 rounded-xl bg-violet-500/15 border border-violet-500/30 flex items-center justify-center shrink-0">
-                <Zap className="w-5 h-5 text-violet-400" />
+            {loading ? (
+              <div className="py-12 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+                <Loader2 className="w-5 h-5 animate-spin text-slate-500" /> Memuat data tenant...
               </div>
-              <div>
-                <div className="text-xs font-extrabold text-white flex items-center gap-1.5">
-                  AI Engine
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                </div>
-                <div className="text-[11px] text-violet-400 font-bold mt-0.5">Gemini API Active</div>
+            ) : filteredTenants.length === 0 ? (
+              <div className="py-12 text-center text-xs text-slate-400">
+                Belum ada tenant sekolah terdaftar. Gunakan tombol &quot;Registrasi Tenant Sekolah&quot; di atas.
               </div>
-            </div>
-          </div>
-
-          {/* TENANT LIST OR EMPTY STATE */}
-          {sekolahCount === 0 ? (
-            <section className="bg-slate-800/20 rounded-2xl border border-slate-700/40 p-10 text-center space-y-5 backdrop-blur-sm">
-              <div className="w-16 h-16 rounded-2xl bg-slate-800/60 border border-slate-700/50 text-slate-500 flex items-center justify-center mx-auto">
-                <FolderOpen className="w-8 h-8" />
+            ) : (
+              <div className="overflow-x-auto rounded-xl border border-slate-700/50">
+                <table className="w-full text-left text-xs text-slate-300">
+                  <thead className="bg-slate-900 border-b border-slate-700/60 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                    <tr>
+                      <th className="px-4 py-3.5">NAMA SEKOLAH</th>
+                      <th className="px-4 py-3.5">NPSN</th>
+                      <th className="px-4 py-3.5">ADMIN SEKOLAH</th>
+                      <th className="px-4 py-3.5">GURU</th>
+                      <th className="px-4 py-3.5">SISWA</th>
+                      <th className="px-4 py-3.5">KELAS</th>
+                      <th className="px-4 py-3.5 text-right">AKSI</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60 font-medium">
+                    {filteredTenants.map((t) => (
+                      <tr key={t.id} className="hover:bg-slate-800/40 transition">
+                        <td className="px-4 py-3.5 flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-blue-500/20 border border-blue-500/30 flex items-center justify-center font-extrabold text-xs text-blue-400 shrink-0">
+                            {t.nama[0]}
+                          </div>
+                          <div>
+                            <div className="font-extrabold text-white">{t.nama}</div>
+                            <div className="text-[11px] text-slate-500">{t.alamat}</div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3.5 font-mono text-slate-400">{t.npsn}</td>
+                        <td className="px-4 py-3.5">
+                          <span className="px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 font-extrabold text-[10px]">
+                            {t.adminCount} Admin
+                          </span>
+                        </td>
+                        <td className="px-4 py-3.5 font-bold text-slate-300">{t.guruCount} Guru</td>
+                        <td className="px-4 py-3.5 font-bold text-slate-300">{t.siswaCount} Siswa</td>
+                        <td className="px-4 py-3.5 font-bold text-slate-300">{t.kelasCount} Kelas</td>
+                        <td className="px-4 py-3.5 text-right">
+                          <Link
+                            href="/super/sekolah"
+                            className="text-xs font-extrabold text-amber-400 hover:underline"
+                          >
+                            Kelola Tenant →
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              <div className="space-y-2 max-w-sm mx-auto">
-                <h3 className="text-base font-extrabold text-white">
-                  Belum Ada Tenant Sekolah
-                </h3>
-                <p className="text-xs text-slate-400 font-medium leading-relaxed">
-                  Belum ada tenant sekolah atau akun admin sekolah terdaftar. Gunakan tombol di atas untuk mendaftarkan tenant pertama.
-                </p>
-              </div>
-              <Link
-                href="/super/sekolah"
-                className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-extrabold text-xs px-6 py-3 rounded-xl shadow-lg shadow-amber-500/20 transition"
-              >
-                <Plus className="w-4 h-4" />
-                Mulai Registrasi
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
-            </section>
-          ) : (
-            <section className="bg-slate-800/20 rounded-2xl border border-slate-700/40 overflow-hidden backdrop-blur-sm">
-              <div className="px-6 py-4 border-b border-slate-700/40 flex items-center justify-between">
-                <h3 className="text-sm font-extrabold text-white flex items-center gap-2">
-                  <Building className="w-4 h-4 text-amber-400" />
-                  Tenant Sekolah Terdaftar
-                </h3>
-                <Link
-                  href="/super/sekolah"
-                  className="text-xs font-bold text-amber-400 hover:text-amber-300 transition flex items-center gap-1"
-                >
-                  Lihat Semua
-                  <ArrowRight className="w-3 h-3" />
-                </Link>
-              </div>
-              <div className="divide-y divide-slate-700/30">
-                {(recentSekolah || []).map((s: any) => (
-                  <div key={s.id} className="px-6 py-4 flex items-center gap-4 hover:bg-slate-800/30 transition">
-                    <div className="w-10 h-10 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center shrink-0">
-                      <Building className="w-5 h-5 text-blue-400" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-white truncate">{s.nama}</p>
-                      <p className="text-xs text-slate-400 truncate">
-                        {s.npsn ? `NPSN: ${s.npsn}` : "NPSN belum diisi"} · {s.alamat || "Alamat belum diisi"}
-                      </p>
-                    </div>
-                    <div className="text-[10px] text-slate-500 font-semibold shrink-0">
-                      {new Date(s.dibuat_pada).toLocaleDateString("id-ID")}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
+            )}
+          </section>
         </main>
       </div>
     </div>

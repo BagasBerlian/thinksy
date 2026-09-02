@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-// GET: Daftar semua sekolah (tenant)
+// GET: Daftar semua sekolah (tenant) dengan statistik lengkap
 export async function GET() {
   const supabase = await createClient();
 
@@ -25,14 +25,50 @@ export async function GET() {
 
   const { data: sekolahList, error } = await supabase
     .from("sekolah")
-    .select("id, nama, npsn, alamat, motto, deskripsi, bg_image_url, links, dibuat_pada")
+    .select(`
+      id,
+      nama,
+      npsn,
+      alamat,
+      motto,
+      deskripsi,
+      bg_image_url,
+      links,
+      dibuat_pada,
+      profil (
+        id,
+        peran
+      )
+    `)
     .order("dibuat_pada", { ascending: false });
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ sekolah: sekolahList || [] });
+  const formattedSekolah = (sekolahList || []).map((s: any) => {
+    const profs = Array.isArray(s.profil) ? s.profil : [];
+    const teacherCount = profs.filter((p: any) => p.peran === "guru").length;
+    const studentCount = profs.filter((p: any) => p.peran === "siswa").length;
+    const adminCount = profs.filter((p: any) => p.peran === "admin_sekolah").length;
+
+    return {
+      id: s.id,
+      nama: s.nama,
+      npsn: s.npsn || null,
+      alamat: s.alamat || null,
+      motto: s.motto || null,
+      deskripsi: s.deskripsi || null,
+      bg_image_url: s.bg_image_url || null,
+      links: s.links || [],
+      dibuat_pada: s.dibuat_pada,
+      teacherCount,
+      studentCount,
+      adminCount,
+    };
+  });
+
+  return NextResponse.json({ sekolah: formattedSekolah });
 }
 
 // POST: Registrasi tenant sekolah baru
@@ -112,21 +148,80 @@ export async function POST(request: Request) {
     .single();
 
   if (insertError) {
-    console.error("[super/sekolah] Insert error:", insertError.message);
     return NextResponse.json(
       { error: "Gagal mendaftarkan sekolah: " + insertError.message },
       { status: 500 }
     );
   }
 
-  console.log(
-    `[super/sekolah] Tenant baru didaftarkan oleh ${profil.nama_lengkap}: ${nama}`
-  );
-
   return NextResponse.json({
     success: true,
     message: `Sekolah "${nama}" berhasil didaftarkan sebagai tenant baru.`,
     sekolah: newSekolah,
+  });
+}
+
+// PUT: Perbarui detail tenant sekolah
+export async function PUT(request: Request) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Tidak terautentikasi." }, { status: 401 });
+  }
+
+  const { data: profil } = await supabase
+    .from("profil")
+    .select("peran")
+    .eq("id", user.id)
+    .single();
+
+  if (!profil || profil.peran !== "super_admin") {
+    return NextResponse.json({ error: "Akses ditolak." }, { status: 403 });
+  }
+
+  let body: {
+    id: string;
+    nama: string;
+    npsn?: string;
+    alamat?: string;
+    motto?: string;
+    deskripsi?: string;
+  };
+
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Request body tidak valid." }, { status: 400 });
+  }
+
+  const { id, nama, npsn, alamat, motto, deskripsi } = body;
+
+  if (!id) {
+    return NextResponse.json({ error: "ID sekolah wajib diisi." }, { status: 400 });
+  }
+
+  const { error: updateError } = await supabase
+    .from("sekolah")
+    .update({
+      nama: nama?.trim(),
+      npsn: npsn?.trim() || null,
+      alamat: alamat?.trim() || null,
+      motto: motto?.trim() || null,
+      deskripsi: deskripsi?.trim() || null,
+    })
+    .eq("id", id);
+
+  if (updateError) {
+    return NextResponse.json({ error: updateError.message }, { status: 500 });
+  }
+
+  return NextResponse.json({
+    success: true,
+    message: "Detail sekolah berhasil diperbarui.",
   });
 }
 
@@ -165,7 +260,6 @@ export async function DELETE(request: Request) {
     .eq("id", sekolahId);
 
   if (deleteError) {
-    console.error("[super/sekolah] Delete error:", deleteError.message);
     return NextResponse.json(
       { error: "Gagal menghapus sekolah: " + deleteError.message },
       { status: 500 }

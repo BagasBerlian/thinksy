@@ -105,8 +105,8 @@ export default function TutorChat({
       {/* Header Widget */}
       <div className="flex items-center justify-between px-4 py-3 bg-[#193446] text-white">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-[#E9C77B]/20 border border-[#E9C77B]/40 flex items-center justify-center text-[#E9C77B]">
-            <Bot className="w-5 h-5" />
+          <div className="w-8 h-8 rounded-xl overflow-hidden border border-[#E9C77B]/40 bg-white flex items-center justify-center">
+            <img src="/logo.png" alt="thinksy AI" className="w-full h-full object-contain p-0.5" />
           </div>
           <div>
             <h3 className="text-xs font-bold text-[#E9C77B] flex items-center gap-1">
@@ -137,16 +137,16 @@ export default function TutorChat({
           >
             {/* Avatar Icon */}
             <div
-              className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-xs font-bold ${
+              className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-xs font-bold overflow-hidden ${
                 msg.role === "user"
                   ? "bg-[#193446] text-[#E9C77B]"
-                  : "bg-[#E9C77B] text-[#193446]"
+                  : "bg-white border border-slate-200"
               }`}
             >
               {msg.role === "user" ? (
                 <User className="w-4 h-4" />
               ) : (
-                <Bot className="w-4 h-4" />
+                <img src="/logo.png" alt="AI" className="w-full h-full object-cover" />
               )}
             </div>
 

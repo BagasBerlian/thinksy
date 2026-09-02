@@ -289,12 +289,8 @@ export default function MasukPage() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#F8FAFC] p-4 sm:p-6 lg:p-8">
       <div className="w-full max-w-[400px] flex flex-col items-center">
         {/* Branding Logo Container */}
-        <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-white shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-slate-100/80 mb-4">
-          <svg className="w-6 h-6 text-[#0B1A2E]" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-            <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" />
-            <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.4" />
-          </svg>
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white shadow-md border border-slate-100 overflow-hidden p-1 mb-3">
+          <img src="/logo.png" alt="Thinksy Logo" className="w-full h-full object-contain" />
         </div>
 
         {/* Brand Name */}

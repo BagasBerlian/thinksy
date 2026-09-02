@@ -76,7 +76,7 @@ WAJIB MENGEMBALIKAN HANYA FORMAT JSON SAJA (TANPA TEKS LAIN SEPERTI MARKDOWN BLO
 }
 Catatan: Jika tipeSoal adalah 'esai', buat opsiSoal sebagai array kosong []. Jika 'pilihan_ganda', buat tepat 4 opsi dengan tepat 1 opsi yang benar = true.`;
 
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`;
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${geminiApiKey}`;
     const apiResponse = await fetch(geminiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

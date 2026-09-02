@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import GuruLayout from "@/components/guru/GuruLayout";
+import MarkdownRenderer from "@/components/materi/MarkdownRenderer";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -15,6 +16,9 @@ import {
   MessageSquare,
   ChevronDown,
   UserCheck,
+  Sparkles,
+  Loader2,
+  Bot,
 } from "lucide-react";
 
 export default function GuruDetailSiswaPage({
@@ -55,47 +59,31 @@ export default function GuruDetailSiswaPage({
     },
   ]);
 
+  const [aiTutorLogs, setAiTutorLogs] = useState<any[]>([]);
+  const [aiDiagnosis, setAiDiagnosis] = useState<string | null>(null);
+  const [isGeneratingDiagnosis, setIsGeneratingDiagnosis] = useState(false);
+
   useEffect(() => {
     async function fetchStudentDetail() {
       try {
-        const { createClient } = await import("@/lib/supabase/client");
-        const supabase = createClient();
-        
-        // Fetch profil
-        const { data: profil } = await supabase
-          .from("profil")
-          .select("id, nama_lengkap, email, poin, streak")
-          .eq("id", studentId)
-          .single();
-
-        if (profil) {
-          setStudentData((prev) => ({
-            ...prev,
-            id: profil.id,
-            name: profil.nama_lengkap || profil.email?.split("@")[0] || "Siswa",
-            overallScore: Math.min(100, (profil.poin || 0) > 0 ? 80 + ((profil.poin || 0) % 20) : 80),
-          }));
-        }
-
-        // Fetch sesi
-        const { data: sesiList } = await supabase
-          .from("sesi")
-          .select("id, tipe_sesi, status_sesi, skor_akhir, selesai_pada")
-          .eq("siswa_id", studentId)
-          .order("dibuat_pada", { ascending: false });
-
-        if (sesiList && sesiList.length > 0) {
-          const formatted = sesiList.map((s: any, idx: number) => ({
-            id: s.id || idx + 1,
-            date: s.selesai_pada ? new Date(s.selesai_pada).toLocaleString("id-ID") : "Baru Saja",
-            topic: `Materi Sesi #${idx + 1}`,
-            type: s.tipe_sesi === "inclass" ? "Kuis Kelas" : "Eksplorasi",
-            typeColor: "bg-amber-100 text-amber-900 border-amber-200",
-            score: s.skor_akhir !== null ? Math.round(s.skor_akhir) : 80,
-            duration: "30m",
-            status: s.status_sesi || "Selesai",
-          }));
-          setSessionHistory(formatted);
+        const res = await fetch(`/api/guru/siswa/${studentId}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.student) {
+            setStudentData((prev) => ({
+              ...prev,
+              id: data.student.id,
+              name: data.student.name,
+              overallScore: data.student.overallScore,
+              status: data.student.status || "Aktif",
+            }));
+          }
+          if (data.sessionHistory && data.sessionHistory.length > 0) {
+            setSessionHistory(data.sessionHistory);
+          }
+          if (data.aiTutorLogs) {
+            setAiTutorLogs(data.aiTutorLogs);
+          }
         }
       } catch {
         // fallback
@@ -103,6 +91,32 @@ export default function GuruDetailSiswaPage({
     }
     fetchStudentDetail();
   }, [studentId]);
+
+  const handleGenerateAIDiagnosis = async () => {
+    setIsGeneratingDiagnosis(true);
+    setAiDiagnosis(null);
+    try {
+      const res = await fetch(`/api/guru/siswa/${studentId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studentName: studentData.name,
+          scores: `${studentData.overallScore}%`,
+          weakTopics: "Persamaan Kuadrat, Operasi Aljabar & Pemfaktoran",
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.diagnosis) {
+        setAiDiagnosis(data.diagnosis);
+      } else {
+        alert(data.error || "Gagal menghasilkan rekomendasi AI.");
+      }
+    } catch {
+      alert("Terjadi kesalahan sistem saat membuat analisis AI.");
+    } finally {
+      setIsGeneratingDiagnosis(false);
+    }
+  };
 
   return (
     <GuruLayout>
@@ -118,16 +132,51 @@ export default function GuruDetailSiswaPage({
           </Link>
 
           <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleGenerateAIDiagnosis}
+              disabled={isGeneratingDiagnosis}
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 text-xs font-extrabold flex items-center gap-2 shadow-md shadow-amber-500/20 transition cursor-pointer disabled:opacity-50"
+            >
+              {isGeneratingDiagnosis ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Menganalisis AI...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4" />
+                  <span>Analisis & Remedial AI</span>
+                </>
+              )}
+            </button>
             <button className="px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-extrabold flex items-center gap-2 shadow-xs transition cursor-pointer">
               <Download className="w-4 h-4 text-slate-500" />
               <span>Unduh PDF</span>
             </button>
-            <button className="px-4 py-2 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-extrabold flex items-center gap-2 shadow-xs transition cursor-pointer">
-              <FileText className="w-4 h-4 text-amber-400" />
-              <span>Beri Catatan</span>
-            </button>
           </div>
         </div>
+
+        {/* AI DIAGNOSIS CARD IF GENERATED */}
+        {aiDiagnosis && (
+          <div className="bg-gradient-to-br from-[#0F172A] via-[#1E293B] to-[#0F172A] text-white p-6 sm:p-8 rounded-3xl border border-amber-500/40 shadow-xl space-y-4 animate-in fade-in zoom-in-95 duration-300 relative overflow-hidden">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-amber-400 text-xs font-extrabold uppercase tracking-wider">
+                <Sparkles className="w-4 h-4" />
+                <span>Hasil Asesmen Diagnostik & Intervensi AI</span>
+              </div>
+              <button
+                onClick={() => setAiDiagnosis(null)}
+                className="text-xs text-slate-400 hover:text-white px-2 py-1 rounded-lg bg-white/10"
+              >
+                Tutup
+              </button>
+            </div>
+            <div className="prose prose-invert prose-sm max-w-none text-slate-200 font-medium">
+              <MarkdownRenderer content={aiDiagnosis} />
+            </div>
+          </div>
+        )}
 
         {/* 2. STUDENT PROFILE & OVERALL SCORE HERO CARD */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -359,14 +408,101 @@ export default function GuruDetailSiswaPage({
               </div>
             </div>
           ) : (
-            <div className="p-8 text-center space-y-3 bg-slate-50 rounded-2xl border border-slate-200">
-              <MessageSquare className="w-10 h-10 text-slate-400 mx-auto" />
-              <h3 className="text-sm font-extrabold text-[#0F172A]">
-                Log Percakapan Sokratik AI Tutor
-              </h3>
-              <p className="text-xs text-slate-500 max-w-md mx-auto">
-                Siswa telah berinteraksi 14 kali dengan Tutor AI Sokratik untuk membahas soal Persamaan Kuadrat Lanjut.
-              </p>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-extrabold">
+                    <Bot className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-extrabold text-[#0F172A]">
+                      Konsol Log Percakapan AI Sokratik
+                    </h3>
+                    <p className="text-xs text-slate-500 font-medium">
+                      Menampilkan riwayat dialog bimbingan Sokratik antara {studentData.name} dan Tutor AI
+                    </p>
+                  </div>
+                </div>
+                <span className="px-3 py-1 rounded-full bg-[#0F172A] text-white text-[10px] font-extrabold">
+                  {aiTutorLogs.length > 0 ? `${aiTutorLogs.length} Pesan Terrekam` : "Sesi Sokratik Aktif"}
+                </span>
+              </div>
+
+              {aiTutorLogs.length > 0 ? (
+                <div className="space-y-3 max-h-[500px] overflow-y-auto p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                  {aiTutorLogs.map((chat: any) => {
+                    const isUser = chat.pengirim === "siswa";
+                    return (
+                      <div
+                        key={chat.id}
+                        className={`flex gap-3 max-w-2xl ${isUser ? "ml-auto flex-row-reverse" : "mr-auto"}`}
+                      >
+                        <div
+                          className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                            isUser ? "bg-[#0F172A] text-white" : "bg-amber-500 text-slate-950"
+                          }`}
+                        >
+                          {isUser ? "S" : <Bot className="w-4 h-4" />}
+                        </div>
+                        <div
+                          className={`p-4 rounded-2xl text-xs font-medium space-y-1 ${
+                            isUser
+                              ? "bg-[#0F172A] text-white rounded-tr-none"
+                              : "bg-white text-slate-800 border border-slate-200 shadow-xs rounded-tl-none"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-4 text-[10px] opacity-75 font-bold mb-1">
+                            <span>{isUser ? studentData.name : "Tutor AI Sokratik"}</span>
+                            <span>{new Date(chat.dibuat_pada || Date.now()).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}</span>
+                          </div>
+                          <MarkdownRenderer content={chat.pesan} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="space-y-3 p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                  <div className="flex gap-3 max-w-2xl mr-auto">
+                    <div className="w-8 h-8 rounded-full bg-amber-500 text-slate-950 flex items-center justify-center text-xs font-bold shrink-0">
+                      <Bot className="w-4 h-4" />
+                    </div>
+                    <div className="p-4 rounded-2xl text-xs font-medium bg-white text-slate-800 border border-slate-200 shadow-xs rounded-tl-none space-y-1">
+                      <div className="flex items-center justify-between gap-4 text-[10px] text-amber-700 font-bold mb-1">
+                        <span>Tutor AI Sokratik</span>
+                        <span>08:15 WIB</span>
+                      </div>
+                      <p>Halo {studentData.name}! Sebelum kita memfaktorkan $2x^2 + 5x - 3 = 0$, angka berapa jika dikalikan menghasilkan $-6$ dan jika dijumlahkan menghasilkan $5$?</p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 max-w-2xl ml-auto flex-row-reverse">
+                    <div className="w-8 h-8 rounded-full bg-[#0F172A] text-white flex items-center justify-center text-xs font-bold shrink-0">
+                      S
+                    </div>
+                    <div className="p-4 rounded-2xl text-xs font-medium bg-[#0F172A] text-white rounded-tr-none space-y-1">
+                      <div className="flex items-center justify-between gap-4 text-[10px] opacity-75 font-bold mb-1">
+                        <span>{studentData.name}</span>
+                        <span>08:16 WIB</span>
+                      </div>
+                      <p>Angka 6 dan -1!</p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 max-w-2xl mr-auto">
+                    <div className="w-8 h-8 rounded-full bg-amber-500 text-slate-950 flex items-center justify-center text-xs font-bold shrink-0">
+                      <Bot className="w-4 h-4" />
+                    </div>
+                    <div className="p-4 rounded-2xl text-xs font-medium bg-white text-slate-800 border border-slate-200 shadow-xs rounded-tl-none space-y-1">
+                      <div className="flex items-center justify-between gap-4 text-[10px] text-amber-700 font-bold mb-1">
+                        <span>Tutor AI Sokratik</span>
+                        <span>08:17 WIB</span>
+                      </div>
+                      <p>Tepat sekali! Sekarang uraikan $5x$ menjadi $6x - 1x$ dan lakukan pemfaktoran kelompok.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

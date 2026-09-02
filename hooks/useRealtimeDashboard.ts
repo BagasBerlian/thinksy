@@ -11,7 +11,10 @@ export interface RealtimeEvent {
     | "ATTENDANCE_CHECKIN"
     | "TEACHER_ADDED"
     | "STUDENT_ADDED"
-    | "CLASS_CREATED";
+    | "CLASS_CREATED"
+    | "CHAT_POSTED"
+    | "CHAT_LIKED"
+    | "CHAT_COMMENTED";
   payload?: any;
   timestamp: string;
 }

@@ -193,8 +193,8 @@ export default function GuruLayout({ children, userProfile }: GuruLayoutProps) {
         <div className="space-y-6">
           {/* Logo THINKSY + Panel Guru */}
           <Link href="/guru" className="flex items-center gap-3 group">
-            <div className="h-10 w-10 rounded-xl bg-[#0F172A] flex items-center justify-center font-bold text-white shadow-sm border border-slate-700 group-hover:scale-105 transition duration-200">
-              <BrainCircuit className="w-5.5 h-5.5 text-amber-400" />
+            <div className="h-10 w-10 rounded-xl overflow-hidden shadow-xs border border-slate-200 group-hover:scale-105 transition duration-200 bg-white flex items-center justify-center p-0.5">
+              <img src="/logo.png" alt="THINKSY Logo" className="w-full h-full object-contain" />
             </div>
             <div>
               <span className="font-extrabold text-xl tracking-tight text-[#0F172A]">

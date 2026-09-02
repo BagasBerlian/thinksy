@@ -185,6 +185,12 @@ export async function POST(req: Request) {
 
     // 4. Recalculate and update `sesi.skor_akhir` for the session if available
     if (updatedJawaban?.sesi_id) {
+      const { data: sesiData } = await adminDb
+        .from("sesi")
+        .select("id, siswa_id")
+        .eq("id", updatedJawaban.sesi_id)
+        .single();
+
       const { data: allAnswers } = await adminDb
         .from("jawaban")
         .select("nilai")
@@ -202,13 +208,38 @@ export async function POST(req: Request) {
           })
           .eq("id", updatedJawaban.sesi_id);
       }
+
+      // Notify student & award points
+      if (sesiData?.siswa_id) {
+        await adminDb.from("notifikasi").insert({
+          user_id: sesiData.siswa_id,
+          judul: `Penilaian Esai Diverifikasi: ${numericScore}/100`,
+          pesan: `Guru telah memeriksa jawaban esai Anda. Nilai: ${numericScore}. Catatan: ${catatanGuru || "Bagus! Pertahankan pencapaian Anda."}`,
+          tipe: "sukses",
+          dibaca: false,
+        });
+
+        // Award +20 bonus points to student profile
+        const { data: targetProfil } = await adminDb
+          .from("profil")
+          .select("poin")
+          .eq("id", sesiData.siswa_id)
+          .single();
+
+        if (targetProfil) {
+          await adminDb
+            .from("profil")
+            .update({ poin: (targetProfil.poin || 0) + 20 })
+            .eq("id", sesiData.siswa_id);
+        }
+      }
     }
 
     return NextResponse.json({
       success: true,
       jawabanId,
       score: numericScore,
-      message: "Nilai & Catatan Guru berhasil disimpan ke database!",
+      message: "Nilai, catatan, dan notifikasi ke siswa berhasil disimpan ke database!",
     });
   } catch (error: any) {
     console.error("Error in POST /api/guru/penilaian:", error);

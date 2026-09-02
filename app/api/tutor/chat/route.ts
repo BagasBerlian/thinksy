@@ -61,18 +61,39 @@ export async function POST(req: Request) {
       materiJudul,
       materiKonten,
       message,
+      image,
       history = [],
+      mode,
+      isGeneralAi,
     } = body;
 
-    if (!message || typeof message !== "string") {
+    if ((!message || typeof message !== "string") && !image) {
       return NextResponse.json(
-        { error: "Pesan tidak boleh kosong." },
+        { error: "Pesan atau gambar tidak boleh kosong." },
         { status: 400 }
       );
     }
 
-    // 5. Build Socratic System Prompt
-    const systemPrompt = `Kamu adalah "thinksy AI", pendamping belajar Matematika Kelas 8 SMP yang sangat fun, seru, bersahabat, sabar, dan pembimbing matematika yang luar biasa! 😊✨
+    const isGeneralMode = mode === "general" || isGeneralAi === true;
+
+    // 5. Build System Prompt (General vs Socratic)
+    const systemPrompt = isGeneralMode
+      ? `Kamu adalah "thinksy AI", asisten AI pintar, ramah, seru, dan serba tahu yang dirancang khusus untuk mendampingi belajar siswa sekolah! 🚀✨
+
+PERSONA & TUGAS UTAMA:
+1. Kamu berfungsi sebagai asisten AI pembelajaran umum (seperti ChatGPT / Gemini / Claude) untuk membantu siswa mencari informasi, menjawab pertanyaan akademis, memberikan jawaban lengkap, menjelaskan konsep pelajaran, merangkum materi, dan memberikan saran belajar.
+2. Jika siswa mengirimkan GAMBAR/FOTO (misalnya foto soal tugas, diagram, tabel, grafik, atau catatan materi):
+   - Analisis dan bacalah isi gambar tersebut secara cermat dan teliti.
+   - Berikan penjelasan lengkap, langkah-langkah penyelesaian, atau rangkuman dari gambar yang dikirimkan.
+3. Jawablah pertanyaan siswa secara JELAS, LENGKAP, AKURAT, dan INFORMATIF. Tidak perlu menahan jawaban akhir.
+4. Gunakan bahasa yang ramah, sopan, bersahabat, dan seru khas anak sekolah.
+5. Gunakan format Markdown yang rapi dengan bullet points, tebal (bold), dan contoh-contoh visual agar mudah dibaca.
+6. Gunakan format KaTeX untuk menulis rumus matematika ($...$ untuk inline, $$...$$ untuk baris baru).
+
+KONTEKS MATERI/DISKUSI (Jika ada):
+- **Judul:** ${materiJudul || "Pendamping Belajar Mandiri"}
+- **Topik:** ${materiKonten || "Pencarian Informasi & Bimbingan Akademis Siswa"}`
+      : `Kamu adalah "thinksy AI", pendamping belajar Matematika Kelas 8 SMP yang sangat fun, seru, bersahabat, sabar, dan pembimbing matematika yang luar biasa! 😊✨
 
 GAYA & PERSONA:
 - Gunakan bahasa yang santai, bersahabat, dan seru khas anak SMP (gunakan emoji sesekali agar menarik 🚀✨).
@@ -96,7 +117,7 @@ KONTEKS MATERI YANG SEDANG DIBUKA USER SAAT INI (Gunakan info ini agar obrolan n
 - **Teks Soal/Konten Aktif:** ${materiKonten || "Pola Bilangan & Barisan"}`;
 
 
-    // 6. Call Google Gemini API (gemini-2.5-flash-lite)
+    // 6. Call Google Gemini API (gemini-3.6-flash)
     const geminiApiKey = process.env.GEMINI_API_KEY;
     if (!geminiApiKey) {
       return NextResponse.json(
@@ -105,16 +126,31 @@ KONTEKS MATERI YANG SEDANG DIBUKA USER SAAT INI (Gunakan info ini agar obrolan n
       );
     }
 
+    // Format latest message parts (Text + optional Image)
+    const userParts: any[] = [];
+    if (image && typeof image === "string" && image.startsWith("data:image/")) {
+      const mimeType = image.match(/data:(.*?);base64,/)?.[1] || "image/jpeg";
+      const base64Data = image.replace(/^data:image\/\w+;base64,/, "");
+      userParts.push({
+        inlineData: {
+          mimeType,
+          data: base64Data,
+        },
+      });
+    }
+
+    userParts.push({ text: message || "Jelaskan gambar ini dan berikan pembahasannya." });
+
     // Format message history for Gemini API (uses 'model' role instead of 'assistant')
     const formattedMessages = [
       ...history.map((msg: { role: string; content: string }) => ({
         role: msg.role === "assistant" ? "model" : "user",
-        parts: [{ text: msg.content }]
+        parts: [{ text: msg.content }],
       })),
-      { role: "user", parts: [{ text: message }] }
+      { role: "user", parts: userParts },
     ];
 
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`;
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${geminiApiKey}`;
 
     const apiResponse = await fetch(geminiUrl, {
       method: "POST",
