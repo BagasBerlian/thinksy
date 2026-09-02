@@ -4,7 +4,6 @@ import { useState, useRef, useEffect } from "react";
 import MarkdownRenderer from "../materi/MarkdownRenderer";
 import {
   Send,
-  User,
   Loader2,
   Sparkles,
   Plus,
@@ -19,13 +18,23 @@ import {
   Image as ImageIcon,
   Paperclip,
   X,
+  FileText,
+  File,
 } from "lucide-react";
+
+export interface MessageAttachment {
+  type: "image" | "pdf";
+  dataUrl: string;
+  name?: string;
+  size?: string;
+}
 
 interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
   image?: string;
+  attachment?: MessageAttachment;
   timestamp?: string;
 }
 
@@ -43,7 +52,7 @@ const DEFAULT_WELCOME_MESSAGE: Message = {
 
 Saya siap membantumu mencari informasi, menjelaskan konsep materi pelajaran, merangkum modul, serta menjawab pertanyaan akademis dan tugas sekolahmu secara lengkap!
 
-📸 **Fitur Baru:** Kamu juga bisa mengunggah **Foto/Gambar Soal Tugas** dengan mengeklik ikon klip/gambar di sebelah kolom pesan. Saya akan membantu membacanya!
+📁 **Dukungan Dokumen & Gambar:** Kamu bisa mengunggah **Foto Soal Tugas (PNG/JPG)** atau **Dokumen PDF (Modul/Materi)** dengan mengeklik ikon klip di sebelah kolom pesan!
 
 **Ada yang ingin kamu tanyakan atau bahas hari ini?**`,
 };
@@ -56,7 +65,7 @@ export default function GeneralAiChat({ studentName }: GeneralAiChatProps) {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [input, setInput] = useState("");
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedAttachment, setSelectedAttachment] = useState<MessageAttachment | null>(null);
   const [loading, setLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [remainingQuota, setRemainingQuota] = useState<number | null>(null);
@@ -142,39 +151,56 @@ export default function GeneralAiChat({ studentName }: GeneralAiChatProps) {
     }
   };
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith("image/")) {
-      alert("Silakan pilih file berupa gambar (JPG, PNG, WEBP).");
+    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+    const isImage = file.type.startsWith("image/");
+
+    if (!isPdf && !isImage) {
+      alert("Silakan pilih file berupa foto gambar (JPG, PNG, WEBP) atau dokumen PDF.");
       return;
     }
 
+    const fileSizeStr = (file.size / (1024 * 1024)).toFixed(2) + " MB";
+
     const reader = new FileReader();
     reader.onload = (evt) => {
-      setSelectedImage(evt.target?.result as string);
+      const result = evt.target?.result as string;
+      setSelectedAttachment({
+        type: isPdf ? "pdf" : "image",
+        dataUrl: result,
+        name: file.name,
+        size: fileSizeStr,
+      });
     };
     reader.readAsDataURL(file);
   };
 
   const handleSend = async (customMessage?: string) => {
     const userText = (customMessage || input).trim();
-    if ((!userText && !selectedImage) || loading) return;
+    if ((!userText && !selectedAttachment) || loading) return;
 
     if (!activeSessionId) return;
 
-    const currentImg = selectedImage;
+    const currentAttachment = selectedAttachment;
+    const defaultText = currentAttachment
+      ? currentAttachment.type === "pdf"
+        ? `Bantu rangkum dan jelaskan dokumen PDF "${currentAttachment.name}"`
+        : `Analisis foto gambar soal "${currentAttachment.name}"`
+      : "Pertanyaan Belajar";
+
     const userMsg: Message = {
       id: Date.now().toString(),
       role: "user",
-      content: userText || "Analisis dan jelaskan gambar soal ini",
-      image: currentImg || undefined,
+      content: userText || defaultText,
+      attachment: currentAttachment || undefined,
       timestamp: new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
     };
 
     const isFirstQuestion = activeSession?.messages.length <= 1;
-    const displayTitle = userText || (currentImg ? "Tanya Gambar Soal" : "Percakapan Belajar");
+    const displayTitle = userText || (currentAttachment ? currentAttachment.name || "Unggahan File" : "Percakapan Belajar");
     const newTitle = isFirstQuestion
       ? displayTitle.length > 25
         ? displayTitle.substring(0, 25) + "..."
@@ -196,7 +222,7 @@ export default function GeneralAiChat({ studentName }: GeneralAiChatProps) {
     );
 
     setInput("");
-    setSelectedImage(null);
+    setSelectedAttachment(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
     setLoading(true);
 
@@ -211,8 +237,9 @@ export default function GeneralAiChat({ studentName }: GeneralAiChatProps) {
         body: JSON.stringify({
           mode: "general",
           isGeneralAi: true,
-          message: userText || "Analisis dan jelaskan gambar soal ini",
-          image: currentImg,
+          message: userText || defaultText,
+          attachment: currentAttachment,
+          image: currentAttachment?.type === "image" ? currentAttachment.dataUrl : undefined,
           history,
         }),
       });
@@ -269,12 +296,12 @@ export default function GeneralAiChat({ studentName }: GeneralAiChatProps) {
 
   return (
     <div className="flex h-full w-full bg-white overflow-hidden font-sans">
-      {/* Hidden File Input for Image Upload */}
+      {/* Hidden File Input for PDF & Image Upload */}
       <input
         type="file"
         ref={fileInputRef}
-        onChange={handleImageSelect}
-        accept="image/*"
+        onChange={handleFileSelect}
+        accept="image/*,application/pdf"
         className="hidden"
       />
 
@@ -374,12 +401,12 @@ export default function GeneralAiChat({ studentName }: GeneralAiChatProps) {
             <div>
               <h3 className="text-sm font-extrabold text-[#0F172A] flex items-center gap-2">
                 <span>Thinksy AI Study Assistant</span>
-                <span className="text-[10px] font-extrabold bg-blue-100 text-blue-800 px-2.5 py-0.5 rounded-full border border-blue-200">
-                  Multimodal Vision AI
+                <span className="text-[10px] font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-2.5 py-0.5 rounded-full shadow-2xs">
+                  Gemini 3.1 Flash Lite
                 </span>
               </h3>
               <p className="text-xs text-slate-500 font-medium">
-                Tanya Teks & Gambar Foto Soal Tugas 24/7
+                Tanya Teks, Foto Soal & Dokumen PDF 24/7
               </p>
             </div>
           </div>
@@ -420,16 +447,28 @@ export default function GeneralAiChat({ studentName }: GeneralAiChatProps) {
 
               {/* Message Content Bubble */}
               <div
-                className={`max-w-[80%] rounded-2xl p-4.5 shadow-xs text-xs sm:text-sm leading-relaxed space-y-2 ${
+                className={`max-w-[80%] rounded-2xl p-4.5 shadow-xs text-xs sm:text-sm leading-relaxed space-y-2.5 ${
                   msg.role === "user"
                     ? "bg-[#0F172A] text-white rounded-tr-none"
                     : "bg-white text-slate-800 border border-slate-200/90 rounded-tl-none"
                 }`}
               >
-                {/* Render Attached Image if user sent an image */}
-                {msg.image && (
-                  <div className="rounded-xl overflow-hidden border border-white/20 max-w-xs shadow-md">
-                    <img src={msg.image} alt="Unggahan Gambar Soal" className="w-full h-auto object-cover max-h-60" />
+                {/* Render Attachment if user attached Image or PDF */}
+                {msg.attachment && (
+                  <div className="rounded-xl overflow-hidden border border-white/20">
+                    {msg.attachment.type === "image" ? (
+                      <img src={msg.attachment.dataUrl} alt="Foto Soal" className="w-full h-auto object-cover max-h-60 rounded-xl shadow-md" />
+                    ) : (
+                      <div className="flex items-center gap-3 p-3 bg-slate-800 text-white rounded-xl border border-slate-700">
+                        <div className="w-10 h-10 rounded-lg bg-red-500/20 text-red-400 flex items-center justify-center shrink-0 border border-red-500/30">
+                          <FileText className="w-5 h-5" />
+                        </div>
+                        <div className="truncate">
+                          <p className="font-extrabold text-xs text-amber-400 truncate">{msg.attachment.name || "Dokumen.pdf"}</p>
+                          <p className="text-[10px] text-slate-300">Dokumen PDF • {msg.attachment.size || "PDF"}</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -460,7 +499,7 @@ export default function GeneralAiChat({ studentName }: GeneralAiChatProps) {
               </div>
               <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-none p-4 text-xs sm:text-sm text-slate-600 flex items-center gap-2.5 shadow-xs">
                 <Loader2 className="w-4.5 h-4.5 animate-spin text-blue-600" />
-                <span>Thinksy AI sedang membaca gambar & menyusun jawaban...</span>
+                <span>Thinksy AI sedang membaca file & menyusun penjelasan tuntas...</span>
               </div>
             </div>
           )}
@@ -478,38 +517,53 @@ export default function GeneralAiChat({ studentName }: GeneralAiChatProps) {
               <Lightbulb className="w-4 h-4 text-amber-500" />
               <span>💡 Konsep Pythagoras</span>
             </button>
+
             <button
               onClick={() => fileInputRef.current?.click()}
               className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-bold border border-amber-300/80 transition shadow-2xs cursor-pointer"
             >
               <ImageIcon className="w-4 h-4 text-amber-600" />
-              <span>📷 Upload Foto Soal Tugas</span>
+              <span>📷 Upload Foto Soal</span>
             </button>
+
             <button
-              onClick={() => handleSend("Berikan tips cara cepat belajar dan merangkum pelajaran sekolah")}
-              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white hover:bg-blue-50 text-slate-700 text-xs font-semibold border border-slate-200 hover:border-blue-300 transition shadow-2xs cursor-pointer"
+              onClick={() => fileInputRef.current?.click()}
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-900 text-xs font-bold border border-red-300/80 transition shadow-2xs cursor-pointer"
             >
-              <BookOpen className="w-4 h-4 text-blue-500" />
-              <span>📚 Tips Efektif Belajar</span>
+              <FileText className="w-4 h-4 text-red-600" />
+              <span>📄 Upload Modul PDF</span>
             </button>
           </div>
         )}
 
-        {/* Input Bar with Image Attachment Support */}
+        {/* Input Bar with PDF & Image Attachment Support */}
         <div className="p-4 bg-white border-t border-slate-200 shrink-0">
           <div className="max-w-4xl mx-auto space-y-2">
-            {/* Image Preview Chip (If Image Selected) */}
-            {selectedImage && (
-              <div className="inline-flex items-center gap-2 p-1.5 pr-3 rounded-xl bg-slate-100 border border-slate-200 text-xs font-bold text-slate-800 animate-in fade-in">
-                <img src={selectedImage} alt="Preview" className="w-10 h-10 object-cover rounded-lg border border-slate-300" />
-                <span className="text-xs text-slate-700">Gambar Soal Siap Dikirim</span>
+            {/* Selected Attachment Preview Bar */}
+            {selectedAttachment && (
+              <div className="inline-flex items-center gap-2.5 p-2 pr-3.5 rounded-xl bg-slate-100 border border-slate-200 text-xs font-bold text-slate-800 animate-in fade-in">
+                {selectedAttachment.type === "image" ? (
+                  <img src={selectedAttachment.dataUrl} alt="Preview" className="w-10 h-10 object-cover rounded-lg border border-slate-300" />
+                ) : (
+                  <div className="w-10 h-10 rounded-lg bg-red-100 text-red-600 flex items-center justify-center border border-red-200">
+                    <FileText className="w-5 h-5" />
+                  </div>
+                )}
+                <div className="flex flex-col">
+                  <span className="text-xs text-slate-800 font-extrabold truncate max-w-[200px]">
+                    {selectedAttachment.name || "File Terlampir"}
+                  </span>
+                  <span className="text-[10px] text-slate-500">
+                    {selectedAttachment.type === "pdf" ? `Dokumen PDF (${selectedAttachment.size || ""})` : "Foto Gambar Soal"}
+                  </span>
+                </div>
                 <button
                   onClick={() => {
-                    setSelectedImage(null);
+                    setSelectedAttachment(null);
                     if (fileInputRef.current) fileInputRef.current.value = "";
                   }}
-                  className="p-1 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-600 transition"
-                  title="Batalkan gambar"
+                  className="p-1 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-600 transition ml-2"
+                  title="Batalkan lampiran"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -523,13 +577,13 @@ export default function GeneralAiChat({ studentName }: GeneralAiChatProps) {
               }}
               className="flex items-center gap-2.5"
             >
-              {/* Tombol Upload Gambar (Klip/Kamera) */}
+              {/* Tombol Upload (Foto & PDF) */}
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={loading}
-                className="p-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition border border-slate-200 cursor-pointer shadow-2xs"
-                title="Unggah Foto Soal / Diagram"
+                className="p-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition border border-slate-200 cursor-pointer shadow-2xs flex items-center gap-1"
+                title="Unggah Foto Soal atau Dokumen PDF Modul"
               >
                 <Paperclip className="w-5 h-5" />
               </button>
@@ -538,14 +592,14 @@ export default function GeneralAiChat({ studentName }: GeneralAiChatProps) {
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder={selectedImage ? "Tuliskan pertanyaan tambahan untuk gambar ini..." : "Tanyakan materi, informasi, atau unggah foto tugas..."}
+                placeholder={selectedAttachment ? `Tuliskan pertanyaan tambahan untuk file ${selectedAttachment.name}...` : "Tanyakan materi, informasi, atau unggah foto/PDF modul..."}
                 disabled={loading}
                 className="flex-1 px-4.5 py-3 rounded-2xl border border-slate-200 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white bg-slate-50 font-medium shadow-2xs"
               />
 
               <button
                 type="submit"
-                disabled={loading || (!input.trim() && !selectedImage)}
+                disabled={loading || (!input.trim() && !selectedAttachment)}
                 className="px-5 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-extrabold text-xs sm:text-sm shadow-md transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center gap-2 shrink-0"
               >
                 {loading ? (

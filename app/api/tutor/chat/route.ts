@@ -62,14 +62,17 @@ export async function POST(req: Request) {
       materiKonten,
       message,
       image,
+      attachment,
       history = [],
       mode,
       isGeneralAi,
     } = body;
 
-    if ((!message || typeof message !== "string") && !image) {
+    const activeAttachment = attachment || (image ? { type: "image", dataUrl: image } : null);
+
+    if ((!message || typeof message !== "string") && !activeAttachment) {
       return NextResponse.json(
-        { error: "Pesan atau gambar tidak boleh kosong." },
+        { error: "Pesan, foto gambar, atau dokumen PDF tidak boleh kosong." },
         { status: 400 }
       );
     }
@@ -82,9 +85,9 @@ export async function POST(req: Request) {
 
 PERSONA & TUGAS UTAMA:
 1. Kamu berfungsi sebagai asisten AI pembelajaran umum (seperti ChatGPT / Gemini / Claude) untuk membantu siswa mencari informasi, menjawab pertanyaan akademis, memberikan jawaban lengkap, menjelaskan konsep pelajaran, merangkum materi, dan memberikan saran belajar.
-2. Jika siswa mengirimkan GAMBAR/FOTO (misalnya foto soal tugas, diagram, tabel, grafik, atau catatan materi):
-   - Analisis dan bacalah isi gambar tersebut secara cermat dan teliti.
-   - Berikan penjelasan lengkap, langkah-langkah penyelesaian, atau rangkuman dari gambar yang dikirimkan.
+2. Jika siswa mengirimkan DOKUMEN PDF atau GAMBAR FOTO (misalnya foto soal tugas, modul PDF, diagram, tabel, grafik, atau catatan materi):
+   - Analisis dan bacalah isi seluruh dokumen PDF / foto gambar tersebut secara cermat dan teliti.
+   - Berikan penjelasan lengkap, langkah-langkah penyelesaian soal, atau rangkuman poin-poin utama dari dokumen/gambar yang dikirimkan.
 3. Jawablah pertanyaan siswa secara JELAS, LENGKAP, AKURAT, dan INFORMATIF. Tidak perlu menahan jawaban akhir.
 4. Gunakan bahasa yang ramah, sopan, bersahabat, dan seru khas anak sekolah.
 5. Gunakan format Markdown yang rapi dengan bullet points, tebal (bold), dan contoh-contoh visual agar mudah dibaca.
@@ -117,7 +120,7 @@ KONTEKS MATERI YANG SEDANG DIBUKA USER SAAT INI (Gunakan info ini agar obrolan n
 - **Teks Soal/Konten Aktif:** ${materiKonten || "Pola Bilangan & Barisan"}`;
 
 
-    // 6. Call Google Gemini API (gemini-3.6-flash)
+    // 6. Call Google Gemini API
     const geminiApiKey = process.env.GEMINI_API_KEY;
     if (!geminiApiKey) {
       return NextResponse.json(
@@ -126,11 +129,14 @@ KONTEKS MATERI YANG SEDANG DIBUKA USER SAAT INI (Gunakan info ini agar obrolan n
       );
     }
 
-    // Format latest message parts (Text + optional Image)
+    // Format latest message parts (Text + optional Image / PDF Attachment)
     const userParts: any[] = [];
-    if (image && typeof image === "string" && image.startsWith("data:image/")) {
-      const mimeType = image.match(/data:(.*?);base64,/)?.[1] || "image/jpeg";
-      const base64Data = image.replace(/^data:image\/\w+;base64,/, "");
+    if (activeAttachment?.dataUrl) {
+      const dataUrl = activeAttachment.dataUrl;
+      const defaultMime = activeAttachment.type === "pdf" ? "application/pdf" : "image/jpeg";
+      const mimeType = dataUrl.match(/data:(.*?);base64,/)?.[1] || defaultMime;
+      const base64Data = dataUrl.replace(/^data:.*?;base64,/, "");
+
       userParts.push({
         inlineData: {
           mimeType,
@@ -139,7 +145,11 @@ KONTEKS MATERI YANG SEDANG DIBUKA USER SAAT INI (Gunakan info ini agar obrolan n
       });
     }
 
-    userParts.push({ text: message || "Jelaskan gambar ini dan berikan pembahasannya." });
+    const defaultPromptText = activeAttachment?.type === "pdf"
+      ? "Bantu rangkum dan jelaskan dokumen PDF ini."
+      : "Jelaskan gambar ini dan berikan pembahasannya.";
+
+    userParts.push({ text: message || defaultPromptText });
 
     // Format message history for Gemini API (uses 'model' role instead of 'assistant')
     const formattedMessages = [
@@ -150,29 +160,49 @@ KONTEKS MATERI YANG SEDANG DIBUKA USER SAAT INI (Gunakan info ini agar obrolan n
       { role: "user", parts: userParts },
     ];
 
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${geminiApiKey}`;
+    const GEMINI_MODELS = [
+      "gemini-3.1-flash-lite",
+      "gemini-3.1-flash-lite-preview",
+      "gemini-3.6-flash",
+    ];
 
-    const apiResponse = await fetch(geminiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        contents: formattedMessages,
-        systemInstruction: {
-          parts: [{ text: systemPrompt }]
-        },
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 8192,
-          stopSequences: []
+    let apiResponse: Response | null = null;
+    let lastErrorText = "";
+
+    for (const model of GEMINI_MODELS) {
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`;
+      try {
+        const res = await fetch(geminiUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            contents: formattedMessages,
+            systemInstruction: {
+              parts: [{ text: systemPrompt }],
+            },
+            generationConfig: {
+              temperature: 0.7,
+              maxOutputTokens: 8192,
+              stopSequences: [],
+            },
+          }),
+        });
+
+        if (res.ok) {
+          apiResponse = res;
+          break;
+        } else {
+          lastErrorText = await res.text();
         }
-      })
-    });
+      } catch (err: any) {
+        lastErrorText = err.message;
+      }
+    }
 
-    if (!apiResponse.ok) {
-      const errorText = await apiResponse.text();
-      throw new Error(`Gemini API Error: ${errorText || apiResponse.statusText}`);
+    if (!apiResponse) {
+      throw new Error(`Gemini API Error: ${lastErrorText}`);
     }
 
     const responseData = await apiResponse.json();
