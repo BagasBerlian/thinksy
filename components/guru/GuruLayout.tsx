@@ -24,9 +24,12 @@ import {
   CheckCircle2,
   Key,
   Sliders,
+  Menu,
+  GraduationCap,
 } from "lucide-react";
 import { logoutAction } from "@/app/(auth)/actions";
 import { useRealtimeDashboard } from "@/hooks/useRealtimeDashboard";
+import FloatingGuruSpeedDial from "@/components/guru/FloatingGuruSpeedDial";
 
 interface GuruLayoutProps {
   children: React.ReactNode;
@@ -42,6 +45,7 @@ export default function GuruLayout({ children, userProfile }: GuruLayoutProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
   // Settings Modal Form State
@@ -137,8 +141,21 @@ export default function GuruLayout({ children, userProfile }: GuruLayoutProps) {
     }
   });
 
-  const handleSaveSettings = (e: React.FormEvent) => {
+  const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
+    try {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from("profil").update({
+          nama_lengkap: settingsNama,
+          email: settingsEmail,
+        }).eq("id", user.id);
+      }
+    } catch {
+      // ignore
+    }
     setSettingsSavedSuccess(true);
     setTimeout(() => {
       setSettingsSavedSuccess(false);
@@ -163,24 +180,33 @@ export default function GuruLayout({ children, userProfile }: GuruLayoutProps) {
       label: "Bank Soal Manual",
       href: "/guru/soal/latihan",
       icon: FileText,
-      active: pathname === "/guru/soal/latihan",
+      active: pathname.startsWith("/guru/soal/latihan"),
     },
     {
       label: "Kurasi Soal AI",
       href: "/guru/soal/eksplorasi",
       icon: Bot,
-      active: pathname === "/guru/soal/eksplorasi",
+      active: pathname.startsWith("/guru/soal/eksplorasi"),
     },
     {
       label: "Penilaian Esai",
       href: "/guru/penilaian",
       icon: CheckSquare,
-      active: pathname === "/guru/penilaian",
+      active: pathname.startsWith("/guru/penilaian"),
+    },
+    {
+      label: "Penilaian Siswa",
+      href: "/guru/penilaian-siswa",
+      icon: GraduationCap,
+      active: pathname.startsWith("/guru/penilaian-siswa"),
     },
     {
       label: "Pengaturan",
       href: "#pengaturan",
-      onClick: () => setIsSettingsModalOpen(true),
+      onClick: () => {
+        setIsSettingsModalOpen(true);
+        setIsMobileMenuOpen(false);
+      },
       icon: Settings,
       active: isSettingsModalOpen,
     },
@@ -188,30 +214,50 @@ export default function GuruLayout({ children, userProfile }: GuruLayoutProps) {
 
   return (
     <div className="flex min-h-screen bg-[#F8FAFC] text-slate-900 font-sans">
+      {/* MOBILE BACKDROP DRAWER OVERLAY */}
+      {isMobileMenuOpen && (
+        <div
+          onClick={() => setIsMobileMenuOpen(false)}
+          className="fixed inset-0 bg-slate-900/60 z-40 md:hidden backdrop-blur-xs transition duration-200"
+        />
+      )}
+
       {/* 1. SIDEBAR NAV (THINKSY BRANDING & PALETTE) */}
-      <aside className="w-64 border-r border-slate-200 bg-white p-5 flex flex-col justify-between shrink-0 shadow-xs">
+      <aside
+        className={`fixed md:static inset-y-0 left-0 z-50 w-64 border-r border-slate-200 bg-white p-5 flex flex-col justify-between shrink-0 shadow-xs transition-transform duration-200 ease-in-out ${
+          isMobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        }`}
+      >
         <div className="space-y-6">
-          {/* Logo THINKSY + Panel Guru */}
-          <Link href="/guru" className="flex items-center gap-3 group">
-            <div className="h-10 w-10 rounded-xl overflow-hidden shadow-xs border border-slate-200 group-hover:scale-105 transition duration-200 bg-white flex items-center justify-center p-0.5">
-              <img src="/logo.png" alt="THINKSY Logo" className="w-full h-full object-contain" />
-            </div>
-            <div>
-              <span className="font-extrabold text-xl tracking-tight text-[#0F172A]">
-                THINKSY
-              </span>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <div className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full w-fit">
-                  Panel Guru
-                </div>
-                {isConnected && (
-                  <span className="inline-flex items-center gap-1 text-[9px] font-extrabold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-200">
-                    <Wifi className="w-2.5 h-2.5 text-emerald-600 animate-pulse" /> Live
-                  </span>
-                )}
+          {/* Logo THINKSY + Panel Guru & Close Mobile Button */}
+          <div className="flex items-center justify-between">
+            <Link href="/guru" className="flex items-center gap-3 group">
+              <div className="h-10 w-10 rounded-xl overflow-hidden shadow-xs border border-slate-200 group-hover:scale-105 transition duration-200 bg-white flex items-center justify-center p-0.5">
+                <img src="/logo.png" alt="THINKSY Logo" className="w-full h-full object-contain" />
               </div>
-            </div>
-          </Link>
+              <div>
+                <span className="font-extrabold text-xl tracking-tight text-[#0F172A]">
+                  THINKSY
+                </span>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <div className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full w-fit">
+                    Panel Guru
+                  </div>
+                  {isConnected && (
+                    <span className="inline-flex items-center gap-1 text-[9px] font-extrabold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-200">
+                      <Wifi className="w-2.5 h-2.5 text-emerald-600 animate-pulse" /> Live
+                    </span>
+                  )}
+                </div>
+              </div>
+            </Link>
+            <button
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="md:hidden p-1.5 text-slate-400 hover:text-slate-600 rounded-lg"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
 
           {/* Nav Items (ALL CLICKABLE & WORKING) */}
           <nav className="space-y-1.5 text-xs font-bold text-slate-600">
@@ -237,6 +283,7 @@ export default function GuruLayout({ children, userProfile }: GuruLayoutProps) {
                 <Link
                   key={item.label}
                   href={item.href}
+                  onClick={() => setIsMobileMenuOpen(false)}
                   className={`flex items-center gap-3 rounded-xl px-3.5 py-3 transition cursor-pointer ${
                     item.active
                       ? "bg-[#0F172A] text-white shadow-xs"
@@ -266,7 +313,16 @@ export default function GuruLayout({ children, userProfile }: GuruLayoutProps) {
       {/* 2. MAIN CONTENT WRAPPER */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Header Bar */}
-        <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200 px-6 py-3.5 flex items-center justify-between gap-4">
+        <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200 px-4 sm:px-6 py-3.5 flex items-center justify-between gap-4">
+          {/* Mobile Hamburger Toggle Button */}
+          <button
+            onClick={() => setIsMobileMenuOpen(true)}
+            className="md:hidden p-2 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 transition cursor-pointer shrink-0"
+            aria-label="Buka Menu Sidebar"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+
           {/* Global Search Input */}
           <div className="relative max-w-md w-full">
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -634,6 +690,9 @@ export default function GuruLayout({ children, userProfile }: GuruLayoutProps) {
           </div>
         </div>
       )}
+
+      {/* FLOATING SPEED DIAL (+ / X) MENU WIDGET */}
+      <FloatingGuruSpeedDial />
     </div>
   );
 }

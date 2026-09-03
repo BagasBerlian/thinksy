@@ -297,7 +297,7 @@ export default function GuruDashboardPage() {
   const [dbTotalSoal, setDbTotalSoal] = useState<number | null>(null);
   const [dbPendingGrading, setDbPendingGrading] = useState<number | null>(null);
   const [dbAvgScore, setDbAvgScore] = useState<number>(78);
-  const [dbStrugglingCount, setDbStrugglingCount] = useState<number>(5);
+  const [dbStrugglingCount, setDbStrugglingCount] = useState<number>(0);
   const [dbStrugglingList, setDbStrugglingList] = useState<any[]>([]);
 
   // Broadcast Modal state
@@ -669,6 +669,13 @@ export default function GuruDashboardPage() {
                   Penilaian Esai
                   <span className="ml-1 px-2 py-0.5 rounded-full bg-white/10 text-[10px]">{dbPendingGrading ?? 45}</span>
                 </Link>
+                <Link
+                  href="/guru/penilaian-siswa"
+                  className="px-4 py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs font-extrabold flex items-center gap-2 border border-amber-500/30 backdrop-blur-sm transition shadow-xs"
+                >
+                  <GraduationCap className="w-4 h-4 text-amber-400" />
+                  Rapor & Penilaian Siswa
+                </Link>
               </div>
             </div>
 
@@ -973,7 +980,7 @@ export default function GuruDashboardPage() {
 
             {/* Quick Link: Buat Soal */}
             <Link
-              href="/buat-soal"
+              href="/guru/soal/eksplorasi"
               className="group block bg-gradient-to-br from-[#0F172A] to-[#1E293B] rounded-2xl p-5 border border-slate-700/50 hover:border-amber-500/30 transition-all duration-300 shadow-sm hover:shadow-lg"
             >
               <div className="flex items-center gap-3 mb-3">
@@ -1149,7 +1156,7 @@ export default function GuruDashboardPage() {
 
             <div className="pt-4 border-t border-slate-100 flex justify-between items-center">
               <Link
-                href="/buat-soal"
+                href="/guru/soal/eksplorasi"
                 onClick={() => setIsQuestionsStatModalOpen(false)}
                 className="px-4 py-2.5 rounded-xl bg-amber-500 text-slate-950 font-extrabold text-xs flex items-center gap-1.5 shadow-md"
               >
