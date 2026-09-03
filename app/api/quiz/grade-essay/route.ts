@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { checkAndUpdateDailyStreak } from "@/lib/streak";
 
 export async function POST(req: Request) {
   try {
@@ -265,6 +266,13 @@ WAJIB MENGEMBALIKAN FORMAT JSON SAJA (TANPA TEKS LAIN):
         tipe: "info",
         dibaca: false,
       });
+
+      // Trigger check and update daily streak
+      try {
+        await checkAndUpdateDailyStreak(user.id, "kuis");
+      } catch (streakErr: any) {
+        console.error("[STREAK UPDATE ERROR (KUIS)]", streakErr.message);
+      }
     } catch (err: any) {
       console.error("[POINTS SYSTEM ERROR]", err.message);
     }

@@ -38,6 +38,7 @@ import {
   Shield,
   Send,
   Flag,
+  Share2,
   ArrowLeft,
 } from "lucide-react";
 import Link from "next/link";
@@ -67,6 +68,27 @@ export interface PeerStudent {
   name: string;
   avatarUrl?: string | null;
   initials: string;
+}
+
+export interface CalendarDayItem {
+  day: number;
+  isCurrentMonth: boolean;
+  isToday: boolean;
+  status: "today" | "streak" | "past" | "scheduled" | "normal" | "muted";
+  fullDateStr: string;
+  schedule: {
+    bab: string;
+    jam: string;
+    room?: string;
+    teacher?: string;
+  } | null;
+}
+
+export interface CalendarWeekItem {
+  weekIndex: number;
+  hasStreakBadge: boolean;
+  streakCount: number;
+  days: CalendarDayItem[];
 }
 
 interface StudentDashboardProps {
@@ -908,6 +930,325 @@ export default function StudentDashboardClient({
   const sortedChapters = [...chapters].sort((a, b) => (b.progress || 0) - (a.progress || 0));
   const top3Chapters = sortedChapters.slice(0, 3);
 
+  // Generate September 2026 Custom Calendar with clear distinctions for today, streak, past, and scheduled days
+  const calendarWeeks: CalendarWeekItem[] = [
+    {
+      weekIndex: 0,
+      hasStreakBadge: true,
+      streakCount: Math.min(dailyStreak, 3), // Streak achieved in this week: 3
+      days: [
+        {
+          day: 31,
+          isCurrentMonth: false,
+          isToday: false,
+          status: "muted" as const,
+          fullDateStr: "Senin, 31 Agustus 2026",
+          schedule: { bab: "Bab 1: Bilangan Bulat & Garis Bilangan", jam: "08:00 - 09:30 WIB", room: "Ruang 8A", teacher: "Ibu Siti Rahmawati, M.Pd." },
+        },
+        {
+          day: 1,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "streak" as const,
+          fullDateStr: "Selasa, 1 September 2026",
+          schedule: { bab: "Pendalaman Mandiri & Latihan Soal", jam: "09:00 - 10:00 WIB", room: "Perpustakaan", teacher: "Tutor AI" },
+        },
+        {
+          day: 2,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "streak" as const,
+          fullDateStr: "Rabu, 2 September 2026",
+          schedule: { bab: "Bab 1: Operasi Hitung Bilangan Bulat", jam: "10:00 - 11:30 WIB", room: "Ruang 8A", teacher: "Budi Santoso, S.Pd." },
+        },
+        {
+          day: 3,
+          isCurrentMonth: true,
+          isToday: true,
+          status: "today" as const,
+          fullDateStr: "Kamis, 3 September 2026 (Hari Ini)",
+          schedule: { bab: "Bab 1: Eksplorasi Sokratik AI & Kuis", jam: "08:00 - 09:30 WIB", room: "Lab Komputer", teacher: "thinksy AI Tutor" },
+        },
+        {
+          day: 4,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "scheduled" as const,
+          fullDateStr: "Jumat, 4 September 2026",
+          schedule: { bab: "Bab 1: FPB, KPK & Faktorisasi Prima", jam: "08:00 - 09:30 WIB", room: "Lab Komputer", teacher: "thinksy AI Tutor" },
+        },
+        {
+          day: 5,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "normal" as const,
+          fullDateStr: "Sabtu, 5 September 2026",
+          schedule: null,
+        },
+        {
+          day: 6,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "normal" as const,
+          fullDateStr: "Minggu, 6 September 2026",
+          schedule: null,
+        },
+      ],
+    },
+    {
+      weekIndex: 1,
+      hasStreakBadge: false,
+      streakCount: 0,
+      days: [
+        {
+          day: 7,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "scheduled" as const,
+          fullDateStr: "Senin, 7 September 2026",
+          schedule: { bab: "Bab 2: Bentuk Aljabar & Variabel", jam: "08:00 - 09:30 WIB", room: "Ruang 8A", teacher: "Ibu Siti Rahmawati, M.Pd." },
+        },
+        {
+          day: 8,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "normal" as const,
+          fullDateStr: "Selasa, 8 September 2026",
+          schedule: { bab: "Pendalaman Konsep Aljabar", jam: "10:00 - 11:30 WIB", room: "Lab Komputer", teacher: "Tutor AI" },
+        },
+        {
+          day: 9,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "scheduled" as const,
+          fullDateStr: "Rabu, 9 September 2026",
+          schedule: { bab: "Bab 2: Operasi Penjumlahan Aljabar", jam: "10:00 - 11:30 WIB", room: "Ruang 8A", teacher: "Budi Santoso, S.Pd." },
+        },
+        {
+          day: 10,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "scheduled" as const,
+          fullDateStr: "Kamis, 10 September 2026",
+          schedule: { bab: "Bab 2: Latihan Mandiri Aljabar", jam: "08:00 - 09:30 WIB", room: "Lab Komputer", teacher: "thinksy AI" },
+        },
+        {
+          day: 11,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "scheduled" as const,
+          fullDateStr: "Jumat, 11 September 2026",
+          schedule: { bab: "Bab 2: Perkalian & Pemfaktoran Aljabar", jam: "08:00 - 09:30 WIB", room: "Lab Komputer", teacher: "thinksy AI Tutor" },
+        },
+        {
+          day: 12,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "normal" as const,
+          fullDateStr: "Sabtu, 12 September 2026",
+          schedule: null,
+        },
+        {
+          day: 13,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "normal" as const,
+          fullDateStr: "Minggu, 13 September 2026",
+          schedule: null,
+        },
+      ],
+    },
+    {
+      weekIndex: 2,
+      hasStreakBadge: false,
+      streakCount: 0,
+      days: [
+        {
+          day: 14,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "scheduled" as const,
+          fullDateStr: "Senin, 14 September 2026",
+          schedule: { bab: "Bab 3: Persamaan Linear Satu Variabel", jam: "08:00 - 09:30 WIB", room: "Ruang 8A", teacher: "Ibu Siti Rahmawati, M.Pd." },
+        },
+        {
+          day: 15,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "normal" as const,
+          fullDateStr: "Selasa, 15 September 2026",
+          schedule: null,
+        },
+        {
+          day: 16,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "scheduled" as const,
+          fullDateStr: "Rabu, 16 September 2026",
+          schedule: { bab: "Bab 3: Pertidaksamaan Linear (PTLSV)", jam: "10:00 - 11:30 WIB", room: "Ruang 8A", teacher: "Budi Santoso, S.Pd." },
+        },
+        {
+          day: 17,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "normal" as const,
+          fullDateStr: "Kamis, 17 September 2026",
+          schedule: null,
+        },
+        {
+          day: 18,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "scheduled" as const,
+          fullDateStr: "Jumat, 18 September 2026",
+          schedule: { bab: "Bab 3: Kuis & Studi Kasus Kontekstual", jam: "08:00 - 09:30 WIB", room: "Lab Komputer", teacher: "thinksy AI Tutor" },
+        },
+        {
+          day: 19,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "normal" as const,
+          fullDateStr: "Sabtu, 19 September 2026",
+          schedule: null,
+        },
+        {
+          day: 20,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "normal" as const,
+          fullDateStr: "Minggu, 20 September 2026",
+          schedule: null,
+        },
+      ],
+    },
+    {
+      weekIndex: 3,
+      hasStreakBadge: false,
+      streakCount: 0,
+      days: [
+        {
+          day: 21,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "scheduled" as const,
+          fullDateStr: "Senin, 21 September 2026",
+          schedule: { bab: "Bab 4: Perbandingan Senilai & Skala", jam: "08:00 - 09:30 WIB", room: "Ruang 8A", teacher: "Ibu Siti Rahmawati, M.Pd." },
+        },
+        {
+          day: 22,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "normal" as const,
+          fullDateStr: "Selasa, 22 September 2026",
+          schedule: null,
+        },
+        {
+          day: 23,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "scheduled" as const,
+          fullDateStr: "Rabu, 23 September 2026",
+          schedule: { bab: "Bab 4: Perbandingan Berbalik Nilai", jam: "10:00 - 11:30 WIB", room: "Ruang 8A", teacher: "Budi Santoso, S.Pd." },
+        },
+        {
+          day: 24,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "normal" as const,
+          fullDateStr: "Kamis, 24 September 2026",
+          schedule: null,
+        },
+        {
+          day: 25,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "scheduled" as const,
+          fullDateStr: "Jumat, 25 September 2026",
+          schedule: { bab: "Bab 4: Asesmen Formatif Perbandingan", jam: "08:00 - 09:30 WIB", room: "Lab Komputer", teacher: "thinksy AI Tutor" },
+        },
+        {
+          day: 26,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "normal" as const,
+          fullDateStr: "Sabtu, 26 September 2026",
+          schedule: null,
+        },
+        {
+          day: 27,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "normal" as const,
+          fullDateStr: "Minggu, 27 September 2026",
+          schedule: null,
+        },
+      ],
+    },
+    {
+      weekIndex: 4,
+      hasStreakBadge: false,
+      streakCount: 0,
+      days: [
+        {
+          day: 28,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "scheduled" as const,
+          fullDateStr: "Senin, 28 September 2026",
+          schedule: { bab: "Bab 5: Bangun Datar Segitiga & Segiempat", jam: "08:00 - 09:30 WIB", room: "Ruang 8A", teacher: "Ibu Siti Rahmawati, M.Pd." },
+        },
+        {
+          day: 29,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "normal" as const,
+          fullDateStr: "Selasa, 29 September 2026",
+          schedule: null,
+        },
+        {
+          day: 30,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "scheduled" as const,
+          fullDateStr: "Rabu, 30 September 2026",
+          schedule: { bab: "Bab 5: Keliling & Luas Bangun Datar", jam: "10:00 - 11:30 WIB", room: "Ruang 8A", teacher: "Budi Santoso, S.Pd." },
+        },
+        {
+          day: 1,
+          isCurrentMonth: false,
+          isToday: false,
+          status: "muted" as const,
+          fullDateStr: "Kamis, 1 Oktober 2026",
+          schedule: { bab: "Bab 5: Lingkaran & Sudut", jam: "08:00 - 09:30 WIB", room: "Lab Komputer", teacher: "thinksy AI Tutor" },
+        },
+        {
+          day: 2,
+          isCurrentMonth: false,
+          isToday: false,
+          status: "muted" as const,
+          fullDateStr: "Jumat, 2 Oktober 2026",
+          schedule: null,
+        },
+        {
+          day: 3,
+          isCurrentMonth: false,
+          isToday: false,
+          status: "muted" as const,
+          fullDateStr: "Sabtu, 3 Oktober 2026",
+          schedule: null,
+        },
+        {
+          day: 4,
+          isCurrentMonth: false,
+          isToday: false,
+          status: "muted" as const,
+          fullDateStr: "Minggu, 4 Oktober 2026",
+          schedule: null,
+        },
+      ],
+    },
+  ];
+
   return (
     <div
       className={`min-h-screen font-sans pb-20 transition-colors duration-200 ${
@@ -1363,77 +1704,146 @@ export default function StudentDashboardClient({
               </div>
             </div>
 
-            {/* CARD KANAN: Live Class Schedule */}
-            <div className="lg:col-span-1 p-6 sm:p-7 rounded-3xl bg-[#0F172A] text-white shadow-xl border border-slate-800 flex flex-col justify-between space-y-6 relative overflow-hidden">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-xl font-extrabold text-white tracking-tight flex items-center gap-2">
-                    Jadwal Kelas Saya
-                  </h3>
-                  <div className="w-10 h-10 rounded-2xl bg-slate-800/80 border border-slate-700/80 flex items-center justify-center text-amber-400">
-                    <Calendar className="w-5 h-5" />
-                  </div>
-                </div>
-                <p className="text-xs text-slate-400 font-medium">
-                  Lihat agenda mingguan terintegrasi →
-                </p>
+            {/* CARD KANAN: Custom Calendar View (Clean, Light Theme) */}
+            <div className="lg:col-span-1 p-5 sm:p-6 rounded-3xl bg-white text-slate-900 shadow-xs border border-slate-200 flex flex-col justify-between space-y-4 relative">
+              {/* Header: Month Year */}
+              <div className="pb-1">
+                <h3 className="text-xl font-black text-[#0F172A] tracking-tight">
+                  September 2026
+                </h3>
               </div>
 
-              <div className="space-y-3 flex-1 overflow-y-auto max-h-64 pr-1">
-                {schedulesData && schedulesData.length > 0 ? (
-                  schedulesData.slice(0, 3).map((item, idx) => {
-                    const nowHour = new Date().getHours();
-                    const isLive = idx === 0 && nowHour >= 8 && nowHour < 10;
-                    return (
-                      <div
-                        key={item.id || idx}
-                        className={`p-3.5 rounded-2xl border transition duration-200 ${
-                          isLive
-                            ? "bg-slate-800/90 border-emerald-500/60 ring-1 ring-emerald-500/30"
-                            : "bg-slate-900/60 border-slate-800"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between text-xs font-mono font-bold mb-1">
-                          <span className="text-amber-400">{item.time}</span>
-                          {isLive ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 animate-pulse font-bold">
-                              🟢 Sedang Berlangsung
-                            </span>
-                          ) : idx === 1 ? (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30 font-bold">
-                              🔵 Berikutnya
-                            </span>
-                          ) : (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-bold">
-                              ⚪ Belum Dimulai
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-sm font-extrabold text-white">{item.subject}</div>
-                        <div className="text-xs text-slate-400 mt-0.5 flex items-center justify-between">
-                          <span>{item.teacher}</span>
-                          <span className="text-[10px] text-slate-300 bg-slate-800 px-2 py-0.5 rounded-md font-semibold">
-                            {item.room}
-                          </span>
-                        </div>
+              {/* Days of Week Header Row */}
+              <div className="grid grid-cols-8 gap-1 text-center text-xs font-bold text-slate-400">
+                <span>M</span>
+                <span>T</span>
+                <span>W</span>
+                <span>T</span>
+                <span>F</span>
+                <span>S</span>
+                <span>S</span>
+                <span></span>
+              </div>
+
+              {/* Calendar Date Grid (5 Weeks) */}
+              <div className="space-y-2">
+                {calendarWeeks.map((week, wIdx) => (
+                  <div key={wIdx} className="grid grid-cols-8 gap-1 items-center">
+                    {week.days.map((dayObj, dIdx) => (
+                      <div key={dIdx} className="relative group/day flex items-center justify-center">
+                        {/* 1. Hari Ini (Today) */}
+                        {dayObj.status === "today" ? (
+                          <div className="w-8 h-8 sm:w-8.5 sm:h-8.5 rounded-full border-2 border-blue-600 bg-blue-50/60 text-blue-700 font-black flex items-center justify-center text-xs shadow-xs cursor-pointer ring-2 ring-blue-500/20 hover:scale-105 transition duration-150">
+                            {dayObj.day}
+                          </div>
+                        ) : /* 2. Hari Terdeteksi Streak */
+                        dayObj.status === "streak" ? (
+                          <div className="w-8 h-8 sm:w-8.5 sm:h-8.5 rounded-full bg-orange-50 border border-orange-300 text-orange-700 font-black flex items-center justify-center text-xs shadow-2xs cursor-pointer hover:scale-105 hover:bg-orange-100 transition duration-150">
+                            {dayObj.day}
+                          </div>
+                        ) : /* 3. Hari yang Ada Jadwal Bab (Background Abu-abu & Hoverable) */
+                        dayObj.status === "scheduled" ? (
+                          <div className="w-8 h-8 sm:w-8.5 sm:h-8.5 rounded-full bg-slate-100 border border-slate-200 text-slate-900 font-bold flex items-center justify-center text-xs shadow-2xs cursor-pointer hover:bg-slate-200 hover:border-slate-400 hover:scale-105 transition duration-150">
+                            {dayObj.day}
+                          </div>
+                        ) : /* 4. Hari yang Sudah Dilewati (Past) */
+                        dayObj.status === "past" ? (
+                          <div className="w-8 h-8 sm:w-8.5 sm:h-8.5 rounded-full border border-slate-100 text-slate-400 font-medium flex items-center justify-center text-xs cursor-pointer hover:bg-slate-50 transition duration-150">
+                            {dayObj.day}
+                          </div>
+                        ) : /* 5. Hari Luar Bulan (Muted) */
+                        !dayObj.isCurrentMonth ? (
+                          <div className="w-8 h-8 sm:w-8.5 sm:h-8.5 rounded-full flex items-center justify-center text-xs font-semibold text-slate-300 cursor-pointer hover:text-slate-400 transition duration-150">
+                            {dayObj.day}
+                          </div>
+                        ) : /* 6. Hari Normal Tanpa Jadwal */ (
+                          <div className="w-8 h-8 sm:w-8.5 sm:h-8.5 rounded-full border border-slate-200 text-slate-600 font-medium flex items-center justify-center text-xs cursor-pointer hover:border-slate-400 hover:bg-slate-50 transition duration-150">
+                            {dayObj.day}
+                          </div>
+                        )}
+
+                        {/* Hover Tooltip - Clean Light Theme */}
+                        {(dayObj.schedule || dayObj.status === "streak" || dayObj.status === "today" || dayObj.status === "past") && (
+                          <div
+                            className={`absolute ${
+                              wIdx <= 1 ? "top-full mt-2" : "bottom-full mb-2"
+                            } ${
+                              dIdx <= 1 ? "left-0" : dIdx >= 5 ? "right-0" : "left-1/2 -translate-x-1/2"
+                            } w-56 p-3 bg-white text-slate-900 rounded-2xl shadow-xl border border-slate-200 pointer-events-none opacity-0 group-hover/day:opacity-100 transition-all duration-200 z-50 text-left`}
+                          >
+                            {/* Header: Date + State Status */}
+                            <div className="flex items-center justify-between border-b border-slate-100 pb-1.5 mb-1.5">
+                              <span className="text-[11px] font-bold text-slate-500">
+                                {dayObj.fullDateStr}
+                              </span>
+                              {dayObj.status === "today" ? (
+                                <span className="text-[10px] font-extrabold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">
+                                  Hari Ini
+                                </span>
+                              ) : dayObj.status === "streak" ? (
+                                <span className="text-[10px] font-extrabold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded-md flex items-center gap-0.5">
+                                  <Flame className="w-3 h-3 fill-orange-500 text-orange-500" />
+                                  Streak
+                                </span>
+                              ) : dayObj.schedule ? (
+                                <span className="text-[10px] font-bold text-slate-500">
+                                  Terjadwal
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-bold text-slate-400">
+                                  Selesai
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Body: Chapter Name or Activity Info */}
+                            {dayObj.schedule ? (
+                              <div className="space-y-1">
+                                <div className="text-xs font-black text-[#0F172A] leading-snug">
+                                  {dayObj.schedule.bab}
+                                </div>
+                                <div className="text-[11px] text-blue-600 font-bold flex items-center gap-1.5">
+                                  <Clock className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                                  <span>{dayObj.schedule.jam}</span>
+                                </div>
+                                {dayObj.schedule.room && (
+                                  <div className="text-[10px] text-slate-500 font-medium">
+                                    📍 {dayObj.schedule.room} {dayObj.schedule.teacher ? `• ${dayObj.schedule.teacher}` : ""}
+                                  </div>
+                                )}
+                              </div>
+                            ) : dayObj.status === "streak" ? (
+                              <div className="space-y-0.5">
+                                <div className="text-xs font-black text-orange-700">
+                                  Streak Belajar Aktif 🔥
+                                </div>
+                                <div className="text-[10px] text-slate-500 font-medium">
+                                  Presensi & aktivitas harian terselesaikan dengan baik.
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="text-[10px] text-slate-500">
+                                Tidak ada jadwal kelas pada tanggal ini.
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
-                    );
-                  })
-                ) : (
-                  <p className="text-xs text-slate-400 italic">Belum ada jadwal untuk hari ini.</p>
-                )}
-              </div>
+                    ))}
 
-              <div className="pt-4 border-t border-slate-800/80 flex items-center justify-between gap-3">
-                <span className="text-xs font-bold text-slate-400">
-                  {schedulesData?.length || 3} Sesi Terjadwal
-                </span>
-                <Link
-                  href="/schedule"
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#F59E0B] hover:bg-amber-400 text-slate-950 font-extrabold text-xs transition duration-200 cursor-pointer shadow-md hover:scale-105"
-                >
-                  <span>Buka Jadwal →</span>
-                </Link>
+                    {/* Right Streak Column: Flame badge sesuai streak mingguan siswa */}
+                    <div className="flex items-center justify-center">
+                      {week.hasStreakBadge && week.streakCount > 0 ? (
+                        <div className="w-8 h-8 sm:w-8.5 sm:h-8.5 rounded-full bg-gradient-to-tr from-orange-600 to-orange-500 text-white flex items-center justify-center shadow-md shadow-orange-500/30 font-black text-xs">
+                          <Flame className="w-4 h-4 fill-white" />
+                          <span className="ml-0.5">{week.streakCount}</span>
+                        </div>
+                      ) : (
+                        <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full border border-slate-200" />
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </section>
