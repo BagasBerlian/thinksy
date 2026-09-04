@@ -122,12 +122,34 @@ export default function GuruLayout({ children, userProfile }: GuruLayoutProps) {
       setNotifications((prev) => [
         {
           id: Date.now(),
-          title: "Presensi Selfie Siswa Terverifikasi",
-          desc: `${event.payload?.studentName || "Siswa"} berhasil melakukan presensi.`,
+          title: "Presensi Selfie Siswa Berhasil",
+          desc: `${event.payload?.studentName || "Siswa"} telah mengirimkan presensi selfie pada pukul ${event.payload?.time || "sekarang"}.`,
           time: "Baru saja",
         },
         ...prev,
       ]);
+    } else if (event.type === "ATTENDANCE_VERIFIED") {
+      setNotifications((prev) => [
+        {
+          id: Date.now(),
+          title: "Absensi Kelas Terverifikasi",
+          desc: "Status presensi kehadiran siswa telah diverifikasi resmi.",
+          time: "Baru saja",
+        },
+        ...prev,
+      ]);
+    } else if (event.type === "NOTIFICATION_RECEIVED") {
+      if (event.payload?.judul) {
+        setNotifications((prev) => [
+          {
+            id: Date.now(),
+            title: event.payload.judul,
+            desc: event.payload.pesan || "Notifikasi sistem baru diterima.",
+            time: "Baru saja",
+          },
+          ...prev,
+        ]);
+      }
     } else if (event.type === "CLASS_CREATED") {
       setNotifications((prev) => [
         {

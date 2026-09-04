@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET(request: Request) {
   try {
@@ -67,6 +68,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const supabase = await createClient();
+    const adminDb = createAdminClient();
 
     const {
       data: { user },
@@ -95,15 +97,35 @@ export async function POST(request: Request) {
       updateQuery = updateQuery.in("id", presensiIds);
     }
 
-    const { error: updateError, count } = await updateQuery;
+    const { data: updatedRows, error: updateError } = await updateQuery.select("id, siswa_id");
 
     if (updateError) {
       return NextResponse.json({ error: "Gagal memverifikasi: " + updateError.message }, { status: 500 });
     }
 
+    const verifiedSiswaIds = Array.from(
+      new Set((updatedRows || []).map((r: any) => r.siswa_id).filter(Boolean))
+    );
+
+    if (verifiedSiswaIds.length > 0) {
+      try {
+        const notifPayloads = verifiedSiswaIds.map((sId) => ({
+          user_id: sId,
+          judul: "Presensi Terverifikasi 🎉",
+          pesan: "Foto presensi dan kehadiran Anda hari ini telah diverifikasi resmi oleh Guru.",
+          tipe: "success",
+          dibaca: false,
+        }));
+        await adminDb.from("notifikasi").insert(notifPayloads);
+      } catch (notifErr) {
+        console.warn("[GURU PRESENSI NOTIF ERROR]", notifErr);
+      }
+    }
+
     return NextResponse.json({
       success: true,
-      count: count || presensiIds.length,
+      count: updatedRows?.length || 0,
+      verifiedSiswaIds,
       message: `Presensi berhasil diverifikasi dan disimpan!`,
     });
   } catch (err: any) {
