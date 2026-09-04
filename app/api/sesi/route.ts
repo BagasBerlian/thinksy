@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { autoClaimMisi } from "@/app/api/siswa/misi/route";
+import { checkAndUpdateDailyStreak } from "@/lib/streak";
 
 // ─── Helper: Tanggal hari ini dalam WIB ──────────────────────────────────────
 function getTodayWIB(): string {
@@ -213,6 +214,13 @@ export async function PUT(req: Request) {
         if (!misiClaimResult.claimed) {
           misiClaimResult = await autoClaimMisi(supabase, updatedSesi!.siswa_id, "latihan");
         }
+      }
+
+      // Trigger streak evaluation for kuis
+      try {
+        await checkAndUpdateDailyStreak(updatedSesi!.siswa_id, "kuis");
+      } catch (streakErr) {
+        console.error("[STREAK UPDATE ERROR (SESI)]", streakErr);
       }
     } catch (misiErr) {
       console.error("[MISI AUTO-CLAIM KUIS ERROR]", misiErr);

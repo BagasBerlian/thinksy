@@ -41,6 +41,13 @@ export default async function SiswaDashboardPage() {
     npsn?: string | null;
   } | null = null;
 
+  let peerStudents: Array<{
+    id: string;
+    name: string;
+    avatarUrl?: string | null;
+    initials: string;
+  }> = [];
+
   if (user) {
     // Get user profile data
     const { data: profil } = await supabase
@@ -94,7 +101,7 @@ export default async function SiswaDashboardPage() {
     // Calculate dynamic student rank among ALL users with peran = 'siswa' sorted by learning points
     let { data: allStudents } = await adminSupabase
       .from("profil")
-      .select("id, poin")
+      .select("id, nama_lengkap, poin")
       .eq("peran", "siswa")
       .order("poin", { ascending: false })
       .order("dibuat_pada", { ascending: true });
@@ -102,7 +109,7 @@ export default async function SiswaDashboardPage() {
     if (!allStudents || allStudents.length <= 1) {
       const fallbackAll = await supabase
         .from("profil")
-        .select("id, poin")
+        .select("id, nama_lengkap, poin")
         .eq("peran", "siswa")
         .order("poin", { ascending: false })
         .order("dibuat_pada", { ascending: true });
@@ -116,7 +123,51 @@ export default async function SiswaDashboardPage() {
     const studentIndex = allStudents?.findIndex((s) => s.id === user.id) ?? -1;
     const studentRank = studentIndex >= 0 ? studentIndex + 1 : 1;
 
-    // Calculate Learning Progress from answered questions vs total published questions in DB via secure view
+    // Fetch peer students in same school for class avatar badges
+    let peersQuery = adminSupabase
+      .from("profil")
+      .select("id, nama_lengkap")
+      .eq("peran", "siswa");
+
+    if (profil?.sekolah_id) {
+      peersQuery = peersQuery.eq("sekolah_id", profil.sekolah_id);
+    }
+
+    const { data: rawPeers } = await peersQuery.limit(20);
+
+    if (rawPeers && rawPeers.length > 0) {
+      // Get recent attendance selfies if available
+      const peerIds = rawPeers.map((p) => p.id);
+      const { data: peerPresensi } = await adminSupabase
+        .from("presensi")
+        .select("siswa_id, foto_url")
+        .in("siswa_id", peerIds)
+        .order("waktu_masuk", { ascending: false });
+
+      const fotoMap = new Map<string, string>();
+      peerPresensi?.forEach((pr) => {
+        if (pr.foto_url && !fotoMap.has(pr.siswa_id)) {
+          fotoMap.set(pr.siswa_id, pr.foto_url);
+        }
+      });
+
+      peerStudents = rawPeers.map((p) => {
+        const parts = (p.nama_lengkap || "Siswa").trim().split(" ");
+        const initials =
+          parts.length >= 2
+            ? (parts[0][0] + parts[1][0]).toUpperCase()
+            : (parts[0][0] || "S").toUpperCase();
+
+        return {
+          id: p.id,
+          name: p.nama_lengkap || "Siswa",
+          avatarUrl: fotoMap.get(p.id) || null,
+          initials,
+        };
+      });
+    }
+
+    // Calculate overall Learning Progress
     const { count: dbTotalSoal } = await supabase
       .from("soal_publik")
       .select("id", { count: "exact", head: true });
@@ -181,58 +232,7 @@ export default async function SiswaDashboardPage() {
     };
   }
 
-  // 2. Fetch Agenda & Tenggat Waktu (Deadlines)
-  let deadlines = [
-    {
-      id: "a1",
-      title: "Kuis Matematika Bab 1: Pola Bilangan",
-      desc: "Selesai pukul 23:59 WIB",
-      dayBadge: "HARI INI",
-      dateNum: "15",
-      badgeColor: "bg-red-100 text-red-700 border-red-200",
-      iconColor: "text-red-500",
-      urgency: "Mendesak",
-    },
-    {
-      id: "a2",
-      title: "Tugas Matematika: Latihan Pythagoras",
-      desc: "Selesai pukul 12:00 WIB",
-      dayBadge: "BESOK",
-      dateNum: "16",
-      badgeColor: "bg-blue-100 text-blue-700 border-blue-200",
-      iconColor: "text-blue-500",
-      urgency: "Tugas",
-    },
-  ];
-
-  if (user) {
-    const { data: dbDeadlines } = await supabase
-      .from("agenda_tugas")
-      .select("id, judul, deskripsi, tenggat_waktu, kategori, tingkat_urgensi")
-      .or(`siswa_id.eq.${user.id},siswa_id.is.null`)
-      .gt("tenggat_waktu", new Date().toISOString())
-      .order("tenggat_waktu", { ascending: true })
-      .limit(5);
-
-    if (dbDeadlines && dbDeadlines.length > 0) {
-      deadlines = dbDeadlines.map((d) => {
-        const dt = new Date(d.tenggat_waktu);
-        const isToday = dt.toDateString() === new Date().toDateString();
-        return {
-          id: d.id,
-          title: d.judul,
-          desc: d.deskripsi || `Selesai ${dt.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} WIB`,
-          dayBadge: isToday ? "HARI INI" : "MENDATANG",
-          dateNum: String(dt.getDate()),
-          badgeColor: d.tingkat_urgensi === "mendesak" ? "bg-red-100 text-red-700 border-red-200" : "bg-blue-100 text-blue-700 border-blue-200",
-          iconColor: d.tingkat_urgensi === "mendesak" ? "text-red-500" : "text-blue-500",
-          urgency: d.tingkat_urgensi === "mendesak" ? "Mendesak" : "Tugas",
-        };
-      });
-    }
-  }
-
-  // 4. Fetch Jadwal Kelas Pelajaran Mingguan
+  // 2. Fetch Jadwal Kelas Pelajaran Mingguan
   let schedules = [
     { id: "s1", subject: "Matematika", teacher: "Ibu Siti Rahmawati, S.Pd.", day: "Senin", time: "08:00 - 09:30 WIB", room: "Ruang 8A" },
     { id: "s2", subject: "Matematika", teacher: "Budi Santoso, S.Pd.", day: "Rabu", time: "10:00 - 11:30 WIB", room: "Ruang 8A" },
@@ -255,7 +255,7 @@ export default async function SiswaDashboardPage() {
     }));
   }
 
-  // 5. Get list of chapters and modules from Supabase
+  // 3. Fetch List of Chapters (Bab) and Compute Real Per-Chapter Progress
   const { data: listBab } = await supabase
     .from("bab")
     .select(
@@ -273,77 +273,68 @@ export default async function SiswaDashboardPage() {
     )
     .order("urutan", { ascending: true });
 
-  // 6. Active Classes Data (Kurikulum Merdeka)
-  const activeClassesData = [
-    {
-      id: "8a",
-      code: "8A",
-      title: "Matematika 8–A (Reguler - Kurikulum Merdeka)",
-      teacher: "Ibu Siti Rahmawati, M.Pd.",
-      room: "Ruang 204",
-      elemenFocus: "Elemen Aljabar & Geometri Dasar",
-      description: "Kelas reguler utama matematika SMP Kelas 8 sesuai Capaian Pembelajaran Fase D Kurikulum Merdeka.",
-      schedule: "Senin & Rabu, 08:00 - 09:30 WIB",
-      studentsCount: 32,
-      activeBab: "Bab 4: Sistem Persamaan Linear Dua Variabel (SPLDV)",
-      badge: "Utama / Reguler",
-      badgeColor: "bg-blue-100 text-blue-800 border-blue-200",
-    },
-    {
-      id: "8b",
-      code: "8B",
-      title: "Matematika 8–B (Penguatan Sokratik & Remedial)",
-      teacher: "Budi Santoso, S.Pd. & thinksy AI",
-      room: "Ruang 301 / Lab Komputer",
-      elemenFocus: "Elemen Bilangan & Bentuk Aljabar",
-      description: "Kelas pendalaman konsep matematika dengan bantuan Tutor AI Sokratik bertahap.",
-      schedule: "Selasa & Kamis, 10:00 - 11:30 WIB",
-      studentsCount: 30,
-      activeBab: "Bab 2: Bentuk Aljabar & PLSV/PTLSV",
-      badge: "Pendalaman Sokratik",
-      badgeColor: "bg-[#0F172A]/10 text-[#0F172A] border-[#0F172A]/20",
-    },
-    {
-      id: "8c",
-      code: "8C",
-      title: "Matematika 8–C (Pengayaan HOTS & AKM)",
-      teacher: "Ibu Ratna Dewi, M.Si.",
-      room: "Ruang 105",
-      elemenFocus: "Elemen Pengukuran, Geometri & Statistika",
-      description: "Kelas pengayaan soal tantangan penalaran matematika tinggi (HOTS) dan persiapan AKM.",
-      schedule: "Rabu & Jumat, 13:00 - 14:30 WIB",
-      studentsCount: 28,
-      activeBab: "Bab 6: Teorema Pythagoras & Aplikasi Kontekstual",
-      badge: "Pengayaan HOTS",
-      badgeColor: "bg-emerald-100 text-emerald-800 border-emerald-200",
-    },
-    {
-      id: "8d",
-      code: "8D",
-      title: "Kelas Pendalaman 8–D (Persiapan Asesmen Sumatif)",
-      teacher: "thinksy AI Tutor & Tim Guru Matematika",
-      room: "Lab Multimedia",
-      elemenFocus: "Elemen Analisis Data, Peluang & Tryout CP",
-      description: "Kelas intensif latihan soal dan review kisi-kisi Asesmen Sumatif Akhir Semester Kurikulum Merdeka.",
-      schedule: "Jumat, 08:00 - 10:00 WIB",
-      studentsCount: 35,
-      activeBab: "Bab 8: Statistika Pemusatan Data & Peluang",
-      badge: "Persiapan Asesmen",
-      badgeColor: "bg-amber-100 text-amber-900 border-amber-200",
-    },
-  ];
+  // Fetch all questions per chapter to compute accurate per-chapter progress
+  let chaptersWithProgress: Array<{
+    id: string;
+    judul: string;
+    deskripsi: string | null;
+    urutan: number;
+    progress: number;
+    materi?: Array<{ id: string; judul: string; urutan: number }>;
+  }> = [];
 
-  const kurikulumMetadata = {
-    kurikulumName: "Kurikulum Merdeka",
-    fase: "Fase D (SMP Kelas 8)",
-    mataPelajaran: "Matematika",
-    elemenCP: [
-      { id: "bilangan", nama: "Elemen Bilangan", deskripsi: "Pola Bilangan, Barisan & Deret Aritmetika/Geometri" },
-      { id: "aljabar", nama: "Elemen Aljabar", deskripsi: "Bentuk Aljabar, PLSV/PTLSV, SPLDV, & Fungsi Linear" },
-      { id: "geometri", nama: "Elemen Pengukuran & Geometri", deskripsi: "Teorema Pythagoras, Lingkaran, & Bangun Ruang Sisi Datar" },
-      { id: "analisis_data", nama: "Elemen Analisis Data & Peluang", deskripsi: "Statistika (Mean, Median, Modus) & Peluang Kejadian" },
-    ],
-  };
+  if (listBab && listBab.length > 0) {
+    const { data: allQuestions } = await supabase
+      .from("soal_publik")
+      .select("id, bab_id");
+
+    const questionsByBab = new Map<string, string[]>();
+    allQuestions?.forEach((q) => {
+      if (q.bab_id) {
+        const arr = questionsByBab.get(q.bab_id) || [];
+        arr.push(q.id);
+        questionsByBab.set(q.bab_id, arr);
+      }
+    });
+
+    let studentAnsweredIds = new Set<string>();
+    if (user) {
+      const { data: userAnswers } = await adminSupabase
+        .from("jawaban")
+        .select("soal_id, sesi!inner(siswa_id)")
+        .eq("sesi.siswa_id", user.id);
+
+      studentAnsweredIds = new Set(userAnswers?.map((a: any) => a.soal_id));
+    }
+
+    chaptersWithProgress = listBab.map((ch) => {
+      const babQuestionIds = questionsByBab.get(ch.id) || [];
+      const totalQ = babQuestionIds.length;
+      const answeredQ = babQuestionIds.filter((qId) => studentAnsweredIds.has(qId)).length;
+      const progress = totalQ > 0 ? Math.min(100, Math.round((answeredQ / totalQ) * 100)) : 0;
+
+      return {
+        id: ch.id,
+        judul: ch.judul,
+        deskripsi: ch.deskripsi,
+        urutan: ch.urutan || 1,
+        progress,
+        materi: ch.materi,
+      };
+    });
+  }
+
+  // Fallback default sample peer avatars if no peers in DB yet
+  if (peerStudents.length === 0) {
+    peerStudents = [
+      { id: "p1", name: "Raka Prasetya", initials: "RP" },
+      { id: "p2", name: "Naya Anindita", initials: "NA" },
+      { id: "p3", name: "Andi Wijaya", initials: "AW" },
+      { id: "p4", name: "Siti Aminah", initials: "SA" },
+      { id: "p5", name: "Budi Santoso", initials: "BS" },
+      { id: "p6", name: "Dewi Lestari", initials: "DL" },
+    ];
+  }
 
   if (!user && !sekolahData) {
     sekolahData = {
@@ -366,17 +357,13 @@ export default async function SiswaDashboardPage() {
     <StudentDashboardClient
       userProfile={userProfile}
       sekolahData={sekolahData}
-      deadlinesData={deadlines}
       schedulesData={schedules}
-      chapters={listBab || []}
+      chapters={chaptersWithProgress}
+      peerStudents={peerStudents}
       completedQuizCount={completedQuizCount}
       answeredSoalCount={answeredSoalCount}
       totalSoalCount={totalSoalCount}
       learningProgressPercent={learningProgressPercent}
-      activeClassesData={activeClassesData}
-      kurikulumMetadata={kurikulumMetadata}
     />
   );
 }
-// Dashboard Page Updated
-
