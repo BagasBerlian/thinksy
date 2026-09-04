@@ -648,7 +648,7 @@ export default function GuruDashboardPage() {
                 <button
                   type="button"
                   onClick={() => setIsBroadcastModalOpen(true)}
-                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 text-xs font-extrabold flex items-center gap-2 shadow-lg shadow-amber-500/20 transition cursor-pointer"
+                  className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold flex items-center gap-2 shadow-md transition cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />
                   Siarkan Tugas / Pengumuman

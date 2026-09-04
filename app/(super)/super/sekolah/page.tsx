@@ -157,7 +157,7 @@ function ModalRegistrasiSekolah({
             <button
               type="submit"
               disabled={isLoading}
-              className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white text-sm font-extrabold flex items-center justify-center gap-2"
+              className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-sm font-extrabold flex items-center justify-center gap-2"
             >
               {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Daftarkan Sekolah"}
             </button>
@@ -384,7 +384,7 @@ export default function SuperSekolahPage() {
         </Link>
         <button
           onClick={() => setShowModal(true)}
-          className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl shadow-lg shadow-amber-500/20 transition flex items-center gap-2 cursor-pointer"
+          className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs px-4 py-2.5 rounded-xl shadow-md transition flex items-center gap-2 cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           <span>Registrasi Tenant Sekolah</span>

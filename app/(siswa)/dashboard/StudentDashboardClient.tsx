@@ -1795,7 +1795,7 @@ export default function StudentDashboardClient({
                             <button
                               onClick={() => handleClaimMission(misi.id)}
                               disabled={isClaimingMissionId === misi.id}
-                              className="w-full py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 hover:from-amber-600 hover:to-orange-600 active:scale-[0.98] text-white text-xs font-black transition-all shadow-md shadow-amber-500/30 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                              className="w-full py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-600 active:scale-[0.98] text-slate-950 text-xs font-black transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                             >
                               {isClaimingMissionId === misi.id ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />

@@ -136,7 +136,7 @@ export default function GuruDetailSiswaPage({
               type="button"
               onClick={handleGenerateAIDiagnosis}
               disabled={isGeneratingDiagnosis}
-              className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 text-xs font-extrabold flex items-center gap-2 shadow-md shadow-amber-500/20 transition cursor-pointer disabled:opacity-50"
+              className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold flex items-center gap-2 shadow-md transition cursor-pointer disabled:opacity-50"
             >
               {isGeneratingDiagnosis ? (
                 <>
