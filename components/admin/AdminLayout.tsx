@@ -59,12 +59,32 @@ export default function AdminLayout({ children, userProfile }: AdminLayoutProps)
 
   // Real-time listener for Admin Dashboard
   const { isConnected } = useRealtimeDashboard((event) => {
-    if (event.type === "STUDENT_ADDED" || event.type === "ATTENDANCE_CHECKIN") {
+    if (event.type === "ATTENDANCE_CHECKIN") {
+      setNotifications((prev) => [
+        {
+          id: Date.now(),
+          title: "Presensi Siswa Baru",
+          desc: `${event.payload?.studentName || "Siswa"} telah mengirimkan presensi harian.`,
+          time: "Baru saja",
+        },
+        ...prev,
+      ]);
+    } else if (event.type === "ATTENDANCE_VERIFIED") {
+      setNotifications((prev) => [
+        {
+          id: Date.now(),
+          title: "Presensi Terverifikasi",
+          desc: "Guru telah memverifikasi absensi siswa.",
+          time: "Baru saja",
+        },
+        ...prev,
+      ]);
+    } else if (event.type === "STUDENT_ADDED") {
       setNotifications((prev) => [
         {
           id: Date.now(),
           title: "Aktivitas Siswa Terdeteksi",
-          desc: "Aktivitas akademik siswa diperbarui secara real-time.",
+          desc: "Akun siswa baru telah terdaftar di sistem.",
           time: "Baru saja",
         },
         ...prev,

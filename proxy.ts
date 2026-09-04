@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
   });
@@ -39,7 +39,7 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
   const isAuthPage = pathname === "/masuk" || pathname === "/daftar";
-  // API routes tidak diblokir middleware — termasuk /api/auth/callback
+  // API routes tidak diblokir proxy — termasuk /api/auth/callback
   const isApiRoute = pathname.startsWith("/api/");
 
   // User belum login → redirect ke /masuk (kecuali halaman auth atau API)

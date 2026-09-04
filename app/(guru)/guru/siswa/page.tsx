@@ -63,9 +63,9 @@ export default function GuruDaftarSiswaPage() {
     fetchPresensi();
   }, [fetchPresensi]);
 
-  // Real-time listener for incoming selfie check-ins from students
-  useRealtimeDashboard((event) => {
-    if (event.type === "ATTENDANCE_CHECKIN") {
+  // Real-time listener for incoming selfie check-ins & verifications from students/teachers
+  const { broadcastEvent } = useRealtimeDashboard((event) => {
+    if (event.type === "ATTENDANCE_CHECKIN" || event.type === "ATTENDANCE_VERIFIED") {
       fetchPresensi();
     }
   });
@@ -84,6 +84,11 @@ export default function GuruDaftarSiswaPage() {
       if (res.ok) {
         setVerifySuccess("Absensi kelas berhasil diverifikasi dan disimpan ke database!");
         fetchPresensi();
+        broadcastEvent("ATTENDANCE_VERIFIED", {
+          verifiedSiswaIds: data.verifiedSiswaIds || [],
+          classId: selectedClass,
+          timestamp: new Date().toISOString(),
+        });
         setTimeout(() => setVerifySuccess(null), 5000);
       } else {
         alert(data.error || "Gagal menyimpan absensi.");

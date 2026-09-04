@@ -775,7 +775,7 @@ export default function FloatingGuruSpeedDial() {
               {/* "+ Chat & Soal Baru" Button */}
               <button
                 onClick={handleNewChatSession}
-                className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-black flex items-center justify-center gap-2 shadow-lg transition cursor-pointer border border-blue-400/30"
+                className="w-full py-3 px-4 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black flex items-center justify-center gap-2 shadow-md transition cursor-pointer border border-blue-500/30"
               >
                 <Plus className="w-4 h-4 stroke-[3]" />
                 <span>+ Chat & Soal Baru</span>
@@ -1222,7 +1222,7 @@ export default function FloatingGuruSpeedDial() {
                   <button
                     type="submit"
                     disabled={isGenerating || (!inputPrompt.trim() && !attachedFile)}
-                    className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold shadow-md transition cursor-pointer disabled:opacity-40 shrink-0"
+                    className="p-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold shadow-md transition cursor-pointer disabled:opacity-40 shrink-0"
                     title="Kirim ke Thinksy AI"
                   >
                     {isGenerating ? (

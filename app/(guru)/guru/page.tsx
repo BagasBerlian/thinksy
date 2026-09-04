@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import GuruLayout from "@/components/guru/GuruLayout";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useRealtimeDashboard } from "@/hooks/useRealtimeDashboard";
 import {
   TrendingUp,
   Users,
@@ -310,49 +311,57 @@ export default function GuruDashboardPage() {
   const [isBroadcasting, setIsBroadcasting] = useState(false);
 
   // Fetch real database counts & stats on mount
-  useEffect(() => {
-    async function fetchRealStats() {
-      try {
-        const res = await fetch("/api/guru/stats");
-        if (res.ok) {
-          const data = await res.json();
-          if (data.stats) {
-            setDbTotalSiswa(data.stats.totalSiswa);
-            setDbTotalSoal(data.stats.totalSoalPublished);
-            setDbPendingGrading(data.stats.pendingGrading);
-            setDbAvgScore(data.stats.averageClassScore);
-            setDbStrugglingCount(data.stats.strugglingCount);
-          }
-          if (data.strugglingStudents && data.strugglingStudents.length > 0) {
-            setDbStrugglingList(data.strugglingStudents);
-          }
-          if (data.todayPresensi && data.todayPresensi.length > 0) {
-            // merge today's presensi if available
-            setStudentPresenceList((prev) => {
-              const map = new Map(prev.map((p) => [p.id, p]));
-              data.todayPresensi.forEach((tp: any) => {
-                map.set(tp.id, {
-                  id: tp.id,
-                  name: tp.name,
-                  class: "Kelas 8A",
-                  isOnline: true,
-                  hasAttended: true,
-                  timeIn: tp.timeIn,
-                  selfieUrl: tp.selfieUrl || "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400&auto=format&fit=crop&q=80",
-                  status: tp.status === "Hadir" ? "Terverifikasi" : "Hadir",
-                  scoreAvg: 85,
-                });
-              });
-              return Array.from(map.values());
-            });
-          }
+  const fetchRealStats = useCallback(async () => {
+    try {
+      const res = await fetch("/api/guru/stats");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.stats) {
+          setDbTotalSiswa(data.stats.totalSiswa);
+          setDbTotalSoal(data.stats.totalSoalPublished);
+          setDbPendingGrading(data.stats.pendingGrading);
+          setDbAvgScore(data.stats.averageClassScore);
+          setDbStrugglingCount(data.stats.strugglingCount);
         }
-      } catch {
-        // silent fallback
+        if (data.strugglingStudents && data.strugglingStudents.length > 0) {
+          setDbStrugglingList(data.strugglingStudents);
+        }
+        if (data.todayPresensi && data.todayPresensi.length > 0) {
+          // merge today's presensi if available
+          setStudentPresenceList((prev) => {
+            const map = new Map(prev.map((p) => [p.id, p]));
+            data.todayPresensi.forEach((tp: any) => {
+              map.set(tp.id, {
+                id: tp.id,
+                name: tp.name,
+                class: "Kelas 8A",
+                isOnline: true,
+                hasAttended: true,
+                timeIn: tp.timeIn,
+                selfieUrl: tp.selfieUrl || "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400&auto=format&fit=crop&q=80",
+                status: tp.status === "Hadir" ? "Terverifikasi" : "Hadir",
+                scoreAvg: 85,
+              });
+            });
+            return Array.from(map.values());
+          });
+        }
       }
+    } catch {
+      // silent fallback
     }
-    fetchRealStats();
   }, []);
+
+  useEffect(() => {
+    fetchRealStats();
+  }, [fetchRealStats]);
+
+  // Real-time updates for teacher main dashboard
+  useRealtimeDashboard((event) => {
+    if (event.type === "ATTENDANCE_CHECKIN" || event.type === "ATTENDANCE_VERIFIED") {
+      fetchRealStats();
+    }
+  });
 
   // Load existing classes from API on mount
   useEffect(() => {
@@ -648,7 +657,7 @@ export default function GuruDashboardPage() {
                 <button
                   type="button"
                   onClick={() => setIsBroadcastModalOpen(true)}
-                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 text-xs font-extrabold flex items-center gap-2 shadow-lg shadow-amber-500/20 transition cursor-pointer"
+                  className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold flex items-center gap-2 shadow-md transition cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />
                   Siarkan Tugas / Pengumuman

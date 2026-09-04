@@ -9,6 +9,8 @@ export interface RealtimeEvent {
     | "ESSAY_GRADED"
     | "SOAL_PUBLISHED"
     | "ATTENDANCE_CHECKIN"
+    | "ATTENDANCE_VERIFIED"
+    | "NOTIFICATION_RECEIVED"
     | "TEACHER_ADDED"
     | "STUDENT_ADDED"
     | "CLASS_CREATED"
@@ -50,9 +52,16 @@ function initGlobalChannel() {
         });
       })
       .on("postgres_changes", { event: "*", schema: "public" }, (payload: any) => {
+        let eventType: RealtimeEvent["type"] = "NEW_ESSAY_SUBMISSION";
+        if (payload.table === "presensi") {
+          eventType = payload.eventType === "INSERT" ? "ATTENDANCE_CHECKIN" : "ATTENDANCE_VERIFIED";
+        } else if (payload.table === "notifikasi") {
+          eventType = "NOTIFICATION_RECEIVED";
+        }
+
         const eventData: RealtimeEvent = {
-          type: "NEW_ESSAY_SUBMISSION",
-          payload: payload.new,
+          type: eventType,
+          payload: payload.new || payload.old,
           timestamp: new Date().toISOString(),
         };
         eventListeners.forEach((listener) => {

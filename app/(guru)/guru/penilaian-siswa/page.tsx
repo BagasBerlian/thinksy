@@ -251,7 +251,7 @@ export default function GuruPenilaianSiswaPage() {
               onClick={() => setSelectedClassId("all")}
               className={`px-5 py-3 rounded-2xl text-xs font-black flex items-center gap-2.5 transition cursor-pointer border ${
                 selectedClassId === "all"
-                  ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-blue-500 shadow-md"
+                  ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-600 shadow-md"
                   : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200"
               }`}
             >
@@ -269,7 +269,7 @@ export default function GuruPenilaianSiswaPage() {
                   onClick={() => setSelectedClassId(cls.id)}
                   className={`px-5 py-3 rounded-2xl text-xs font-black flex items-center gap-3 transition cursor-pointer border ${
                     isSelected
-                      ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-blue-500 shadow-md"
+                      ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-600 shadow-md"
                       : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200"
                   }`}
                 >

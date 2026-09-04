@@ -152,7 +152,7 @@ export default function SuperAdminDashboard() {
           <nav className="space-y-1.5">
             <Link
               href="/super"
-              className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-extrabold bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-lg shadow-amber-500/20"
+              className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-extrabold bg-amber-500 text-slate-950 shadow-md"
             >
               <div className="flex items-center gap-3">
                 <LayoutDashboard className="w-4 h-4" />
@@ -292,7 +292,7 @@ export default function SuperAdminDashboard() {
               <div className="flex flex-wrap items-center gap-3">
                 <Link
                   href="/super/sekolah"
-                  className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-extrabold text-xs px-5 py-3 rounded-xl shadow-lg shadow-amber-500/20 transition flex items-center gap-2"
+                  className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs px-5 py-3 rounded-xl shadow-md transition flex items-center gap-2"
                 >
                   <Plus className="w-4 h-4" />
                   Registrasi Tenant Sekolah
