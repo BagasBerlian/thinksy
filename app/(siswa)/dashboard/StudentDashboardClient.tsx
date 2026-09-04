@@ -40,11 +40,21 @@ import {
   Flag,
   Share2,
   ArrowLeft,
+  Eye,
+  Smile,
+  Check,
+  AlertCircle,
+  Timer,
 } from "lucide-react";
 import Link from "next/link";
 import { logoutAction } from "../../(auth)/actions";
 import { useRealtimeDashboard } from "@/hooks/useRealtimeDashboard";
 import GeneralAiChat from "@/components/tutor/GeneralAiChat";
+import {
+  getFaceLandmarker,
+  evaluateFaceFrame,
+  type LivenessStatus,
+} from "@/lib/face-liveness";
 
 export interface SekolahLink {
   label: string;
@@ -102,7 +112,7 @@ interface StudentDashboardProps {
     totalStudents: number;
     isCheckedIn: boolean;
     checkInTime: string | null;
-    fotoSelfie?: string | null;
+    checkInStatus?: string | null;
   };
   sekolahData?: SekolahData | null;
   schedulesData?: Array<{
@@ -515,34 +525,95 @@ export default function StudentDashboardClient({
   const [checkInTime, setCheckInTime] = useState<string | null>(
     userProfile?.checkInTime || null
   );
-  const [capturedSelfie, setCapturedSelfie] = useState<string | null>(
-    userProfile?.fotoSelfie || null
+  const [checkInStatus, setCheckInStatus] = useState<string | null>(
+    userProfile?.checkInStatus || null
   );
+
+  // UAT / Dev Menu Mock Time State
+  const [mockTime, setMockTime] = useState<string | null>(null);
+  const [isDevMenuOpen, setIsDevMenuOpen] = useState(false);
+
+  // Liveness & MediaPipe Face Landmarker State
+  const [livenessStatus, setLivenessStatus] = useState<LivenessStatus | null>(null);
+  const [isLivenessPassed, setIsLivenessPassed] = useState(false);
+  const [isFaceModelLoading, setIsFaceModelLoading] = useState(false);
+  const landmarkerRef = useRef<any>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  const isCameraActiveRef = useRef(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [isSubmittingAttendance, setIsSubmittingAttendance] = useState(false);
-  const [faceDetectorStatus, setFaceDetectorStatus] = useState<string>("Posisikan diri Anda di depan kamera");
+  const [faceDetectorStatus, setFaceDetectorStatus] = useState<string>(
+    "Posisikan wajah Anda di depan kamera"
+  );
   const [toastNotification, setToastNotification] = useState<{
     show: boolean;
     title: string;
     message: string;
     time: string;
+    type?: "success" | "alpha" | "info";
   } | null>(null);
 
-  // Cross-Browser Camera Access
+  // Helper untuk mendapatkan waktu efektif (Memperhitungkan Mock Time)
+  const getEffectiveCurrentTime = () => {
+    if (mockTime) return mockTime;
+    const now = new Date();
+    return now.toLocaleTimeString("id-ID", {
+      timeZone: "Asia/Jakarta",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+  };
+
+  const getEffectiveMinutes = () => {
+    const timeStr = getEffectiveCurrentTime();
+    const [h, m] = timeStr.split(":").map(Number);
+    return (h || 0) * 60 + (m || 0);
+  };
+
+  // Batas waktu: > 08.00 WIB (> 480 menit) = Ditutup / Alpha
+  const isPresensiClosed = () => getEffectiveMinutes() > 480;
+  // 07.16 - 08.00 WIB (436 - 480 menit) = Terlambat
+  const isPresensiLate = () =>
+    getEffectiveMinutes() > 435 && getEffectiveMinutes() <= 480;
+
+  // Buka Modal & Inisialisasi Kamera + MediaPipe Liveness Detector
   const handleStartCamera = async () => {
+    // 1. Cek Batas Waktu (>08.00 WIB)
+    if (isPresensiClosed()) {
+      const activeTime = getEffectiveCurrentTime();
+      setToastNotification({
+        show: true,
+        title: "Presensi Ditutup (Status: Alpha)",
+        message:
+          "Batas waktu presensi telah berakhir (Pukul >08.00 WIB). Status kehadiran Anda tercatat Alpha. Silakan hubungi wali kelas Anda untuk merubah status kehadiran menjadi hadir.",
+        time: `${activeTime} WIB`,
+        type: "alpha",
+      });
+      return;
+    }
+
     try {
       setIsAttendanceModalOpen(true);
       setIsCameraActive(true);
-      setFaceDetectorStatus("Posisikan diri Anda di depan kamera lalu klik Ambil Foto Presensi");
+      isCameraActiveRef.current = true;
+      setIsLivenessPassed(false);
+      setLivenessStatus(null);
+      setIsFaceModelLoading(true);
+      setFaceDetectorStatus("Mengakses kamera & memuat model deteksi wajah...");
 
       let stream: MediaStream | null = null;
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
+          video: {
+            facingMode: "user",
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+          },
           audio: false,
         });
       } else {
@@ -563,12 +634,53 @@ export default function StudentDashboardClient({
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           videoRef.current.setAttribute("playsinline", "true");
-          videoRef.current.play().catch(() => { });
+          await videoRef.current.play().catch(() => {});
         }
       }
+
+      // Load MediaPipe FaceLandmarker
+      const landmarker = await getFaceLandmarker();
+      landmarkerRef.current = landmarker;
+      setIsFaceModelLoading(false);
+      setFaceDetectorStatus("Posisikan wajah Anda di depan kamera lalu kedipkan mata atau senyum");
+
+      // Loop Real-Time Face Detection & Liveness Challenge
+      const runDetectionLoop = () => {
+        if (!isCameraActiveRef.current) return;
+        if (
+          videoRef.current &&
+          videoRef.current.readyState >= 2 &&
+          landmarkerRef.current
+        ) {
+          try {
+            const results = landmarkerRef.current.detectForVideo(
+              videoRef.current,
+              performance.now()
+            );
+            const evalResult = evaluateFaceFrame(results);
+            setLivenessStatus(evalResult);
+            if (evalResult.livenessVerified) {
+              setIsLivenessPassed(true);
+              setFaceDetectorStatus(evalResult.feedbackText);
+            } else if (evalResult.hasFace) {
+              setFaceDetectorStatus(
+                "Wajah Terdeteksi — Silakan kedipkan mata atau tersenyum"
+              );
+            } else {
+              setFaceDetectorStatus("Posisikan wajah Anda di depan kamera");
+            }
+          } catch {
+            // silent frame skip
+          }
+        }
+        animationFrameRef.current = requestAnimationFrame(runDetectionLoop);
+      };
+
+      animationFrameRef.current = requestAnimationFrame(runDetectionLoop);
     } catch (err: any) {
-      console.error("[CAMERA ERROR]", err);
-      setIsCameraActive(true);
+      console.error("[CAMERA/AI ERROR]", err);
+      setIsFaceModelLoading(false);
+      setFaceDetectorStatus("Gagal mengakses kamera webcam");
     }
   };
 
@@ -576,17 +688,23 @@ export default function StudentDashboardClient({
     if (isCameraActive && cameraStream && videoRef.current) {
       videoRef.current.srcObject = cameraStream;
       videoRef.current.setAttribute("playsinline", "true");
-      videoRef.current.play().catch(() => { });
+      videoRef.current.play().catch(() => {});
     }
   }, [isCameraActive, cameraStream]);
 
-  // Stop Camera Stream
+  // Hentikan Stream Kamera & Loop Deteksi
   const stopCamera = () => {
+    isCameraActiveRef.current = false;
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
     if (cameraStream) {
       cameraStream.getTracks().forEach((track) => track.stop());
       setCameraStream(null);
     }
     setIsCameraActive(false);
+    setIsFaceModelLoading(false);
   };
 
   const studentName = userProfile?.nama_lengkap || "Budi Kartika";
@@ -685,11 +803,11 @@ export default function StudentDashboardClient({
         if (data.isCheckedIn) {
           setIsCheckedIn(true);
           setCheckInTime(data.checkInTime || null);
-          setCapturedSelfie(data.foto_url || null);
+          setCheckInStatus(data.status || "Hadir (Tepat Waktu)");
         } else {
           setIsCheckedIn(false);
           setCheckInTime(null);
-          setCapturedSelfie(null);
+          setCheckInStatus(null);
         }
       }
     } catch {
@@ -830,43 +948,32 @@ export default function StudentDashboardClient({
     }
   });
 
-  // Take Camera Selfie Photo & Send to Database
-  const handleTakeSelfie = async () => {
-    let photoBase64: string | null = null;
-
-    if (videoRef.current && canvasRef.current) {
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      canvas.width = video.videoWidth || 640;
-      canvas.height = video.videoHeight || 480;
-      const ctx = canvas.getContext("2d");
-      if (ctx) {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        photoBase64 = canvas.toDataURL("image/jpeg", 0.85);
-      }
-    }
-
+  // Submit Presensi Kehadiran Terverifikasi (Tanpa Simpan Foto)
+  const handleSubmitAttendance = async () => {
     stopCamera();
     setIsSubmittingAttendance(true);
 
-    const now = new Date();
-    const formattedTime = now.toLocaleTimeString("id-ID", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    const effectiveTime = getEffectiveCurrentTime();
 
     try {
       const res = await fetch("/api/siswa/presensi", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ foto_base64: photoBase64 }),
+        body: JSON.stringify({ mock_time: mockTime || undefined }),
       });
       const data = await res.json();
 
       if (res.ok) {
+        const timeRecorded = data.presensi?.waktu || effectiveTime;
+        const finalStatus =
+          data.presensi?.status ||
+          (isPresensiLate() ? "Terlambat" : "Hadir (Tepat Waktu)");
+        const rewardPoints = data.poinReward || (isPresensiLate() ? 3 : 10);
+
         setIsCheckedIn(true);
-        setCheckInTime(formattedTime);
-        setCapturedSelfie(photoBase64 || "selfie-captured");
+        setCheckInTime(timeRecorded);
+        setCheckInStatus(finalStatus);
+
         if (typeof data.user?.streak === "number") {
           setDailyStreak(data.user.streak);
         }
@@ -878,16 +985,17 @@ export default function StudentDashboardClient({
 
         setToastNotification({
           show: true,
-          title: "Presensi Berhasil!",
-          message: `Foto presensi kehadiran Anda telah dicatat pada pukul ${formattedTime} WIB.`,
-          time: formattedTime,
+          title: `Presensi Berhasil (${finalStatus})!`,
+          message: `Kehadiran Anda dicatat pukul ${timeRecorded} WIB. Selamat! +${rewardPoints} Poin ditambahkan.`,
+          time: `${timeRecorded} WIB`,
+          type: "success",
         });
 
         setNotifications((prev) => [
           {
             id: Date.now(),
-            title: "Presensi Selfie Berhasil",
-            desc: `Foto presensi kehadiran Anda telah dicatat pada pukul ${formattedTime} WIB.`,
+            title: `Presensi Berhasil (${finalStatus})`,
+            desc: `Kehadiran dicatat pukul ${timeRecorded} WIB (+${rewardPoints} Poin).`,
             time: "Baru saja",
             type: "urgent",
           },
@@ -895,31 +1003,32 @@ export default function StudentDashboardClient({
         ]);
 
         setTimeout(() => {
-          setToastNotification(null), 5000;
-        });
+          setToastNotification(null);
+        }, 5000);
 
         broadcastEvent("ATTENDANCE_CHECKIN", {
           studentName,
-          time: formattedTime,
+          time: timeRecorded,
+          status: finalStatus,
         });
       } else {
-        alert(data.error || "Gagal mencatat presensi.");
+        if (data.isClosed || data.status === "Alpha") {
+          setToastNotification({
+            show: true,
+            title: "Presensi Ditutup (Status: Alpha)",
+            message:
+              data.error ||
+              "Batas waktu presensi telah berakhir (Pukul >08.00 WIB). Status kehadiran Anda tercatat Alpha. Silakan hubungi wali kelas Anda.",
+            time: `${effectiveTime} WIB`,
+            type: "alpha",
+          });
+        } else {
+          alert(data.error || "Gagal mencatat presensi.");
+        }
       }
-    } catch {
-      setIsCheckedIn(true);
-      setCheckInTime(formattedTime);
-      setCapturedSelfie(photoBase64 || "selfie-captured");
-
-      setToastNotification({
-        show: true,
-        title: "Presensi Berhasil!",
-        message: `Foto presensi kehadiran Anda telah dicatat pada pukul ${formattedTime} WIB.`,
-        time: formattedTime,
-      });
-
-      setTimeout(() => {
-        setToastNotification(null), 5000;
-      });
+    } catch (err) {
+      console.error("[SUBMIT ATTENDANCE ERROR]", err);
+      alert("Terjadi kesalahan jaringan saat mencatat presensi.");
     } finally {
       setIsSubmittingAttendance(false);
       setIsAttendanceModalOpen(false);
@@ -1308,30 +1417,57 @@ export default function StudentDashboardClient({
 
           {/* Right Header Controls */}
           <div className="flex items-center space-x-2.5">
-            {/* Presensi Selfie Button in Navbar */}
+            {/* Presensi Button in Navbar */}
             <div className="relative">
               {isCheckedIn ? (
                 <div
-                  title={`Presensi hari ini telah dicatat pada pukul ${checkInTime || "08.00"} WIB`}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold shadow-2xs"
+                  title={`Presensi hari ini telah dicatat (${checkInStatus || "Hadir"}) pada pukul ${checkInTime || "08.00"} WIB`}
+                  className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold shadow-2xs ${
+                    checkInStatus?.includes("Terlambat")
+                      ? "bg-amber-50 border border-amber-200 text-amber-800"
+                      : "bg-emerald-50 border border-emerald-200 text-emerald-800"
+                  }`}
                 >
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span className="hidden sm:inline">Hadir ({checkInTime || "08.00"})</span>
-                  <span className="sm:hidden">Hadir</span>
+                  <CheckCircle2
+                    className={`w-4 h-4 shrink-0 ${
+                      checkInStatus?.includes("Terlambat")
+                        ? "text-amber-600"
+                        : "text-emerald-600"
+                    }`}
+                  />
+                  <span className="hidden sm:inline">
+                    {checkInStatus?.includes("Terlambat") ? "Terlambat" : "Hadir"} ({checkInTime || "08.00"})
+                  </span>
+                  <span className="sm:hidden">
+                    {checkInStatus?.includes("Terlambat") ? "Terlambat" : "Hadir"}
+                  </span>
                 </div>
               ) : (
                 <button
                   onClick={handleStartCamera}
                   disabled={isSubmittingAttendance}
-                  title="Ambil foto presensi selfie kehadiran hari ini"
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:text-[#0F172A] text-xs font-bold shadow-2xs transition cursor-pointer disabled:opacity-50"
+                  title={
+                    isPresensiClosed()
+                      ? "Batas waktu presensi (>08.00 WIB) telah berakhir"
+                      : "Verifikasi presensi kehadiran hari ini dengan AI Liveness"
+                  }
+                  className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold shadow-2xs transition cursor-pointer disabled:opacity-50 ${
+                    isPresensiClosed()
+                      ? "bg-rose-50/70 border-rose-200 text-rose-700 hover:bg-rose-100/80"
+                      : "bg-white hover:bg-slate-50 border-slate-200 text-slate-700 hover:text-[#0F172A]"
+                  }`}
                 >
                   {isSubmittingAttendance ? (
                     <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
+                  ) : isPresensiClosed() ? (
+                    <AlertCircle className="w-4 h-4 text-rose-500" />
                   ) : (
                     <Camera className="w-4 h-4 text-emerald-600" />
                   )}
-                  <span className="hidden sm:inline">Presensi</span>
+                  <span className="hidden sm:inline">
+                    {isPresensiClosed() ? "Presensi (Ditutup)" : "Presensi"}
+                  </span>
+                  <span className="sm:hidden">Presensi</span>
                 </button>
               )}
             </div>
@@ -1430,20 +1566,12 @@ export default function StudentDashboardClient({
                 className="flex items-center space-x-2 focus:outline-none cursor-pointer group"
               >
                 <div className="w-9 h-9 rounded-xl bg-[#0F172A] text-white flex items-center justify-center font-bold text-xs shadow-xs border border-slate-700 group-hover:scale-105 transition duration-200 overflow-hidden">
-                  {capturedSelfie ? (
-                    <img
-                      src={capturedSelfie}
-                      alt="Selfie"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    studentName
-                      .split(" ")
-                      .map((n) => n[0])
-                      .join("")
-                      .substring(0, 2)
-                      .toUpperCase()
-                  )}
+                  {studentName
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")
+                    .substring(0, 2)
+                    .toUpperCase()}
                 </div>
               </button>
 
@@ -2422,108 +2550,248 @@ export default function StudentDashboardClient({
         );
       })()}
 
-      {/* MODAL: LIVE WEBCAM SELFIE ATTENDANCE */}
+      {/* MODAL: LIVE AI FACE DETECTION & LIVENESS ATTENDANCE */}
       {isAttendanceModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="saas-modal rounded-3xl shadow-2xl border border-slate-200 p-6 max-w-md w-full relative space-y-4 bg-white">
-            <button
-              onClick={() => {
-                stopCamera();
-                setIsAttendanceModalOpen(false);
-              }}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="flex items-center space-x-3 border-b border-slate-200 pb-4">
-              <div className="w-10 h-10 rounded-2xl bg-[#0F172A] text-white flex items-center justify-center">
-                <Camera className="w-5 h-5 text-emerald-400" />
-              </div>
-              <div>
-                <h3 className="text-lg font-extrabold text-[#0F172A]">
-                  Foto Presensi Selfie
-                </h3>
-                <p className="text-xs text-slate-500">
-                  Ambil foto selfie kehadiran Anda secara resmi hari ini
-                </p>
-              </div>
-            </div>
-
-            <div className="relative rounded-2xl overflow-hidden bg-slate-900 aspect-video flex items-center justify-center border border-slate-800 shadow-inner">
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full h-full object-cover"
-              />
-              <canvas ref={canvasRef} className="hidden" />
-
-              {isCameraActive && (
-                <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-between p-4">
-                  <div className="px-3.5 py-1.5 rounded-full backdrop-blur-md border border-white/20 bg-slate-900/80 text-white text-[11px] font-extrabold flex items-center gap-2 shadow-md">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                    <span>{faceDetectorStatus}</span>
-                  </div>
-
-                  <div className="w-44 h-56 rounded-3xl border-2 border-dashed border-white/60 relative flex flex-col items-center justify-center gap-2">
-                    <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-white rounded-tl-xl" />
-                    <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-white rounded-tr-xl" />
-                    <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-white rounded-bl-xl" />
-                    <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-white rounded-br-xl" />
-                  </div>
-
-                  <div className="text-[10px] text-slate-300 bg-slate-900/80 px-3 py-1 rounded-full backdrop-blur-xs font-semibold text-center">
-                    Foto presensi akan disimpan secara resmi untuk verifikasi kehadiran.
-                  </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200/90 p-6 max-w-lg w-full relative space-y-4 text-slate-800 animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center">
+                  <Camera className="w-5 h-5" />
                 </div>
-              )}
-
-              {!isCameraActive && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center text-white space-y-3 bg-slate-900/90">
-                  <Camera className="w-10 h-10 text-emerald-400 animate-bounce" />
-                  <p className="text-xs text-slate-300 font-medium">
-                    Klik tombol di bawah untuk mengaktifkan kamera webcam
+                <div>
+                  <h3 className="text-base font-extrabold text-[#0F172A]">
+                    Verifikasi Presensi Kehadiran
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium">
+                    Verifikasi instan AI wajah tanpa simpan foto
                   </p>
-                  <button
-                    onClick={handleStartCamera}
-                    className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-xs rounded-xl transition cursor-pointer"
-                  >
-                    Aktifkan Kamera
-                  </button>
                 </div>
-              )}
-            </div>
+              </div>
 
-            <div className="flex items-center gap-3 pt-2">
               <button
-                type="button"
+                disabled={isSubmittingAttendance}
                 onClick={() => {
                   stopCamera();
                   setIsAttendanceModalOpen(false);
                 }}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50 transition cursor-pointer"
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Video Viewport / Clean Checkmark Saving State */}
+            {isSubmittingAttendance ? (
+              <div className="relative rounded-2xl overflow-hidden bg-gradient-to-b from-emerald-50/60 via-white to-slate-50 aspect-[4/3] flex flex-col items-center justify-center p-6 text-center border border-emerald-200/80 shadow-sm space-y-4 animate-in fade-in zoom-in-95 duration-200 select-none">
+                <div className="relative flex items-center justify-center">
+                  <div className="w-20 h-20 rounded-full bg-emerald-100 border-2 border-emerald-300 text-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/15">
+                    <CheckCircle2 className="w-10 h-10 text-emerald-600 animate-in zoom-in-50 duration-300" />
+                  </div>
+                  <div className="absolute -inset-2 rounded-full bg-emerald-400/20 blur-md -z-10 animate-pulse" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-base font-extrabold text-[#0F172A]">
+                    Wajah Terverifikasi!
+                  </h4>
+                  <p className="text-xs text-slate-500 font-medium max-w-xs leading-relaxed">
+                    Sedang mencatat kehadiran Anda ke sistem...
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="relative rounded-2xl overflow-hidden bg-slate-950 aspect-[4/3] flex items-center justify-center border border-slate-200/80 shadow-inner">
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  style={{ transform: "scaleX(-1)" }}
+                  className="w-full h-full object-cover"
+                />
+                <canvas ref={canvasRef} className="hidden" />
+
+                {isCameraActive ? (
+                  <div className="absolute inset-0 pointer-events-none">
+                    {/* Top Status Glass Pill */}
+                    <div className="absolute top-3.5 inset-x-0 flex justify-center pointer-events-none z-10">
+                      <div
+                        className={`px-4 py-1.5 rounded-full backdrop-blur-md border text-xs font-extrabold flex items-center gap-2 shadow-lg transition-all duration-300 ${
+                          isLivenessPassed
+                            ? "bg-emerald-500 text-white border-emerald-300 shadow-emerald-500/30 ring-4 ring-emerald-400/30 scale-105"
+                            : livenessStatus?.hasFace
+                            ? "bg-amber-500 text-slate-950 border-amber-300 shadow-amber-500/30 animate-pulse"
+                            : "bg-slate-900/90 text-white border-white/20"
+                        }`}
+                      >
+                        {isFaceModelLoading ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-300" />
+                            <span>Menyiapkan AI Deteksi...</span>
+                          </>
+                        ) : isLivenessPassed ? (
+                          <>
+                            <CheckCircle2 className="w-4 h-4 text-white" />
+                            <span>Wajah Terdeteksi! (Siap Presensi ✓)</span>
+                          </>
+                        ) : livenessStatus?.hasFace ? (
+                          <>
+                            <Eye className="w-4 h-4 text-slate-950" />
+                            <span>Kedipkan mata atau tersenyum 🙂</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="w-2 h-2 rounded-full bg-blue-400 animate-ping" />
+                            <span>Posisikan wajah Anda di depan kamera</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Sleek Modern Viewfinder Brackets */}
+                    <div className="absolute inset-4 pointer-events-none flex flex-col justify-between transition-colors duration-300">
+                      <div className="flex justify-between">
+                        <div
+                          className={`w-7 h-7 border-t-2 border-l-2 rounded-tl-xl transition-all duration-300 ${
+                            isLivenessPassed
+                              ? "border-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.7)]"
+                              : livenessStatus?.hasFace
+                              ? "border-amber-400"
+                              : "border-white/30"
+                          }`}
+                        />
+                        <div
+                          className={`w-7 h-7 border-t-2 border-r-2 rounded-tr-xl transition-all duration-300 ${
+                            isLivenessPassed
+                              ? "border-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.7)]"
+                              : livenessStatus?.hasFace
+                              ? "border-amber-400"
+                              : "border-white/30"
+                          }`}
+                        />
+                      </div>
+                      <div className="flex justify-between">
+                        <div
+                          className={`w-7 h-7 border-b-2 border-l-2 rounded-bl-xl transition-all duration-300 ${
+                            isLivenessPassed
+                              ? "border-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.7)]"
+                              : livenessStatus?.hasFace
+                              ? "border-amber-400"
+                              : "border-white/30"
+                          }`}
+                        />
+                        <div
+                          className={`w-7 h-7 border-b-2 border-r-2 rounded-br-xl transition-all duration-300 ${
+                            isLivenessPassed
+                              ? "border-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.7)]"
+                              : livenessStatus?.hasFace
+                              ? "border-amber-400"
+                              : "border-white/30"
+                          }`}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center text-white space-y-3 bg-slate-950/90">
+                    <Camera className="w-10 h-10 text-emerald-400 animate-bounce" />
+                    <p className="text-xs text-slate-300 font-medium max-w-xs">
+                      Aktifkan kamera untuk memindai kehadiran Anda hari ini
+                    </p>
+                    <button
+                      onClick={handleStartCamera}
+                      className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-xs rounded-xl transition cursor-pointer shadow-lg shadow-emerald-500/20"
+                    >
+                      Aktifkan Kamera
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Attendance Time & Reward Badge */}
+            <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs">
+              <div className="flex items-center gap-2 text-slate-700 font-medium">
+                <Clock className="w-4 h-4 text-slate-400" />
+                <span>
+                  Jam Presensi:{" "}
+                  <strong className="text-[#0F172A] font-extrabold">
+                    {getEffectiveCurrentTime()} WIB
+                  </strong>
+                </span>
+              </div>
+              <div
+                className={`px-3 py-1 rounded-xl text-[11px] font-extrabold flex items-center gap-1.5 ${
+                  isPresensiLate()
+                    ? "bg-amber-50 border border-amber-200 text-amber-800"
+                    : "bg-emerald-50 border border-emerald-200 text-emerald-800"
+                }`}
+              >
+                {isPresensiLate() ? (
+                  <>
+                    <Clock className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Terlambat (+3 Poin)</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Tepat Waktu (+10 Poin)</span>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center gap-3 pt-1">
+              <button
+                type="button"
+                disabled={isSubmittingAttendance}
+                onClick={() => {
+                  stopCamera();
+                  setIsAttendanceModalOpen(false);
+                }}
+                className={`flex-1 py-3 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 text-xs font-bold transition ${
+                  isSubmittingAttendance
+                    ? "opacity-30 cursor-not-allowed pointer-events-none"
+                    : "cursor-pointer"
+                }`}
               >
                 Batal
               </button>
 
               <button
                 type="button"
-                disabled={!isCameraActive || isSubmittingAttendance}
-                onClick={handleTakeSelfie}
-                className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-2 transition disabled:opacity-40 cursor-pointer shadow-md"
+                disabled={
+                  !isCameraActive ||
+                  !isLivenessPassed ||
+                  isSubmittingAttendance
+                }
+                onClick={handleSubmitAttendance}
+                className={`flex-1 py-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition shadow-sm ${
+                  isSubmittingAttendance
+                    ? "bg-emerald-600 text-white opacity-80 cursor-wait pointer-events-none"
+                    : isLivenessPassed
+                    ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/30 hover:scale-[1.01] cursor-pointer"
+                    : "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"
+                }`}
               >
                 {isSubmittingAttendance ? (
-                  <Loader2 className="w-4 h-4 animate-spin text-white" />
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-white" />
+                    <span>Menyimpan Presensi...</span>
+                  </>
+                ) : isLivenessPassed ? (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 text-white" />
+                    <span>Konfirmasi Hadir</span>
+                  </>
                 ) : (
-                  <Camera className="w-4 h-4 text-white" />
+                  <>
+                    <Camera className="w-4 h-4 text-slate-400" />
+                    <span>Menunggu Deteksi Wajah</span>
+                  </>
                 )}
-                <span>
-                  {isSubmittingAttendance
-                    ? "Menyimpan Presensi..."
-                    : "Ambil Foto Presensi"}
-                </span>
               </button>
             </div>
           </div>
@@ -2532,16 +2800,44 @@ export default function StudentDashboardClient({
 
       {/* TOP-RIGHT REACT TOAST NOTIFICATION */}
       {toastNotification?.show && (
-        <div className="fixed top-5 right-5 z-50 max-w-sm w-full bg-[#0F172A] text-white rounded-2xl p-4 border border-emerald-500/50 shadow-2xl animate-in slide-in-from-top-5 duration-300 flex items-start space-x-3">
-          <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/30">
-            <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+        <div
+          className={`fixed top-5 right-5 z-50 max-w-sm w-full bg-[#0F172A] text-white rounded-2xl p-4 border shadow-2xl animate-in slide-in-from-top-5 duration-300 flex items-start space-x-3 ${
+            toastNotification.type === "alpha"
+              ? "border-rose-500/70 ring-1 ring-rose-500/40"
+              : "border-emerald-500/50 ring-1 ring-emerald-500/30"
+          }`}
+        >
+          <div
+            className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${
+              toastNotification.type === "alpha"
+                ? "bg-rose-500/20 text-rose-400 border-rose-500/30"
+                : "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+            }`}
+          >
+            {toastNotification.type === "alpha" ? (
+              <TriangleAlert className="w-5 h-5 text-rose-400" />
+            ) : (
+              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+            )}
           </div>
           <div className="flex-1 space-y-0.5">
             <div className="flex items-center justify-between">
-              <h4 className="text-xs font-extrabold text-white">
+              <h4
+                className={`text-xs font-extrabold ${
+                  toastNotification.type === "alpha"
+                    ? "text-rose-300"
+                    : "text-white"
+                }`}
+              >
                 {toastNotification.title}
               </h4>
-              <span className="text-[10px] text-emerald-400 font-semibold">
+              <span
+                className={`text-[10px] font-semibold ${
+                  toastNotification.type === "alpha"
+                    ? "text-rose-400"
+                    : "text-emerald-400"
+                }`}
+              >
                 {toastNotification.time}
               </span>
             </div>
@@ -2571,20 +2867,12 @@ export default function StudentDashboardClient({
 
             <div className="flex flex-col items-center text-center space-y-3 pt-2">
               <div className="w-20 h-20 rounded-full bg-[#0F172A] text-white flex items-center justify-center text-2xl font-extrabold shadow-md border-4 border-white overflow-hidden">
-                {capturedSelfie ? (
-                  <img
-                    src={capturedSelfie}
-                    alt="Selfie"
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  studentName
-                    .split(" ")
-                    .map((n) => n[0])
-                    .join("")
-                    .substring(0, 2)
-                    .toUpperCase()
-                )}
+                {studentName
+                  .split(" ")
+                  .map((n) => n[0])
+                  .join("")
+                  .substring(0, 2)
+                  .toUpperCase()}
               </div>
 
               <div>
@@ -3215,6 +3503,40 @@ export default function StudentDashboardClient({
           </div>
         </div>
       )}
+
+      {/* UAT / DEV MENU: SIMULASI ATURAN WAKTU PRESENSI */}
+      <div className="fixed bottom-4 left-4 z-40">
+        <div className="bg-[#0F172A]/95 text-white backdrop-blur-md border border-slate-700/80 rounded-2xl shadow-2xl p-2.5 flex items-center gap-2.5 text-xs transition-all">
+          <button
+            onClick={() => setIsDevMenuOpen(!isDevMenuOpen)}
+            title="Buka / Tutup Dev Menu Simulasi Waktu"
+            className="flex items-center gap-1.5 font-bold text-slate-300 hover:text-white transition cursor-pointer"
+          >
+            <Timer className="w-4 h-4 text-amber-400 shrink-0 animate-pulse" />
+            <span className="hidden sm:inline">UAT Jam:</span>
+          </button>
+
+          <select
+            value={mockTime || ""}
+            onChange={(e) => setMockTime(e.target.value || null)}
+            className="bg-slate-800 text-white font-semibold text-xs rounded-xl px-2.5 py-1.5 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-400 cursor-pointer"
+          >
+            <option value="">
+              Waktu Nyata ({new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} WIB)
+            </option>
+            <option value="06:30">06:30 WIB (Tepat Waktu • +10 Poin)</option>
+            <option value="07:15">07:15 WIB (Batas Tepat Waktu • +10 Poin)</option>
+            <option value="07:45">07:45 WIB (Terlambat • +3 Poin)</option>
+            <option value="08:15">08:15 WIB (Lewat Batas • Alpha)</option>
+          </select>
+
+          {mockTime && (
+            <span className="px-2 py-0.5 rounded-md bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[10px] font-extrabold shrink-0">
+              SIMULASI: {mockTime}
+            </span>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
