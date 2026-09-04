@@ -17,17 +17,13 @@ import {
   X,
   FileText,
   CheckCircle2,
-  Atom,
-  FlaskConical,
-  Dna,
-  Laptop,
-  BookMarked,
-  ArrowRight,
-  Shield,
-  Check,
+  Lock,
+  Plus,
+  MessageSquare,
+  Search,
+  Trash2,
   HelpCircle,
   Target,
-  Gift,
   Camera,
   Sun,
   Moon,
@@ -36,24 +32,18 @@ import {
   Award,
   GraduationCap,
   Globe,
+  Gift,
   ExternalLink,
   TriangleAlert,
-  Building2,
-  Lock,
-  Plus,
-  MessageSquare,
-  Search,
-  Trash2,
-  Edit3,
-  Share2,
-  Flag,
+  Shield,
   Send,
+  Flag,
+  Share2,
   ArrowLeft,
 } from "lucide-react";
 import Link from "next/link";
 import { logoutAction } from "../../(auth)/actions";
 import { useRealtimeDashboard } from "@/hooks/useRealtimeDashboard";
-import TutorChat from "@/components/tutor/TutorChat";
 import GeneralAiChat from "@/components/tutor/GeneralAiChat";
 
 export interface SekolahLink {
@@ -73,6 +63,34 @@ export interface SekolahData {
   npsn?: string | null;
 }
 
+export interface PeerStudent {
+  id: string;
+  name: string;
+  avatarUrl?: string | null;
+  initials: string;
+}
+
+export interface CalendarDayItem {
+  day: number;
+  isCurrentMonth: boolean;
+  isToday: boolean;
+  status: "today" | "streak" | "past" | "scheduled" | "normal" | "muted";
+  fullDateStr: string;
+  schedule: {
+    bab: string;
+    jam: string;
+    room?: string;
+    teacher?: string;
+  } | null;
+}
+
+export interface CalendarWeekItem {
+  weekIndex: number;
+  hasStreakBadge: boolean;
+  streakCount: number;
+  days: CalendarDayItem[];
+}
+
 interface StudentDashboardProps {
   userProfile: {
     nama_lengkap: string;
@@ -87,24 +105,6 @@ interface StudentDashboardProps {
     fotoSelfie?: string | null;
   };
   sekolahData?: SekolahData | null;
-  questsData?: Array<{
-    id: string;
-    title: string;
-    progress: number;
-    max: number;
-    reward: number;
-    claimed: boolean;
-  }>;
-  deadlinesData?: Array<{
-    id: string;
-    title: string;
-    desc: string;
-    dayBadge: string;
-    dateNum: string;
-    badgeColor: string;
-    iconColor: string;
-    urgency: string;
-  }>;
   schedulesData?: Array<{
     id: string;
     subject: string;
@@ -118,54 +118,31 @@ interface StudentDashboardProps {
     judul: string;
     deskripsi: string | null;
     urutan: number;
+    progress?: number;
     materi?: Array<{
       id: string;
       judul: string;
       urutan: number;
     }>;
   }>;
+  peerStudents?: PeerStudent[];
   completedQuizCount?: number;
   answeredSoalCount?: number;
   totalSoalCount?: number;
   learningProgressPercent?: number;
-  activeClassesData?: Array<{
-    id: string;
-    code: string;
-    title: string;
-    teacher: string;
-    room: string;
-    elemenFocus: string;
-    description: string;
-    schedule: string;
-    studentsCount: number;
-    activeBab: string;
-    badge: string;
-    badgeColor: string;
-  }>;
-  kurikulumMetadata?: {
-    kurikulumName: string;
-    fase: string;
-    mataPelajaran: string;
-    elemenCP: Array<{ id: string; nama: string; deskripsi: string }>;
-  };
 }
 
 export default function StudentDashboardClient({
   userProfile,
   sekolahData,
-  deadlinesData,
   schedulesData,
-  chapters,
+  chapters = [],
+  peerStudents = [],
   completedQuizCount = 0,
   answeredSoalCount = 0,
   totalSoalCount = 10,
   learningProgressPercent = 0,
-  activeClassesData = [],
-  kurikulumMetadata,
 }: StudentDashboardProps) {
-  // Active Class State (Multi Classes Kurikulum Merdeka)
-  const [selectedClassId, setSelectedClassId] = useState<string>("8a");
-
   // Navigation Tabs State
   const [activeTab, setActiveTab] = useState<
     "Belajar" | "Kursus Saya" | "Peringkat" | "Pencapaian"
@@ -185,13 +162,6 @@ export default function StudentDashboardClient({
   const [isMyNotesOpen, setIsMyNotesOpen] = useState(false);
   const [isAiAssistantOpen, setIsAiAssistantOpen] = useState(false);
   const [isGlobalChatOpen, setIsGlobalChatOpen] = useState(false);
-
-  // Today's Focus Checklist State
-  const [todaysFocusTasks, setTodaysFocusTasks] = useState([
-    { id: "t1", title: "Tugas Matematika Bab 4 (SPLDV)", completed: false, category: "Matematika" },
-    { id: "t2", title: "10 Soal Latihan Sokratik AI", completed: false, category: "AI Sokratik" },
-    { id: "t3", title: "Presensi Selfie Kehadiran Harian", completed: userProfile?.isCheckedIn || false, category: "Presensi" },
-  ]);
 
   // My Notes State & Persistence
   const [notes, setNotes] = useState<Array<{ id: string; judul: string; konten: string; mata_pelajaran: string; dibuat_pada: string }>>([
@@ -633,7 +603,7 @@ export default function StudentDashboardClient({
     }>
   >([]);
 
-  // Dynamic Leaderboard (Role = Siswa Only) State & Real-Time Rank
+  // Dynamic Leaderboard State & Real-Time Rank
   const [currentUserRank, setCurrentUserRank] = useState<number>(userProfile?.rank || 1);
   const [totalStudentsCount, setTotalStudentsCount] = useState<number>(userProfile?.totalStudents || 1);
   const [leaderboardList, setLeaderboardList] = useState<
@@ -664,7 +634,7 @@ export default function StudentDashboardClient({
     }
   };
 
-  // Fetch Leaderboard from API (Strictly Role = Siswa Only)
+  // Fetch Leaderboard from API
   const fetchLeaderboardFromDB = async () => {
     setIsLoadingLeaderboard(true);
     try {
@@ -717,7 +687,6 @@ export default function StudentDashboardClient({
           setCheckInTime(data.checkInTime || null);
           setCapturedSelfie(data.foto_url || null);
         } else {
-          // Reset presensi untuk hari baru (WIB Asia/Jakarta)
           setIsCheckedIn(false);
           setCheckInTime(null);
           setCapturedSelfie(null);
@@ -753,7 +722,7 @@ export default function StudentDashboardClient({
     setTimeout(() => setToastNotification(null), 5000);
   };
 
-  // Claim Daily Mission — server validates apakah siswa benar-benar sudah melakukan misi
+  // Claim Daily Mission
   const handleClaimMission = async (misiId: string) => {
     setIsClaimingMissionId(misiId);
     try {
@@ -779,7 +748,6 @@ export default function StudentDashboardClient({
         fetchMissionsFromDB();
         setTimeout(() => setToastNotification(null), 5000);
       } else {
-        // Tampilkan pesan kesalahan dari server jika user belum menyelesaikan aktivitas misi
         setToastNotification({
           show: true,
           title: "Misi Belum Selesai ⚠️",
@@ -801,7 +769,7 @@ export default function StudentDashboardClient({
     }
   };
 
-  // Mark all notifications as read in DB & local state
+  // Mark all notifications as read
   const handleMarkAllNotificationsAsRead = async () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, dibaca: true })));
     try {
@@ -906,10 +874,8 @@ export default function StudentDashboardClient({
           setLearningPoints(data.user.poin);
         }
 
-        // Update missions list automatically after check-in
         fetchMissionsFromDB();
 
-        // Show React Toast Notification at top-right
         setToastNotification({
           show: true,
           title: "Presensi Berhasil!",
@@ -917,7 +883,6 @@ export default function StudentDashboardClient({
           time: formattedTime,
         });
 
-        // Add to Notifications Bell list
         setNotifications((prev) => [
           {
             id: Date.now(),
@@ -929,12 +894,10 @@ export default function StudentDashboardClient({
           ...prev,
         ]);
 
-        // Auto dismiss toast after 5 seconds
         setTimeout(() => {
-          setToastNotification(null);
-        }, 5000);
+          setToastNotification(null), 5000;
+        });
 
-        // Broadcast to Realtime Dashboard metadata ONLY (no photo payload for privacy!)
         broadcastEvent("ATTENDANCE_CHECKIN", {
           studentName,
           time: formattedTime,
@@ -954,24 +917,8 @@ export default function StudentDashboardClient({
         time: formattedTime,
       });
 
-      setNotifications((prev) => [
-        {
-          id: Date.now(),
-          title: "Presensi Selfie Berhasil",
-          desc: `Foto presensi kehadiran Anda telah dicatat pada pukul ${formattedTime} WIB.`,
-          time: "Baru saja",
-          type: "urgent",
-        },
-        ...prev,
-      ]);
-
       setTimeout(() => {
-        setToastNotification(null);
-      }, 5000);
-
-      broadcastEvent("ATTENDANCE_CHECKIN", {
-        studentName,
-        time: formattedTime,
+        setToastNotification(null), 5000;
       });
     } finally {
       setIsSubmittingAttendance(false);
@@ -979,71 +926,342 @@ export default function StudentDashboardClient({
     }
   };
 
-  const mapChapterToClass = (ch: any, idx: number) => ({
-    id: ch.id,
-    subject: "Matematika",
-    grade: "Kelas 8 (Fase D)",
-    module: ch.judul,
-    topic: ch.deskripsi || "Capaian Pembelajaran Kurikulum Merdeka Matematika SMP Kelas 8.",
-    progress: learningProgressPercent,
-    icon: BookOpen,
-    color: idx % 3 === 0 ? "bg-[#0F172A] text-white border-slate-700" : idx % 3 === 1 ? "bg-slate-100 text-slate-800 border-slate-200" : "bg-blue-50 text-blue-900 border-blue-200",
-    progressColor: idx % 3 === 0 ? "bg-blue-600" : idx % 3 === 1 ? "bg-emerald-500" : "bg-purple-600",
-  });
+  // Top 3 chapters sorted by highest student progress
+  const sortedChapters = [...chapters].sort((a, b) => (b.progress || 0) - (a.progress || 0));
+  const top3Chapters = sortedChapters.slice(0, 3);
 
-  const activeClasses = (chapters && chapters.length > 0)
-    ? chapters.slice(0, 3).map(mapChapterToClass)
-    : [
+  // Generate September 2026 Custom Calendar with clear distinctions for today, streak, past, and scheduled days
+  const calendarWeeks: CalendarWeekItem[] = [
+    {
+      weekIndex: 0,
+      hasStreakBadge: true,
+      streakCount: Math.min(dailyStreak, 3), // Streak achieved in this week: 3
+      days: [
         {
-          id: "b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
-          subject: "Matematika",
-          grade: "Kelas 8 (Fase D)",
-          module: "Bab 1: Pola Bilangan & Barisan Bilangan",
-          topic: "CP: Menggeneralisasi pola susunan benda dan barisan bilangan.",
-          progress: learningProgressPercent,
-          icon: BookOpen,
-          color: "bg-[#0F172A] text-white border-slate-700",
-          progressColor: "bg-blue-600",
+          day: 31,
+          isCurrentMonth: false,
+          isToday: false,
+          status: "muted" as const,
+          fullDateStr: "Senin, 31 Agustus 2026",
+          schedule: { bab: "Bab 1: Bilangan Bulat & Garis Bilangan", jam: "08:00 - 09:30 WIB", room: "Ruang 8A", teacher: "Ibu Siti Rahmawati, M.Pd." },
         },
         {
-          id: "b2eebc99-9c0b-4ef8-bb6d-6bb9bd380a22",
-          subject: "Matematika",
-          grade: "Kelas 8 (Fase D)",
-          module: "Bab 2: Bentuk Aljabar & PLSV/PTLSV",
-          topic: "CP: Menyederhanakan bentuk aljabar & penyelesaian PLSV/PTLSV.",
-          progress: learningProgressPercent,
-          icon: BookOpen,
-          color: "bg-slate-100 text-slate-800 border-slate-200",
-          progressColor: "bg-emerald-500",
+          day: 1,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "streak" as const,
+          fullDateStr: "Selasa, 1 September 2026",
+          schedule: { bab: "Pendalaman Mandiri & Latihan Soal", jam: "09:00 - 10:00 WIB", room: "Perpustakaan", teacher: "Tutor AI" },
         },
         {
-          id: "b3eebc99-9c0b-4ef8-bb6d-6bb9bd380a33",
-          subject: "Matematika",
-          grade: "Kelas 8 (Fase D)",
-          module: "Bab 3: Relasi & Fungsi",
-          topic: "CP: Memahami relasi, fungsi, dan rumus f(x) = ax + b.",
-          progress: learningProgressPercent,
-          icon: BookOpen,
-          color: "bg-slate-100 text-slate-800 border-slate-200",
-          progressColor: "bg-purple-600",
+          day: 2,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "streak" as const,
+          fullDateStr: "Rabu, 2 September 2026",
+          schedule: { bab: "Bab 1: Operasi Hitung Bilangan Bulat", jam: "10:00 - 11:30 WIB", room: "Ruang 8A", teacher: "Budi Santoso, S.Pd." },
         },
-      ];
-
-  const allClasses = (chapters && chapters.length > 0)
-    ? chapters.map(mapChapterToClass)
-    : activeClasses;
+        {
+          day: 3,
+          isCurrentMonth: true,
+          isToday: true,
+          status: "today" as const,
+          fullDateStr: "Kamis, 3 September 2026 (Hari Ini)",
+          schedule: { bab: "Bab 1: Eksplorasi Sokratik AI & Kuis", jam: "08:00 - 09:30 WIB", room: "Lab Komputer", teacher: "thinksy AI Tutor" },
+        },
+        {
+          day: 4,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "scheduled" as const,
+          fullDateStr: "Jumat, 4 September 2026",
+          schedule: { bab: "Bab 1: FPB, KPK & Faktorisasi Prima", jam: "08:00 - 09:30 WIB", room: "Lab Komputer", teacher: "thinksy AI Tutor" },
+        },
+        {
+          day: 5,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "normal" as const,
+          fullDateStr: "Sabtu, 5 September 2026",
+          schedule: null,
+        },
+        {
+          day: 6,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "normal" as const,
+          fullDateStr: "Minggu, 6 September 2026",
+          schedule: null,
+        },
+      ],
+    },
+    {
+      weekIndex: 1,
+      hasStreakBadge: false,
+      streakCount: 0,
+      days: [
+        {
+          day: 7,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "scheduled" as const,
+          fullDateStr: "Senin, 7 September 2026",
+          schedule: { bab: "Bab 2: Bentuk Aljabar & Variabel", jam: "08:00 - 09:30 WIB", room: "Ruang 8A", teacher: "Ibu Siti Rahmawati, M.Pd." },
+        },
+        {
+          day: 8,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "normal" as const,
+          fullDateStr: "Selasa, 8 September 2026",
+          schedule: { bab: "Pendalaman Konsep Aljabar", jam: "10:00 - 11:30 WIB", room: "Lab Komputer", teacher: "Tutor AI" },
+        },
+        {
+          day: 9,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "scheduled" as const,
+          fullDateStr: "Rabu, 9 September 2026",
+          schedule: { bab: "Bab 2: Operasi Penjumlahan Aljabar", jam: "10:00 - 11:30 WIB", room: "Ruang 8A", teacher: "Budi Santoso, S.Pd." },
+        },
+        {
+          day: 10,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "scheduled" as const,
+          fullDateStr: "Kamis, 10 September 2026",
+          schedule: { bab: "Bab 2: Latihan Mandiri Aljabar", jam: "08:00 - 09:30 WIB", room: "Lab Komputer", teacher: "thinksy AI" },
+        },
+        {
+          day: 11,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "scheduled" as const,
+          fullDateStr: "Jumat, 11 September 2026",
+          schedule: { bab: "Bab 2: Perkalian & Pemfaktoran Aljabar", jam: "08:00 - 09:30 WIB", room: "Lab Komputer", teacher: "thinksy AI Tutor" },
+        },
+        {
+          day: 12,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "normal" as const,
+          fullDateStr: "Sabtu, 12 September 2026",
+          schedule: null,
+        },
+        {
+          day: 13,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "normal" as const,
+          fullDateStr: "Minggu, 13 September 2026",
+          schedule: null,
+        },
+      ],
+    },
+    {
+      weekIndex: 2,
+      hasStreakBadge: false,
+      streakCount: 0,
+      days: [
+        {
+          day: 14,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "scheduled" as const,
+          fullDateStr: "Senin, 14 September 2026",
+          schedule: { bab: "Bab 3: Persamaan Linear Satu Variabel", jam: "08:00 - 09:30 WIB", room: "Ruang 8A", teacher: "Ibu Siti Rahmawati, M.Pd." },
+        },
+        {
+          day: 15,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "normal" as const,
+          fullDateStr: "Selasa, 15 September 2026",
+          schedule: null,
+        },
+        {
+          day: 16,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "scheduled" as const,
+          fullDateStr: "Rabu, 16 September 2026",
+          schedule: { bab: "Bab 3: Pertidaksamaan Linear (PTLSV)", jam: "10:00 - 11:30 WIB", room: "Ruang 8A", teacher: "Budi Santoso, S.Pd." },
+        },
+        {
+          day: 17,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "normal" as const,
+          fullDateStr: "Kamis, 17 September 2026",
+          schedule: null,
+        },
+        {
+          day: 18,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "scheduled" as const,
+          fullDateStr: "Jumat, 18 September 2026",
+          schedule: { bab: "Bab 3: Kuis & Studi Kasus Kontekstual", jam: "08:00 - 09:30 WIB", room: "Lab Komputer", teacher: "thinksy AI Tutor" },
+        },
+        {
+          day: 19,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "normal" as const,
+          fullDateStr: "Sabtu, 19 September 2026",
+          schedule: null,
+        },
+        {
+          day: 20,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "normal" as const,
+          fullDateStr: "Minggu, 20 September 2026",
+          schedule: null,
+        },
+      ],
+    },
+    {
+      weekIndex: 3,
+      hasStreakBadge: false,
+      streakCount: 0,
+      days: [
+        {
+          day: 21,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "scheduled" as const,
+          fullDateStr: "Senin, 21 September 2026",
+          schedule: { bab: "Bab 4: Perbandingan Senilai & Skala", jam: "08:00 - 09:30 WIB", room: "Ruang 8A", teacher: "Ibu Siti Rahmawati, M.Pd." },
+        },
+        {
+          day: 22,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "normal" as const,
+          fullDateStr: "Selasa, 22 September 2026",
+          schedule: null,
+        },
+        {
+          day: 23,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "scheduled" as const,
+          fullDateStr: "Rabu, 23 September 2026",
+          schedule: { bab: "Bab 4: Perbandingan Berbalik Nilai", jam: "10:00 - 11:30 WIB", room: "Ruang 8A", teacher: "Budi Santoso, S.Pd." },
+        },
+        {
+          day: 24,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "normal" as const,
+          fullDateStr: "Kamis, 24 September 2026",
+          schedule: null,
+        },
+        {
+          day: 25,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "scheduled" as const,
+          fullDateStr: "Jumat, 25 September 2026",
+          schedule: { bab: "Bab 4: Asesmen Formatif Perbandingan", jam: "08:00 - 09:30 WIB", room: "Lab Komputer", teacher: "thinksy AI Tutor" },
+        },
+        {
+          day: 26,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "normal" as const,
+          fullDateStr: "Sabtu, 26 September 2026",
+          schedule: null,
+        },
+        {
+          day: 27,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "normal" as const,
+          fullDateStr: "Minggu, 27 September 2026",
+          schedule: null,
+        },
+      ],
+    },
+    {
+      weekIndex: 4,
+      hasStreakBadge: false,
+      streakCount: 0,
+      days: [
+        {
+          day: 28,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "scheduled" as const,
+          fullDateStr: "Senin, 28 September 2026",
+          schedule: { bab: "Bab 5: Bangun Datar Segitiga & Segiempat", jam: "08:00 - 09:30 WIB", room: "Ruang 8A", teacher: "Ibu Siti Rahmawati, M.Pd." },
+        },
+        {
+          day: 29,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "normal" as const,
+          fullDateStr: "Selasa, 29 September 2026",
+          schedule: null,
+        },
+        {
+          day: 30,
+          isCurrentMonth: true,
+          isToday: false,
+          status: "scheduled" as const,
+          fullDateStr: "Rabu, 30 September 2026",
+          schedule: { bab: "Bab 5: Keliling & Luas Bangun Datar", jam: "10:00 - 11:30 WIB", room: "Ruang 8A", teacher: "Budi Santoso, S.Pd." },
+        },
+        {
+          day: 1,
+          isCurrentMonth: false,
+          isToday: false,
+          status: "muted" as const,
+          fullDateStr: "Kamis, 1 Oktober 2026",
+          schedule: { bab: "Bab 5: Lingkaran & Sudut", jam: "08:00 - 09:30 WIB", room: "Lab Komputer", teacher: "thinksy AI Tutor" },
+        },
+        {
+          day: 2,
+          isCurrentMonth: false,
+          isToday: false,
+          status: "muted" as const,
+          fullDateStr: "Jumat, 2 Oktober 2026",
+          schedule: null,
+        },
+        {
+          day: 3,
+          isCurrentMonth: false,
+          isToday: false,
+          status: "muted" as const,
+          fullDateStr: "Sabtu, 3 Oktober 2026",
+          schedule: null,
+        },
+        {
+          day: 4,
+          isCurrentMonth: false,
+          isToday: false,
+          status: "muted" as const,
+          fullDateStr: "Minggu, 4 Oktober 2026",
+          schedule: null,
+        },
+      ],
+    },
+  ];
 
   return (
     <div
-      className={`min-h-screen font-sans pb-20 transition-colors duration-200 ${isDarkMode ? "bg-slate-950 text-slate-100" : "bg-[#F8FAFC] text-slate-900"
-        }`}
+      className={`min-h-screen font-sans pb-20 transition-colors duration-200 ${
+        isDarkMode ? "bg-slate-950 text-slate-100" : "bg-[#F8FAFC] text-slate-900"
+      }`}
     >
       {/* 1. ENTERPRISE SAAS NAVBAR */}
       <header
-        className={`sticky top-0 z-40 saas-nav border-b ${isDarkMode
-          ? "bg-slate-900/90 border-slate-800 text-white"
-          : "bg-white border-slate-200 text-slate-900"
-          }`}
+        className={`sticky top-0 z-40 saas-nav border-b ${
+          isDarkMode
+            ? "bg-slate-900/90 border-slate-800 text-white"
+            : "bg-white border-slate-200 text-slate-900"
+        }`}
       >
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 py-3.5">
           {/* Left: Brand Vector Logo & Nav Tabs */}
@@ -1089,13 +1307,44 @@ export default function StudentDashboardClient({
           </div>
 
           {/* Right Header Controls */}
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2.5">
+            {/* Presensi Selfie Button in Navbar */}
+            <div className="relative">
+              {isCheckedIn ? (
+                <div
+                  title={`Presensi hari ini telah dicatat pada pukul ${checkInTime || "08.00"} WIB`}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold shadow-2xs"
+                >
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span className="hidden sm:inline">Hadir ({checkInTime || "08.00"})</span>
+                  <span className="sm:hidden">Hadir</span>
+                </div>
+              ) : (
+                <button
+                  onClick={handleStartCamera}
+                  disabled={isSubmittingAttendance}
+                  title="Ambil foto presensi selfie kehadiran hari ini"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:text-[#0F172A] text-xs font-bold shadow-2xs transition cursor-pointer disabled:opacity-50"
+                >
+                  {isSubmittingAttendance ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
+                  ) : (
+                    <Camera className="w-4 h-4 text-emerald-600" />
+                  )}
+                  <span className="hidden sm:inline">Presensi</span>
+                </button>
+              )}
+            </div>
+
             {/* Real-Time Notification Bell Button */}
             <div className="relative">
               <button
-                onClick={() => setIsNotificationOpen(!isNotificationOpen)}
+                onClick={() => {
+                  setIsNotificationOpen(!isNotificationOpen);
+                  setIsDropdownOpen(false);
+                }}
                 aria-label="Notifikasi"
-                className="relative p-2.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 hover:text-[#0F172A] hover:bg-slate-200 shadow-xs transition cursor-pointer"
+                className="relative p-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:text-[#0F172A] hover:bg-slate-50 shadow-2xs transition cursor-pointer"
               >
                 <Bell className="w-4 h-4" />
                 {notifications.some((n) => !n.dibaca) && (
@@ -1107,7 +1356,7 @@ export default function StudentDashboardClient({
 
               {/* Notification Drawer Popup */}
               {isNotificationOpen && (
-                <div className="absolute right-0 mt-3 w-80 sm:w-96 rounded-2xl saas-modal border border-slate-200 p-4 z-50 shadow-2xl animate-in fade-in duration-150">
+                <div className="absolute right-0 mt-3 w-80 sm:w-96 rounded-2xl saas-modal border border-slate-200 p-4 z-50 shadow-2xl animate-in fade-in duration-150 bg-white">
                   <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-3">
                     <div className="flex items-center gap-2">
                       <Bell className="w-4 h-4 text-blue-600" />
@@ -1120,14 +1369,14 @@ export default function StudentDashboardClient({
                       {notifications.some((n) => !n.dibaca) && (
                         <button
                           onClick={handleMarkAllNotificationsAsRead}
-                          className="text-[10px] text-blue-600 hover:text-blue-800 font-bold hover:underline"
+                          className="text-[10px] text-blue-600 hover:text-blue-800 font-bold hover:underline cursor-pointer"
                         >
                           Tandai Dibaca
                         </button>
                       )}
                       <button
                         onClick={() => setIsNotificationOpen(false)}
-                        className="text-slate-400 hover:text-slate-600"
+                        className="text-slate-400 hover:text-slate-600 cursor-pointer"
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -1143,10 +1392,11 @@ export default function StudentDashboardClient({
                       notifications.map((notif) => (
                         <div
                           key={notif.id}
-                          className={`p-3 rounded-xl border space-y-1 transition ${notif.dibaca
-                            ? "bg-slate-50/70 border-slate-200/60 opacity-80"
-                            : "bg-blue-50/50 border-blue-200"
-                            }`}
+                          className={`p-3 rounded-xl border space-y-1 transition ${
+                            notif.dibaca
+                              ? "bg-slate-50/70 border-slate-200/60 opacity-80"
+                              : "bg-blue-50/50 border-blue-200"
+                          }`}
                         >
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-bold text-[#0F172A] flex items-center gap-1.5">
@@ -1173,7 +1423,10 @@ export default function StudentDashboardClient({
             {/* Profile Avatar Dropdown */}
             <div className="relative">
               <button
-                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                onClick={() => {
+                  setIsDropdownOpen(!isDropdownOpen);
+                  setIsNotificationOpen(false);
+                }}
                 className="flex items-center space-x-2 focus:outline-none cursor-pointer group"
               >
                 <div className="w-9 h-9 rounded-xl bg-[#0F172A] text-white flex items-center justify-center font-bold text-xs shadow-xs border border-slate-700 group-hover:scale-105 transition duration-200 overflow-hidden">
@@ -1196,7 +1449,7 @@ export default function StudentDashboardClient({
 
               {/* Profile Dropdown Menu */}
               {isDropdownOpen && (
-                <div className="absolute right-0 mt-3 w-64 rounded-2xl saas-modal border border-slate-200 p-3 z-50 shadow-2xl animate-in fade-in duration-150">
+                <div className="absolute right-0 mt-3 w-64 rounded-2xl saas-modal border border-slate-200 p-3 z-50 shadow-2xl animate-in fade-in duration-150 bg-white">
                   <div className="p-3 rounded-xl bg-slate-100 border border-slate-200 mb-2">
                     <div className="text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">
                       Nama Akun:
@@ -1268,13 +1521,10 @@ export default function StudentDashboardClient({
         <main className="mx-auto max-w-7xl px-4 sm:px-6 pt-6 space-y-8">
           {!sekolahData ? (
             <section className="relative rounded-3xl overflow-hidden shadow-xl border border-amber-500/30 text-white bg-slate-900 w-full mb-8">
-              {/* UNASSIGNED STUDENT PLACEHOLDER HERO SECTION (FULL WIDTH & COMPACT) */}
-              {/* Ambient Dark/Amber Background Mesh */}
               <div className="absolute inset-0 bg-linear-to-r from-amber-950/40 via-slate-900 to-slate-950 opacity-90" />
               <div className="absolute -right-10 -bottom-10 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
 
               <div className="relative z-10 p-6 sm:p-8 flex flex-col md:flex-row items-center justify-between gap-6 text-center md:text-left">
-                {/* Left Side: Icon & Title Info */}
                 <div className="flex flex-col md:flex-row items-center md:items-start gap-4 max-w-3xl">
                   <div className="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center shrink-0 shadow-inner">
                     <TriangleAlert className="w-7 h-7 text-amber-400" />
@@ -1287,7 +1537,6 @@ export default function StudentDashboardClient({
                       Halo, <strong className="text-white">{studentName}</strong>! Akun siswa Anda saat ini belum dihubungkan dengan database sekolah manapun di platform Thinksy.
                     </p>
 
-                    {/* Warning Imbauan Sentence */}
                     <div className="mt-3 p-3.5 rounded-2xl bg-amber-500/15 border border-amber-400/30 text-amber-200 text-xs font-semibold leading-relaxed flex items-start gap-2.5 shadow-xs">
                       <HelpCircle className="w-4.5 h-4.5 text-amber-400 shrink-0 mt-0.5" />
                       <span>
@@ -1297,7 +1546,6 @@ export default function StudentDashboardClient({
                   </div>
                 </div>
 
-                {/* Right Side: Action Button */}
                 <div className="shrink-0 flex flex-col sm:flex-row md:flex-col gap-2.5 w-full md:w-auto">
                   <button
                     onClick={() => window.location.reload()}
@@ -1311,44 +1559,36 @@ export default function StudentDashboardClient({
             </section>
           ) : (
             <section className="relative rounded-3xl overflow-hidden shadow-xl border border-slate-800 text-white bg-slate-900">
-              {/* SCHOOL HERO HEADER SECTION WITH BACKGROUND IMAGE */}
-              {/* Background Image Container */}
               <div 
                 className="absolute inset-0 bg-cover bg-center transition-all duration-700 transform hover:scale-105"
                 style={{
                   backgroundImage: `url('${sekolahData.bg_image_url || "/images/smk-muh1-playen.jpg"}')`,
                 }}
               />
-              {/* Gradient Overlay for Optimum Text Readability */}
               <div className="absolute inset-0 bg-linear-to-t from-slate-950 via-slate-900/85 to-slate-900/60 backdrop-blur-[1px]" />
 
-              {/* Center-Aligned School Information */}
               <div className="relative z-10 p-8 sm:p-12 flex flex-col items-center justify-center text-center space-y-4 max-w-4xl mx-auto">
                 <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 text-xs font-extrabold uppercase tracking-wider shadow-xs backdrop-blur-md">
                   <GraduationCap className="w-4 h-4 text-blue-400" />
                   <span>Kurikulum Merdeka • Sekolah Pusat Keunggulan</span>
                 </div>
 
-                {/* 1. Nama Sekolah (Rata Tengah) */}
                 <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight drop-shadow-md leading-tight">
                   {sekolahData.nama}
                 </h1>
 
-                {/* 2. Motto Sekolah (Rata Tengah) */}
                 {sekolahData.motto && (
                   <p className="text-amber-400 font-extrabold text-sm sm:text-base tracking-wide drop-shadow-sm max-w-2xl">
                     ✨ {sekolahData.motto}
                   </p>
                 )}
 
-                {/* 3. Deskripsi Sekolah (Rata Tengah) */}
                 {sekolahData.deskripsi && (
                   <p className="text-slate-200 text-xs sm:text-sm max-w-3xl leading-relaxed font-medium mt-1">
                     {sekolahData.deskripsi}
                   </p>
                 )}
 
-                {/* 4. Maksimal 3 Link (1 Baris Horizontal, Rata Tengah) */}
                 {sekolahData.links && sekolahData.links.length > 0 && (
                   <div className="flex flex-wrap justify-center items-center gap-3 pt-3">
                     {sekolahData.links.slice(0, 3).map((link, idx) => (
@@ -1372,73 +1612,58 @@ export default function StudentDashboardClient({
 
           {/* TOP 2-CARD LAYOUT: STUDENT LEARNING HUB */}
           <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* CARD KIRI: Student Overview & Learning Activity (Wide - lg:col-span-2) */}
-            <div className="lg:col-span-2 saas-card p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden bg-white flex flex-col justify-between space-y-4">
-              <div className="space-y-3">
-                {/* Top Pill Badge: Ranking */}
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    onClick={() => setActiveTab("Peringkat")}
-                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-blue-800 text-xs font-bold border border-blue-200 hover:bg-blue-100 transition cursor-pointer"
-                  >
-                    <Trophy className="w-3.5 h-3.5 text-blue-600" />
-                    <span>
-                      🏆 Peringkat: #{currentUserRank} dari {totalStudentsCount} Siswa →
-                    </span>
-                  </button>
-                </div>
-
-                {/* Greeting Title & Subtext */}
-                <div className="space-y-1">
-                  <h2 className="text-2xl sm:text-3xl font-extrabold text-[#0F172A] tracking-tight">
-                    Selamat Datang Kembali, {studentName.split(" ")[0]}! 👋
+            {/* CARD KIRI: Student Overview, Quick Action & Linear Metrics */}
+            <div className="lg:col-span-2 saas-card p-6 sm:p-7 rounded-3xl border border-slate-200 shadow-xs relative overflow-hidden bg-white flex flex-col justify-between space-y-5">
+              <div className="space-y-1.5">
+                {/* Greeting Title & Simpler Rank */}
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <h2 className="text-2xl sm:text-3xl font-black text-[#0F172A] tracking-tight">
+                    Selamat Datang Kembali, {studentName.split(" ")[0]}!
                   </h2>
-                  <p className="text-slate-600 text-xs sm:text-sm leading-relaxed font-medium max-w-xl">
-                    Selesaikan tugas harianmu untuk mengumpulkan poin dan tingkatkan pemahamanmu bersama Tutor AI.
-                  </p>
+                  <span className="text-xs font-black text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200 tracking-wide">
+                    #{currentUserRank}
+                  </span>
                 </div>
+                <p className="text-slate-500 text-xs sm:text-sm leading-relaxed font-medium max-w-xl">
+                  Selesaikan tugas harianmu dan tingkatkan pemahamanmu bersama Tutor AI Thinksy.
+                </p>
               </div>
 
-              {/* Middle Row inside Card Kiri: Presensi Selfie & Progress Ring */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-stretch bg-slate-50/70 p-3 rounded-2xl border border-slate-200/80">
-                {/* Presensi Selfie Status Card */}
-                <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-xs flex flex-col justify-between space-y-2">
-                  <span className="text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">
-                    PRESENSI SELFIE KEHADIRAN
-                  </span>
-                  {isCheckedIn ? (
-                    <button
-                      disabled
-                      className="w-full inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-emerald-600 text-white font-extrabold text-xs shadow-xs"
-                    >
-                      <CheckCircle2 className="w-4 h-4 text-white" />
-                      <span>Sudah Absen – Hadir ({checkInTime || "08.58"})</span>
-                    </button>
-                  ) : (
-                    <button
-                      onClick={handleStartCamera}
-                      disabled={isSubmittingAttendance}
-                      className="w-full inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-white font-bold text-xs shadow-md transition cursor-pointer disabled:opacity-50"
-                    >
-                      {isSubmittingAttendance ? (
-                        <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
-                      ) : (
-                        <Camera className="w-4 h-4 text-amber-400" />
-                      )}
-                      <span>
-                        {isSubmittingAttendance ? "Menyimpan..." : "Presensi Selfie Kehadiran"}
-                      </span>
-                    </button>
-                  )}
+              {/* Quick Resume Card / Target Pembelajaran Terakhir */}
+              {top3Chapters && top3Chapters.length > 0 && (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/40 border border-blue-100/80 shadow-2xs">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs font-bold text-xs">
+                      <BookOpen className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-extrabold text-blue-700 uppercase tracking-wider">
+                        Lanjutkan Pembelajaran Terakhir
+                      </div>
+                      <div className="text-sm font-black text-[#0F172A] line-clamp-1">
+                        {top3Chapters[0].judul}
+                      </div>
+                    </div>
+                  </div>
+                  <Link
+                    href={`/bab/${top3Chapters[0].id}`}
+                    className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-extrabold transition shadow-xs cursor-pointer hover:scale-105 shrink-0"
+                  >
+                    <span>Lanjut Belajar</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </Link>
                 </div>
+              )}
 
-                {/* Learning Progress Ring Card */}
-                <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-xs flex items-center gap-4">
+              {/* Linear Metrics Row: Progress Ring, Poin, Streak */}
+              <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-200/80">
+                {/* 1. Ring Progress */}
+                <div className="flex items-center gap-3">
                   <div className="relative w-12 h-12 flex items-center justify-center shrink-0">
                     <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
                       <path
-                        className="text-slate-100"
-                        strokeWidth="4"
+                        className="text-slate-200"
+                        strokeWidth="3.5"
                         stroke="currentColor"
                         fill="none"
                         d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
@@ -1446,7 +1671,7 @@ export default function StudentDashboardClient({
                       <path
                         className="text-blue-600 transition-all duration-500"
                         strokeDasharray={`${learningProgressPercent}, 100`}
-                        strokeWidth="4"
+                        strokeWidth="3.5"
                         strokeLinecap="round"
                         stroke="currentColor"
                         fill="none"
@@ -1458,134 +1683,196 @@ export default function StudentDashboardClient({
                     </span>
                   </div>
                   <div>
-                    <div className="text-sm font-extrabold text-[#0F172A]">
+                    <div className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                      PROGRES
+                    </div>
+                    <div className="text-sm font-black text-slate-800">
                       {learningProgressPercent}% Selesai
                     </div>
-                    <div className="text-xs font-semibold text-slate-500">
-                      {answeredSoalCount} / {totalSoalCount} Soal Dikerjakan
-                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Bottom Metrics Row inside Card Kiri: Poin Belajar & Daily Streak */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Poin Belajar Box */}
-                <div className="flex items-center gap-3.5 p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200/80 shadow-xs">
-                  <div className="w-9 h-9 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0">
-                    <Trophy className="w-4.5 h-4.5 text-amber-600" />
+                {/* Divider */}
+                <div className="hidden sm:block h-8 w-px bg-slate-200" />
+
+                {/* 2. Poin Belajar */}
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-700 flex items-center justify-center font-bold">
+                    <Trophy className="w-5 h-5 text-amber-600" />
                   </div>
                   <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-extrabold text-amber-800 uppercase tracking-wider">
-                        POIN BELAJAR
-                      </span>
-                      <span className="text-[9px] font-extrabold bg-amber-200/70 text-amber-900 px-1.5 py-0.5 rounded-full">
-                        1 KUIS = 15 POIN
-                      </span>
+                    <div className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                      POIN BELAJAR
                     </div>
-                    <div className="text-sm font-black text-amber-950 mt-0.5">
-                      {learningPoints} Poin ({completedQuizCount} Kuis Selesai)
+                    <div className="text-sm font-black text-slate-900">
+                      {learningPoints.toLocaleString("id-ID")} <span className="text-xs font-semibold text-slate-500">Poin</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Daily Streak Box */}
-                <div className="flex items-center gap-3.5 p-3.5 rounded-2xl bg-orange-50/80 border border-orange-200/80 shadow-xs">
-                  <div className="w-9 h-9 rounded-xl bg-orange-500/20 flex items-center justify-center shrink-0">
-                    <Flame className="w-4.5 h-4.5 text-orange-600" />
+                {/* Divider */}
+                <div className="hidden sm:block h-8 w-px bg-slate-200" />
+
+                {/* 3. Daily Streak */}
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-orange-500/15 text-orange-600 flex items-center justify-center font-bold">
+                    <Flame className="w-5 h-5 text-orange-500 fill-orange-400" />
                   </div>
                   <div>
-                    <div className="text-[10px] font-extrabold text-orange-800 uppercase tracking-wider">
+                    <div className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
                       DAILY STREAK
                     </div>
-                    <div className="text-sm font-black text-orange-950 mt-0.5">
-                      🔥 {dailyStreak} Hari Streak
+                    <div className="text-sm font-black text-slate-900">
+                      {dailyStreak} <span className="text-xs font-semibold text-slate-500">Hari</span>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* CARD KANAN: Live Class Schedule (Compact - lg:col-span-1 - Dark Navy #0F172A) */}
-            <div className="lg:col-span-1 p-6 sm:p-7 rounded-3xl bg-[#0F172A] text-white shadow-xl border border-slate-800 flex flex-col justify-between space-y-6 relative overflow-hidden">
-              {/* Header */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-xl font-extrabold text-white tracking-tight flex items-center gap-2">
-                    Jadwal Kelas Saya
-                  </h3>
-                  <div className="w-10 h-10 rounded-2xl bg-slate-800/80 border border-slate-700/80 flex items-center justify-center text-amber-400">
-                    <Calendar className="w-5 h-5" />
-                  </div>
-                </div>
-                <p className="text-xs text-slate-400 font-medium">
-                  Lihat agenda mingguan terintegrasi →
-                </p>
+            {/* CARD KANAN: Custom Calendar View (Clean, Light Theme) */}
+            <div className="lg:col-span-1 p-5 sm:p-6 rounded-3xl bg-white text-slate-900 shadow-xs border border-slate-200 flex flex-col justify-between space-y-4 relative">
+              {/* Header: Month Year */}
+              <div className="pb-1">
+                <h3 className="text-xl font-black text-[#0F172A] tracking-tight">
+                  September 2026
+                </h3>
               </div>
 
-              {/* Live Realtime Schedule List */}
-              <div className="space-y-3 flex-1 overflow-y-auto max-h-64 pr-1">
-                {schedulesData && schedulesData.length > 0 ? (
-                  schedulesData.slice(0, 3).map((item, idx) => {
-                    const nowHour = new Date().getHours();
-                    const isLive = idx === 0 && nowHour >= 8 && nowHour < 10;
-                    return (
-                      <div
-                        key={item.id || idx}
-                        className={`p-3.5 rounded-2xl border transition duration-200 ${
-                          isLive
-                            ? "bg-slate-800/90 border-emerald-500/60 ring-1 ring-emerald-500/30"
-                            : "bg-slate-900/60 border-slate-800"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between text-xs font-mono font-bold mb-1">
-                          <span className="text-amber-400">{item.time}</span>
-                          {isLive ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 animate-pulse font-bold">
-                              🟢 Sedang Berlangsung
-                            </span>
-                          ) : idx === 1 ? (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30 font-bold">
-                              🔵 Berikutnya
-                            </span>
-                          ) : (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-bold">
-                              ⚪ Belum Dimulai
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-sm font-extrabold text-white">{item.subject}</div>
-                        <div className="text-xs text-slate-400 mt-0.5 flex items-center justify-between">
-                          <span>{item.teacher}</span>
-                          <span className="text-[10px] text-slate-300 bg-slate-800 px-2 py-0.5 rounded-md font-semibold">
-                            {item.room}
-                          </span>
-                        </div>
+              {/* Days of Week Header Row */}
+              <div className="grid grid-cols-8 gap-1 text-center text-xs font-bold text-slate-400">
+                <span>M</span>
+                <span>T</span>
+                <span>W</span>
+                <span>T</span>
+                <span>F</span>
+                <span>S</span>
+                <span>S</span>
+                <span></span>
+              </div>
+
+              {/* Calendar Date Grid (5 Weeks) */}
+              <div className="space-y-2">
+                {calendarWeeks.map((week, wIdx) => (
+                  <div key={wIdx} className="grid grid-cols-8 gap-1 items-center">
+                    {week.days.map((dayObj, dIdx) => (
+                      <div key={dIdx} className="relative group/day flex items-center justify-center">
+                        {/* 1. Hari Ini (Today) */}
+                        {dayObj.status === "today" ? (
+                          <div className="w-8 h-8 sm:w-8.5 sm:h-8.5 rounded-full border-2 border-blue-600 bg-blue-50/60 text-blue-700 font-black flex items-center justify-center text-xs shadow-xs cursor-pointer ring-2 ring-blue-500/20 hover:scale-105 transition duration-150">
+                            {dayObj.day}
+                          </div>
+                        ) : /* 2. Hari Terdeteksi Streak */
+                        dayObj.status === "streak" ? (
+                          <div className="w-8 h-8 sm:w-8.5 sm:h-8.5 rounded-full bg-orange-50 border border-orange-300 text-orange-700 font-black flex items-center justify-center text-xs shadow-2xs cursor-pointer hover:scale-105 hover:bg-orange-100 transition duration-150">
+                            {dayObj.day}
+                          </div>
+                        ) : /* 3. Hari yang Ada Jadwal Bab (Background Abu-abu & Hoverable) */
+                        dayObj.status === "scheduled" ? (
+                          <div className="w-8 h-8 sm:w-8.5 sm:h-8.5 rounded-full bg-slate-100 border border-slate-200 text-slate-900 font-bold flex items-center justify-center text-xs shadow-2xs cursor-pointer hover:bg-slate-200 hover:border-slate-400 hover:scale-105 transition duration-150">
+                            {dayObj.day}
+                          </div>
+                        ) : /* 4. Hari yang Sudah Dilewati (Past) */
+                        dayObj.status === "past" ? (
+                          <div className="w-8 h-8 sm:w-8.5 sm:h-8.5 rounded-full border border-slate-100 text-slate-400 font-medium flex items-center justify-center text-xs cursor-pointer hover:bg-slate-50 transition duration-150">
+                            {dayObj.day}
+                          </div>
+                        ) : /* 5. Hari Luar Bulan (Muted) */
+                        !dayObj.isCurrentMonth ? (
+                          <div className="w-8 h-8 sm:w-8.5 sm:h-8.5 rounded-full flex items-center justify-center text-xs font-semibold text-slate-300 cursor-pointer hover:text-slate-400 transition duration-150">
+                            {dayObj.day}
+                          </div>
+                        ) : /* 6. Hari Normal Tanpa Jadwal */ (
+                          <div className="w-8 h-8 sm:w-8.5 sm:h-8.5 rounded-full border border-slate-200 text-slate-600 font-medium flex items-center justify-center text-xs cursor-pointer hover:border-slate-400 hover:bg-slate-50 transition duration-150">
+                            {dayObj.day}
+                          </div>
+                        )}
+
+                        {/* Hover Tooltip - Clean Light Theme */}
+                        {(dayObj.schedule || dayObj.status === "streak" || dayObj.status === "today" || dayObj.status === "past") && (
+                          <div
+                            className={`absolute ${
+                              wIdx <= 1 ? "top-full mt-2" : "bottom-full mb-2"
+                            } ${
+                              dIdx <= 1 ? "left-0" : dIdx >= 5 ? "right-0" : "left-1/2 -translate-x-1/2"
+                            } w-56 p-3 bg-white text-slate-900 rounded-2xl shadow-xl border border-slate-200 pointer-events-none opacity-0 group-hover/day:opacity-100 transition-all duration-200 z-50 text-left`}
+                          >
+                            {/* Header: Date + State Status */}
+                            <div className="flex items-center justify-between border-b border-slate-100 pb-1.5 mb-1.5">
+                              <span className="text-[11px] font-bold text-slate-500">
+                                {dayObj.fullDateStr}
+                              </span>
+                              {dayObj.status === "today" ? (
+                                <span className="text-[10px] font-extrabold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">
+                                  Hari Ini
+                                </span>
+                              ) : dayObj.status === "streak" ? (
+                                <span className="text-[10px] font-extrabold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded-md flex items-center gap-0.5">
+                                  <Flame className="w-3 h-3 fill-orange-500 text-orange-500" />
+                                  Streak
+                                </span>
+                              ) : dayObj.schedule ? (
+                                <span className="text-[10px] font-bold text-slate-500">
+                                  Terjadwal
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-bold text-slate-400">
+                                  Selesai
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Body: Chapter Name or Activity Info */}
+                            {dayObj.schedule ? (
+                              <div className="space-y-1">
+                                <div className="text-xs font-black text-[#0F172A] leading-snug">
+                                  {dayObj.schedule.bab}
+                                </div>
+                                <div className="text-[11px] text-blue-600 font-bold flex items-center gap-1.5">
+                                  <Clock className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                                  <span>{dayObj.schedule.jam}</span>
+                                </div>
+                                {dayObj.schedule.room && (
+                                  <div className="text-[10px] text-slate-500 font-medium">
+                                    📍 {dayObj.schedule.room} {dayObj.schedule.teacher ? `• ${dayObj.schedule.teacher}` : ""}
+                                  </div>
+                                )}
+                              </div>
+                            ) : dayObj.status === "streak" ? (
+                              <div className="space-y-0.5">
+                                <div className="text-xs font-black text-orange-700">
+                                  Streak Belajar Aktif 🔥
+                                </div>
+                                <div className="text-[10px] text-slate-500 font-medium">
+                                  Presensi & aktivitas harian terselesaikan dengan baik.
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="text-[10px] text-slate-500">
+                                Tidak ada jadwal kelas pada tanggal ini.
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
-                    );
-                  })
-                ) : (
-                  <p className="text-xs text-slate-400 italic">Belum ada jadwal untuk hari ini.</p>
-                )}
-              </div>
+                    ))}
 
-              {/* Footer CTA */}
-              <div className="pt-4 border-t border-slate-800/80 flex items-center justify-between gap-3">
-                <span className="text-xs font-bold text-slate-400">
-                  {schedulesData?.length || 3} Sesi Terjadwal
-                </span>
-                <Link
-                  href="/schedule"
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#F59E0B] hover:bg-amber-400 text-slate-950 font-extrabold text-xs transition duration-200 cursor-pointer shadow-md hover:scale-105"
-                >
-                  <span>Buka Jadwal →</span>
-                </Link>
+                    {/* Right Streak Column: Flame badge sesuai streak mingguan siswa */}
+                    <div className="flex items-center justify-center">
+                      {week.hasStreakBadge && week.streakCount > 0 ? (
+                        <div className="w-8 h-8 sm:w-8.5 sm:h-8.5 rounded-full bg-gradient-to-tr from-orange-600 to-orange-500 text-white flex items-center justify-center shadow-md shadow-orange-500/30 font-black text-xs">
+                          <Flame className="w-4 h-4 fill-white" />
+                          <span className="ml-0.5">{week.streakCount}</span>
+                        </div>
+                      ) : (
+                        <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full border border-slate-200" />
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </section>
-
-
 
           {/* DAILY MISSIONS WIDGET */}
           <div className="relative">
@@ -1603,60 +1890,33 @@ export default function StudentDashboardClient({
               </div>
             )}
             <section className={`saas-card rounded-3xl p-6 border border-slate-200/90 shadow-sm bg-white space-y-5 ${!sekolahData ? "filter blur-[2.5px] select-none pointer-events-none opacity-60" : ""}`}>
-              {/* Header Misi Harian */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
-                <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-amber-500 via-orange-500 to-amber-600 text-white flex items-center justify-center shadow-md shadow-amber-500/20 shrink-0">
-                    <Target className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-lg font-black text-slate-900 tracking-tight">
-                        Misi Harian Siswa
-                      </h2>
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100/90 text-amber-900 border border-amber-300/60 uppercase tracking-wider">
-                        <Sparkles className="w-3 h-3 text-amber-600 fill-amber-500" /> Daily Quest
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-500 font-medium mt-0.5">
-                      Selesaikan tantangan belajar harian untuk mengklaim bonus Poin & tingkatkan peringkatmu!
-                    </p>
-                  </div>
-                </div>
-
-                {/* Ringkasan Progres Misi Harian */}
-                <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-slate-50 border border-slate-200/80 shadow-xs shrink-0 self-start sm:self-auto">
-                  <Trophy className="w-4 h-4 text-amber-500 fill-amber-400" />
-                  <span className="text-xs font-bold text-slate-700">
-                    <strong className="text-slate-900 font-black">
-                      {dailyMissions.filter((m) => m.diklaim).length}
-                    </strong>{" "}
-                    / {dailyMissions.length || 3} Selesai
-                  </span>
-                </div>
+              {/* Header Misi Harian (Clean) */}
+              <div className="pb-3 border-b border-slate-100">
+                <h2 className="text-lg font-black text-slate-900 tracking-tight">
+                  Misi Harian Siswa
+                </h2>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  Selesaikan tantangan belajar harian untuk mengklaim bonus Poin & tingkatkan peringkatmu!
+                </p>
               </div>
 
               {/* Grid Kartu Misi Harian */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {isMissionsLoading ? (
-                  // Skeleton Loading State
                   [...Array(3)].map((_, i) => (
                     <div
                       key={i}
                       className="p-5 rounded-3xl border bg-slate-50/80 border-slate-100 space-y-4 animate-pulse"
                     >
                       <div className="flex items-center justify-between gap-3">
-                        <div className="w-10 h-10 bg-slate-200 rounded-2xl shrink-0" />
                         <div className="h-4 bg-slate-200 rounded w-1/2" />
                         <div className="h-5 bg-amber-100 rounded-xl w-16" />
                       </div>
                       <div className="h-3 bg-slate-200 rounded w-full" />
-                      <div className="h-2 bg-slate-200 rounded-full w-full" />
                       <div className="h-9 bg-slate-200 rounded-2xl w-full" />
                     </div>
                   ))
                 ) : dailyMissions.length === 0 ? (
-                  // Empty State
                   <div className="col-span-3 text-center py-8 bg-slate-50/60 rounded-3xl border border-dashed border-slate-200 text-slate-400 text-xs font-semibold flex flex-col items-center justify-center gap-2">
                     <Target className="w-8 h-8 text-slate-300" />
                     <span>Misi harian tidak tersedia. Pastikan akun Anda terhubung ke sekolah.</span>
@@ -1666,156 +1926,55 @@ export default function StudentDashboardClient({
                     const isCompleted = Number(misi.progres_saat_ini) >= Number(misi.target_max);
                     const isClaimed = Boolean(misi.diklaim);
 
-                    const judulLower = misi.judul.toLowerCase();
-                    const isPresensi = judulLower.includes("presensi");
-                    const isKuis = judulLower.includes("kuis") || judulLower.includes("latihan");
-
                     return (
                       <div
                         key={misi.id}
                         className={`group relative rounded-3xl border p-5 transition-all duration-300 flex flex-col justify-between space-y-4 overflow-hidden ${
                           isClaimed
-                            ? "bg-gradient-to-b from-emerald-50/60 via-white to-emerald-50/20 border-emerald-200/90 shadow-xs"
+                            ? "bg-emerald-50/40 border-emerald-200/90 shadow-xs"
                             : isCompleted
-                            ? "bg-gradient-to-b from-amber-50/80 via-white to-orange-50/30 border-amber-400/90 shadow-md shadow-amber-500/10 ring-2 ring-amber-400/30"
-                            : "bg-white hover:bg-slate-50/60 border-slate-200/90 hover:border-slate-300 shadow-xs hover:shadow-md"
+                            ? "bg-amber-50/50 border-amber-300 shadow-md shadow-amber-500/10 ring-1 ring-amber-300"
+                            : "bg-white hover:bg-slate-50/60 border-slate-200 hover:border-slate-300 shadow-xs"
                         }`}
                       >
-                        {/* Accent Bar di Atas Kartu */}
-                        <div
-                          className={`absolute top-0 left-0 right-0 h-1 transition-all ${
-                            isClaimed
-                              ? "bg-gradient-to-r from-emerald-400 to-teal-500"
-                              : isCompleted
-                              ? "bg-gradient-to-r from-amber-400 via-orange-500 to-amber-500"
-                              : "bg-slate-200 group-hover:bg-slate-300"
-                          }`}
-                        />
-
-                        <div className="space-y-3">
-                          {/* Header Kartu: Ikon Lucide + Judul + Pill Poin */}
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex items-start gap-3">
-                              <div
-                                className={`p-2.5 rounded-2xl shrink-0 transition-transform group-hover:scale-105 ${
-                                  isClaimed
-                                    ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
-                                    : isCompleted
-                                    ? "bg-amber-100 text-amber-800 border border-amber-200 shadow-xs"
-                                    : isPresensi
-                                    ? "bg-blue-50 text-blue-600 border border-blue-100"
-                                    : isKuis
-                                    ? "bg-violet-50 text-violet-600 border border-violet-100"
-                                    : "bg-emerald-50 text-emerald-600 border border-emerald-100"
-                                }`}
-                              >
-                                {isPresensi ? (
-                                  <Camera className="w-5 h-5" />
-                                ) : isKuis ? (
-                                  <BookOpen className="w-5 h-5" />
-                                ) : (
-                                  <BrainCircuit className="w-5 h-5" />
-                                )}
-                              </div>
-
-                              <div>
-                                <h3 className="text-sm font-extrabold text-slate-900 group-hover:text-amber-950 transition-colors leading-snug">
-                                  {misi.judul}
-                                </h3>
-                                <p className="text-xs text-slate-500 font-medium mt-1 leading-relaxed">
-                                  {misi.deskripsi || "Selesaikan target misi ini hari ini."}
-                                </p>
-                              </div>
-                            </div>
-
-                            <span
-                              className={`inline-flex items-center gap-1 text-[11px] font-black px-2.5 py-1 rounded-xl shrink-0 transition-all ${
-                                isClaimed
-                                  ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
-                                  : isCompleted
-                                  ? "bg-gradient-to-r from-amber-400 to-orange-400 text-amber-950 font-black shadow-xs border border-amber-300 animate-pulse"
-                                  : "bg-amber-50 text-amber-900 border border-amber-200/80"
-                              }`}
-                            >
-                              <Gift className="w-3.5 h-3.5 text-amber-600" />
-                              <span>+{misi.poin_hadiah || 20} Poin</span>
+                        <div className="space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <h3 className="text-sm font-extrabold text-slate-900 group-hover:text-amber-950 transition-colors leading-snug">
+                              {misi.judul}
+                            </h3>
+                            <span className="inline-flex items-center gap-1 text-[11px] font-black px-2.5 py-0.5 rounded-xl bg-amber-50 text-amber-900 border border-amber-200 shrink-0">
+                              +{misi.poin_hadiah || 20} Poin
                             </span>
                           </div>
-
-                          {/* Progress Bar & Indikator Angka */}
-                          <div className="space-y-1.5 pt-1">
-                            <div className="flex items-center justify-between text-[11px] font-bold">
-                              <span className="text-slate-400 flex items-center gap-1">
-                                <Clock className="w-3 h-3 text-slate-400" /> Progres Target
-                              </span>
-                              <span
-                                className={
-                                  isCompleted
-                                    ? "text-emerald-700 font-black"
-                                    : "text-slate-700 font-extrabold"
-                                }
-                              >
-                                {misi.progres_saat_ini} / {misi.target_max}
-                              </span>
-                            </div>
-                            <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden p-0.5 border border-slate-200/50">
-                              <div
-                                className={`h-full rounded-full transition-all duration-500 ${
-                                  isClaimed
-                                    ? "bg-gradient-to-r from-emerald-400 to-teal-500"
-                                    : isCompleted
-                                    ? "bg-gradient-to-r from-amber-400 via-orange-500 to-amber-500 shadow-xs shadow-amber-500/50"
-                                    : "bg-slate-300"
-                                }`}
-                                style={{
-                                  width: `${Math.min(
-                                    100,
-                                    Math.round(
-                                      (Number(misi.progres_saat_ini) / Number(misi.target_max)) *
-                                        100
-                                    )
-                                  )}%`,
-                                }}
-                              />
-                            </div>
-                          </div>
+                          <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                            {misi.deskripsi || "Selesaikan target misi ini hari ini."}
+                          </p>
                         </div>
 
-                        {/* Tombol Aksi Misi */}
+                        {/* Tombol Aksi Misi - Hanya Klaim */}
                         <div className="pt-2">
                           {isClaimed ? (
                             <button
                               disabled
-                              className="w-full py-2.5 rounded-2xl bg-emerald-100/90 text-emerald-800 text-xs font-black flex items-center justify-center gap-2 cursor-not-allowed border border-emerald-200 shadow-2xs"
+                              className="w-full py-2.5 rounded-2xl bg-emerald-100 text-emerald-800 text-xs font-black flex items-center justify-center gap-1.5 cursor-not-allowed border border-emerald-200"
                             >
                               <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                              <span>Sudah Diklaim ✓</span>
-                            </button>
-                          ) : isCompleted ? (
-                            <button
-                              onClick={() => handleClaimMission(misi.id)}
-                              disabled={isClaimingMissionId === misi.id}
-                              className="w-full py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 hover:from-amber-600 hover:to-orange-600 active:scale-[0.98] text-white text-xs font-black transition-all shadow-md shadow-amber-500/30 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                            >
-                              {isClaimingMissionId === misi.id ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : (
-                                <Sparkles className="w-4 h-4 fill-white" />
-                              )}
-                              <span>Klaim +{misi.poin_hadiah || 20} Poin</span>
+                              <span>Sudah Diklaim</span>
                             </button>
                           ) : (
                             <button
                               onClick={() => handleClaimMission(misi.id)}
                               disabled={isClaimingMissionId === misi.id}
-                              className="w-full py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 active:scale-[0.98] text-slate-700 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 border border-slate-200 shadow-2xs"
+                              className={`w-full py-2.5 rounded-2xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 ${
+                                isCompleted
+                                  ? "bg-amber-500 hover:bg-amber-600 text-white shadow-md shadow-amber-500/20 active:scale-[0.98]"
+                                  : "bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200"
+                              }`}
                             >
                               {isClaimingMissionId === misi.id ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : (
-                                <Award className="w-4 h-4 text-slate-500" />
-                              )}
-                              <span>Klaim +{misi.poin_hadiah || 20} Poin</span>
+                              ) : null}
+                              <span>Klaim</span>
                             </button>
                           )}
                         </div>
@@ -1827,132 +1986,7 @@ export default function StudentDashboardClient({
             </section>
           </div>
 
-          {/* PRIORITY AGENDA: DEADLINES & FOKUS HARI INI (SIDE-BY-SIDE) */}
-          <div className="relative">
-            {!sekolahData && (
-              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-900/40 backdrop-blur-[2.5px] rounded-3xl p-4 text-center">
-                <div className="w-10 h-10 rounded-2xl bg-[#0F172A] text-amber-400 border border-slate-700 flex items-center justify-center shadow-lg mb-1.5">
-                  <Lock className="w-5 h-5" />
-                </div>
-                <span className="text-xs font-black text-white uppercase tracking-wider bg-slate-950/80 px-3.5 py-1 rounded-full border border-slate-700 shadow-sm">
-                  Fitur Dikunci
-                </span>
-                <p className="text-[11px] text-slate-200 font-semibold mt-1">
-                  Agenda & Fokus Hari Ini tidak bisa diakses — Akun belum terhubung ke sekolah
-                </p>
-              </div>
-            )}
-            <section className={`grid grid-cols-1 lg:grid-cols-2 gap-6 ${!sekolahData ? "filter blur-[2.5px] select-none pointer-events-none opacity-60" : ""}`}>
-              {/* KARTU KIRI: Tenggat Waktu Agenda */}
-              <div className="saas-card rounded-3xl p-6 border border-slate-200/90 shadow-sm bg-white flex flex-col justify-between space-y-4">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-base font-extrabold text-[#0F172A] flex items-center gap-2">
-                      <Clock className="w-4.5 h-4.5 text-amber-500" />
-                      <span>Tenggat Waktu Agenda</span>
-                    </h2>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                      Dynamic Database
-                    </span>
-                  </div>
-
-                  <div className="space-y-3">
-                    {(deadlinesData || []).map((dl) => (
-                      <div
-                        key={dl.id}
-                        className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 border border-slate-200 shadow-xs"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-11 h-11 rounded-xl bg-slate-100 border border-slate-200 flex flex-col items-center justify-center shrink-0">
-                            <span className="text-[9px] font-extrabold uppercase leading-none text-slate-600">
-                              {dl.dayBadge}
-                            </span>
-                            <span className="text-sm font-extrabold leading-none mt-0.5 text-[#0F172A]">
-                              {dl.dateNum}
-                            </span>
-                          </div>
-                          <div>
-                            <h3 className="text-xs font-extrabold text-slate-800">
-                              {dl.title}
-                            </h3>
-                            <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-0.5">
-                              <Clock className={`w-3 h-3 ${dl.iconColor}`} />
-                              <span>{dl.desc}</span>
-                            </div>
-                          </div>
-                        </div>
-                        <span
-                          className={`text-[10px] font-extrabold px-3 py-1 rounded-full border ${dl.badgeColor}`}
-                        >
-                          {dl.urgency}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* KARTU KANAN: Fokus Hari Ini */}
-              <div className="saas-card rounded-3xl p-6 border border-slate-200/90 shadow-sm bg-white flex flex-col justify-between space-y-4">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600">
-                        <Target className="w-4.5 h-4.5" />
-                      </div>
-                      <div>
-                        <h3 className="text-base font-extrabold text-[#0F172A] tracking-tight">
-                          🎯 Fokus Hari Ini
-                        </h3>
-                        <p className="text-xs text-slate-500 font-medium">
-                          Daftar prioritas aktivitas pembelajaran harimu
-                        </p>
-                      </div>
-                    </div>
-                    <span className="text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1 rounded-full shrink-0">
-                      {todaysFocusTasks.filter((t) => t.completed).length} / {todaysFocusTasks.length} selesai
-                    </span>
-                  </div>
-
-                  <div className="space-y-2.5">
-                    {todaysFocusTasks.map((task) => (
-                      <button
-                        key={task.id}
-                        onClick={() => {
-                          setTodaysFocusTasks((prev) =>
-                            prev.map((t) => (t.id === task.id ? { ...t, completed: !t.completed } : t))
-                          );
-                        }}
-                        className={`w-full p-3.5 rounded-2xl border text-left flex items-center justify-between gap-3 transition cursor-pointer ${
-                          task.completed
-                            ? "bg-emerald-50/50 border-emerald-200 text-slate-500 line-through"
-                            : "bg-slate-50/60 border-slate-200 text-slate-900 hover:border-slate-300"
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 ${
-                              task.completed
-                                ? "bg-emerald-600 border-emerald-600 text-white"
-                                : "border-slate-300 bg-white"
-                            }`}
-                          >
-                            {task.completed && <Check className="w-3.5 h-3.5 stroke-[3]" />}
-                          </div>
-                          <div>
-                            <div className="text-xs font-bold">{task.title}</div>
-                            <div className="text-[10px] text-slate-500 font-medium mt-0.5">{task.category}</div>
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </section>
-          </div>
-
-          {/* ACTIVE CLASSES GRID */}
+          {/* ACTIVE CLASSES GRID (TOP 3 HIGHEST PROGRESS WITH USER BADGES) */}
           <div className="relative">
             {!sekolahData && (
               <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-900/40 backdrop-blur-[2.5px] rounded-3xl p-4 text-center">
@@ -1982,61 +2016,76 @@ export default function StudentDashboardClient({
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                {activeClasses.map((cls) => {
-                  const IconComp = cls.icon;
-                  return (
-                    <Link
-                      key={cls.id}
-                      href={`/bab/${cls.id}`}
-                      className="saas-card saas-card-hover rounded-3xl p-5 border border-slate-200 flex flex-col justify-between space-y-4 shadow-xs group"
-                    >
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
+                {top3Chapters.map((cls, idx) => (
+                  <Link
+                    key={cls.id}
+                    href={`/bab/${cls.id}`}
+                    className="saas-card saas-card-hover rounded-3xl p-6 border border-slate-200 flex flex-col justify-between space-y-5 shadow-xs group bg-white"
+                  >
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-900 border border-blue-200 flex items-center justify-center font-bold shadow-xs group-hover:scale-105 transition">
+                          <BookOpen className="w-5 h-5" />
+                        </div>
+                        <span className="text-[10px] font-extrabold px-3 py-1 rounded-full bg-slate-100 text-slate-600 uppercase tracking-wider">
+                          Bab {cls.urutan || idx + 1}
+                        </span>
+                      </div>
+
+                      <div>
+                        <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                          Matematika • Kelas 8 (Fase D)
+                        </div>
+                        <h3 className="text-lg font-extrabold text-[#0F172A] group-hover:text-blue-600 transition">
+                          {cls.judul}
+                        </h3>
+                        <p className="text-xs text-slate-500 mt-1 line-clamp-2">
+                          {cls.deskripsi || "Capaian Pembelajaran Kurikulum Merdeka Matematika SMP Kelas 8."}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* User Avatar Badges (Enrolled Peer Students in Class) */}
+                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                      <div className="flex items-center -space-x-2 overflow-hidden py-1">
+                        {peerStudents.slice(0, 4).map((peer) => (
                           <div
-                            className={`w-10 h-10 rounded-2xl ${cls.color} flex items-center justify-center border font-bold shadow-xs group-hover:scale-105 transition`}
+                            key={peer.id}
+                            title={peer.name}
+                            className="relative group/avatar inline-block"
                           >
-                            <IconComp className="w-5 h-5" />
+                            <div className="w-8 h-8 rounded-full ring-2 ring-white bg-[#0F172A] text-white flex items-center justify-center text-[10px] font-extrabold shadow-xs overflow-hidden transition-transform duration-200 group-hover/avatar:scale-115 group-hover/avatar:z-20 cursor-pointer">
+                              {peer.avatarUrl ? (
+                                <img src={peer.avatarUrl} alt={peer.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <span>{peer.initials}</span>
+                              )}
+                            </div>
                           </div>
-                          <span className="text-[10px] font-extrabold px-3 py-1 rounded-full bg-slate-100 text-slate-600 uppercase tracking-wider">
-                            {cls.module}
-                          </span>
-                        </div>
-
-                        <div>
-                          <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                            {cls.grade}
-                          </div>
-                          <h3 className="text-lg font-extrabold text-[#0F172A] group-hover:text-blue-600 transition">
-                            {cls.subject}
-                          </h3>
-                          <p className="text-xs text-slate-500 mt-1 line-clamp-1">
-                            {cls.topic}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2 pt-2">
-                        <div className="flex items-center justify-between text-xs font-extrabold">
-                          <span className="text-slate-400">Progres Pembelajaran</span>
-                          <span className="text-[#0F172A]">{cls.progress}%</span>
-                        </div>
-                        <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+                        ))}
+                        {peerStudents.length > 4 && (
                           <div
-                            className={`h-full ${cls.progressColor} rounded-full transition-all duration-500`}
-                            style={{ width: `${cls.progress}%` }}
-                          />
-                        </div>
+                            title={`${peerStudents.length - 4} siswa lainnya`}
+                            className="w-8 h-8 rounded-full ring-2 ring-white bg-slate-100 text-slate-700 flex items-center justify-center text-[10px] font-black shadow-xs cursor-pointer hover:bg-slate-200"
+                          >
+                            +{peerStudents.length - 4}
+                          </div>
+                        )}
                       </div>
-                    </Link>
-                  );
-                })}
+                      <span className="text-[11px] font-bold text-blue-600 group-hover:translate-x-0.5 transition-transform flex items-center gap-1">
+                        <span>Mulai</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </span>
+                    </div>
+                  </Link>
+                ))}
               </div>
             </section>
           </div>
         </main>
       )}
 
-      {/* 2. TAB: PERINGKAT (LEADERBOARD - STRICTLY ROLE=SISWA ONLY) */}
+      {/* 2. TAB: PERINGKAT */}
       {activeTab === "Peringkat" && (
         <main className="mx-auto max-w-7xl px-4 sm:px-6 pt-6 space-y-8 animate-in fade-in duration-200">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -2059,7 +2108,6 @@ export default function StudentDashboardClient({
             </button>
           </div>
 
-          {/* Leaderboard Table View */}
           <div className="bg-white rounded-3xl border border-slate-200 shadow-xs p-6 space-y-6">
             <div className="flex items-center justify-between border-b border-slate-200 pb-4">
               <div className="text-sm font-extrabold text-[#0F172A] flex items-center gap-2">
@@ -2096,8 +2144,9 @@ export default function StudentDashboardClient({
                     {leaderboardList.map((st) => (
                       <tr
                         key={st.id}
-                        className={`transition hover:bg-slate-50/80 ${st.isCurrentUser ? "bg-amber-50/80 font-bold border-l-4 border-l-amber-500" : ""
-                          }`}
+                        className={`transition hover:bg-slate-50/80 ${
+                          st.isCurrentUser ? "bg-amber-50/80 font-bold border-l-4 border-l-amber-500" : ""
+                        }`}
                       >
                         <td className="py-3.5 px-4">
                           {st.rank === 1 ? (
@@ -2159,57 +2208,65 @@ export default function StudentDashboardClient({
               <span>Kursus & Bab Pembelajaran</span>
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 font-medium max-w-2xl">
-              Pilih bab pembelajaran untuk mulai mengerjakan kuis dan mengumpulkan Poin Belajar.
+              Pilih bab pembelajaran untuk mulai mempelajari materi dan mengerjakan kuis.
             </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {allClasses.map((cls) => {
-              const IconComp = cls.icon;
-              return (
-                <Link
-                  key={cls.id}
-                  href={`/bab/${cls.id}`}
-                  className="saas-card saas-card-hover rounded-3xl p-6 border border-slate-200 flex flex-col justify-between space-y-5 shadow-xs group bg-white"
-                >
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className={`w-12 h-12 rounded-2xl ${cls.color} flex items-center justify-center font-bold shadow-xs group-hover:scale-105 transition`}>
-                        <IconComp className="w-6 h-6" />
-                      </div>
-                      <span className="text-[10px] font-extrabold px-3 py-1 rounded-full bg-slate-100 text-slate-600 uppercase tracking-wider">
-                        {cls.module}
-                      </span>
+            {chapters.map((cls, idx) => (
+              <Link
+                key={cls.id}
+                href={`/bab/${cls.id}`}
+                className="saas-card saas-card-hover rounded-3xl p-6 border border-slate-200 flex flex-col justify-between space-y-5 shadow-xs group bg-white"
+              >
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-900 border border-blue-200 flex items-center justify-center font-bold shadow-xs group-hover:scale-105 transition">
+                      <BookOpen className="w-6 h-6" />
                     </div>
-
-                    <div>
-                      <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                        {cls.grade}
-                      </div>
-                      <h3 className="text-xl font-extrabold text-[#0F172A] group-hover:text-blue-600 transition">
-                        {cls.subject}
-                      </h3>
-                      <p className="text-xs text-slate-500 mt-1">
-                        {cls.topic}
-                      </p>
-                    </div>
+                    <span className="text-[10px] font-extrabold px-3 py-1 rounded-full bg-slate-100 text-slate-600 uppercase tracking-wider">
+                      Bab {cls.urutan || idx + 1}
+                    </span>
                   </div>
 
-                  <div className="space-y-2 pt-2">
-                    <div className="flex items-center justify-between text-xs font-extrabold">
-                      <span className="text-slate-400">Progres Pembelajaran</span>
-                      <span className="text-[#0F172A]">{cls.progress}%</span>
+                  <div>
+                    <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                      Matematika • Kelas 8 (Fase D)
                     </div>
-                    <div className="w-full h-2.5 rounded-full bg-slate-100 overflow-hidden">
+                    <h3 className="text-xl font-extrabold text-[#0F172A] group-hover:text-blue-600 transition">
+                      {cls.judul}
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1 line-clamp-2">
+                      {cls.deskripsi || "Capaian Pembelajaran Kurikulum Merdeka Matematika SMP Kelas 8."}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                  <div className="flex items-center -space-x-2 overflow-hidden py-1">
+                    {peerStudents.slice(0, 4).map((peer) => (
                       <div
-                        className={`h-full ${cls.progressColor} rounded-full transition-all duration-500`}
-                        style={{ width: `${cls.progress}%` }}
-                      />
-                    </div>
+                        key={peer.id}
+                        title={peer.name}
+                        className="relative group/avatar inline-block"
+                      >
+                        <div className="w-8 h-8 rounded-full ring-2 ring-white bg-[#0F172A] text-white flex items-center justify-center text-[10px] font-extrabold shadow-xs overflow-hidden transition-transform duration-200 group-hover/avatar:scale-115 group-hover/avatar:z-20 cursor-pointer">
+                          {peer.avatarUrl ? (
+                            <img src={peer.avatarUrl} alt={peer.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <span>{peer.initials}</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                </Link>
-              );
-            })}
+                  <span className="text-xs font-bold text-blue-600 flex items-center gap-1">
+                    <span>Pelajari Bab</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </span>
+                </div>
+              </Link>
+            ))}
           </div>
         </main>
       )}
@@ -2368,7 +2425,7 @@ export default function StudentDashboardClient({
       {/* MODAL: LIVE WEBCAM SELFIE ATTENDANCE */}
       {isAttendanceModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="saas-modal rounded-3xl shadow-2xl border border-slate-200 p-6 max-w-md w-full relative space-y-4">
+          <div className="saas-modal rounded-3xl shadow-2xl border border-slate-200 p-6 max-w-md w-full relative space-y-4 bg-white">
             <button
               onClick={() => {
                 stopCamera();
@@ -2388,12 +2445,11 @@ export default function StudentDashboardClient({
                   Foto Presensi Selfie
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Ambil foto selfie kehadiran Anda secara jujur & resmi hari ini
+                  Ambil foto selfie kehadiran Anda secara resmi hari ini
                 </p>
               </div>
             </div>
 
-            {/* Webcam Live View & Canvas */}
             <div className="relative rounded-2xl overflow-hidden bg-slate-900 aspect-video flex items-center justify-center border border-slate-800 shadow-inner">
               <video
                 ref={videoRef}
@@ -2404,16 +2460,13 @@ export default function StudentDashboardClient({
               />
               <canvas ref={canvasRef} className="hidden" />
 
-              {/* Status Overlay */}
               {isCameraActive && (
                 <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-between p-4">
-                  {/* Status Badge Top */}
                   <div className="px-3.5 py-1.5 rounded-full backdrop-blur-md border border-white/20 bg-slate-900/80 text-white text-[11px] font-extrabold flex items-center gap-2 shadow-md">
                     <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                     <span>{faceDetectorStatus}</span>
                   </div>
 
-                  {/* Bounding Box Frame Indicator */}
                   <div className="w-44 h-56 rounded-3xl border-2 border-dashed border-white/60 relative flex flex-col items-center justify-center gap-2">
                     <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-white rounded-tl-xl" />
                     <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-white rounded-tr-xl" />
@@ -2421,7 +2474,6 @@ export default function StudentDashboardClient({
                     <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-white rounded-br-xl" />
                   </div>
 
-                  {/* Subtext info */}
                   <div className="text-[10px] text-slate-300 bg-slate-900/80 px-3 py-1 rounded-full backdrop-blur-xs font-semibold text-center">
                     Foto presensi akan disimpan secara resmi untuk verifikasi kehadiran.
                   </div>
@@ -2478,7 +2530,7 @@ export default function StudentDashboardClient({
         </div>
       )}
 
-      {/* TOP-RIGHT REACT TOAST NOTIFICATION COMPONENT */}
+      {/* TOP-RIGHT REACT TOAST NOTIFICATION */}
       {toastNotification?.show && (
         <div className="fixed top-5 right-5 z-50 max-w-sm w-full bg-[#0F172A] text-white rounded-2xl p-4 border border-emerald-500/50 shadow-2xl animate-in slide-in-from-top-5 duration-300 flex items-start space-x-3">
           <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/30">
@@ -2509,10 +2561,10 @@ export default function StudentDashboardClient({
       {/* MODAL: VIEW PROFILE CARD */}
       {isProfileModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="saas-modal rounded-3xl shadow-2xl border border-slate-200 p-6 max-w-md w-full relative space-y-6">
+          <div className="saas-modal rounded-3xl shadow-2xl border border-slate-200 p-6 max-w-md w-full relative space-y-6 bg-white">
             <button
               onClick={() => setIsProfileModalOpen(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -2579,75 +2631,13 @@ export default function StudentDashboardClient({
         </div>
       )}
 
-      {/* MODAL: JADWAL KELAS SAYA */}
-      {isScheduleModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="saas-modal rounded-3xl shadow-2xl border border-slate-200 p-6 max-w-lg w-full relative space-y-5">
-            <button
-              onClick={() => setIsScheduleModalOpen(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="flex items-center space-x-3 border-b border-slate-200 pb-4">
-              <div className="w-10 h-10 rounded-2xl bg-[#0F172A] text-white flex items-center justify-center">
-                <Calendar className="w-5 h-5 text-amber-400" />
-              </div>
-              <div>
-                <h3 className="text-lg font-extrabold text-[#0F172A]">
-                  Jadwal Kelas Saya
-                </h3>
-                <p className="text-xs text-slate-500">
-                  Agenda Mingguan Terintegrasi Database
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-3 max-h-85 overflow-y-auto pr-1">
-              {(schedulesData || []).map((sch, idx) => (
-                <div
-                  key={sch.id || idx}
-                  className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 shadow-xs flex items-center justify-between"
-                >
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-800">
-                        {sch.day}
-                      </span>
-                      <span className="text-xs text-slate-400 font-semibold">
-                        {sch.time}
-                      </span>
-                    </div>
-                    <div className="text-xs font-bold text-slate-800">
-                      {sch.subject}
-                    </div>
-                    <div className="text-[10px] text-slate-500">
-                      {sch.teacher} • {sch.room}
-                    </div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-slate-400" />
-                </div>
-              ))}
-            </div>
-
-            <button
-              onClick={() => setIsScheduleModalOpen(false)}
-              className="w-full py-2.5 bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition cursor-pointer"
-            >
-              Tutup Jadwal
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* MODAL: PENGATURAN & DARK MODE TOGGLE */}
       {isSettingsModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="saas-modal rounded-3xl shadow-2xl border border-slate-200 p-6 max-w-md w-full relative space-y-5">
+          <div className="saas-modal rounded-3xl shadow-2xl border border-slate-200 p-6 max-w-md w-full relative space-y-5 bg-white">
             <button
               onClick={() => setIsSettingsModalOpen(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -2661,7 +2651,7 @@ export default function StudentDashboardClient({
                   Pengaturan Akun & Tampilan
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Preferensi Mode & Notifikasi
+                  Preferensi Mode & Bimbingan AI
                 </p>
               </div>
             </div>
@@ -2717,7 +2707,7 @@ export default function StudentDashboardClient({
       {/* MODAL: PUSAT BANTUAN */}
       {isHelpModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="saas-modal rounded-3xl shadow-2xl border border-slate-200 p-6 max-w-lg w-full relative space-y-5 max-h-[85vh] overflow-y-auto">
+          <div className="saas-modal rounded-3xl shadow-2xl border border-slate-200 p-6 max-w-lg w-full relative space-y-5 max-h-[85vh] overflow-y-auto bg-white">
             <button
               onClick={() => setIsHelpModalOpen(false)}
               className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer"
@@ -2794,12 +2784,10 @@ export default function StudentDashboardClient({
         </div>
       )}
 
-      {/* FLOATING ACTION BUTTON (FAB) (+) WITH RADIAL ANIMATED MENU */}
+      {/* FLOATING ACTION BUTTON (FAB) (+) */}
       <div className="fixed bottom-6 right-6 z-50">
-        {/* Radial Sub-Menu Items */}
         {isFabOpen && (
           <div className="absolute bottom-16 right-0 flex flex-col items-end gap-3 mb-2 animate-in fade-in slide-in-from-bottom-4 duration-200">
-            {/* Menu Item 1: My Notes */}
             <button
               onClick={() => {
                 setIsMyNotesOpen(true);
@@ -2813,7 +2801,6 @@ export default function StudentDashboardClient({
               </div>
             </button>
 
-            {/* Menu Item 2: AI Assistant */}
             <button
               onClick={() => {
                 setIsAiAssistantOpen(true);
@@ -2827,7 +2814,6 @@ export default function StudentDashboardClient({
               </div>
             </button>
 
-            {/* Menu Item 3: Global School Chat */}
             <button
               onClick={() => {
                 setIsGlobalChatOpen(true);
@@ -2843,7 +2829,6 @@ export default function StudentDashboardClient({
           </div>
         )}
 
-        {/* Main FAB (+) Button */}
         <button
           onClick={() => setIsFabOpen(!isFabOpen)}
           aria-label="Action Menu"
@@ -2857,13 +2842,13 @@ export default function StudentDashboardClient({
         </button>
       </div>
 
-      {/* MODAL 1: MY NOTES (CATATAN PRIBADI SISWA) */}
+      {/* MODAL 1: MY NOTES */}
       {isMyNotesOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
           <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 sm:p-7 max-w-2xl w-full relative space-y-6 max-h-[90vh] overflow-y-auto">
             <button
               onClick={() => setIsMyNotesOpen(false)}
-              className="absolute top-5 right-5 text-slate-400 hover:text-slate-600"
+              className="absolute top-5 right-5 text-slate-400 hover:text-slate-600 cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -2882,7 +2867,6 @@ export default function StudentDashboardClient({
               </div>
             </div>
 
-            {/* Create Note Form */}
             <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
               <div className="text-xs font-extrabold text-[#0F172A] flex items-center gap-1.5">
                 <Plus className="w-4 h-4 text-amber-500" />
@@ -2923,7 +2907,6 @@ export default function StudentDashboardClient({
               </button>
             </div>
 
-            {/* Search Bar & List */}
             <div className="space-y-3">
               <div className="relative">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
@@ -2962,7 +2945,7 @@ export default function StudentDashboardClient({
                       </div>
                       <button
                         onClick={() => handleDeleteNote(note.id)}
-                        className="text-slate-400 hover:text-red-600 transition p-1"
+                        className="text-slate-400 hover:text-red-600 transition p-1 cursor-pointer"
                         title="Hapus Catatan"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -2978,7 +2961,6 @@ export default function StudentDashboardClient({
       {/* MODAL 2: AI ASSISTANT FULL SCREEN */}
       {isAiAssistantOpen && (
         <div className="fixed inset-0 z-50 bg-white flex flex-col w-screen h-screen overflow-hidden animate-in fade-in duration-150">
-          {/* Top Header Bar for Full Screen AI */}
           <div className="flex items-center justify-between px-6 py-3 border-b border-slate-200 bg-white shrink-0 shadow-2xs">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs">
@@ -3006,20 +2988,19 @@ export default function StudentDashboardClient({
             </button>
           </div>
 
-          {/* Full Screen AI Body Component */}
           <div className="flex-1 overflow-hidden">
             <GeneralAiChat studentName={studentName} />
           </div>
         </div>
       )}
 
-      {/* MODAL 3: GLOBAL SCHOOL CHAT & FIND PEOPLE */}
+      {/* MODAL 3: GLOBAL SCHOOL CHAT */}
       {isGlobalChatOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
           <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 sm:p-7 max-w-2xl w-full relative space-y-5 max-h-[90vh] overflow-y-auto">
             <button
               onClick={() => setIsGlobalChatOpen(false)}
-              className="absolute top-5 right-5 text-slate-400 hover:text-slate-600"
+              className="absolute top-5 right-5 text-slate-400 hover:text-slate-600 cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -3038,7 +3019,6 @@ export default function StudentDashboardClient({
               </div>
             </div>
 
-            {/* Search Students & Communities */}
             <div className="space-y-2">
               <div className="relative">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
@@ -3051,7 +3031,6 @@ export default function StudentDashboardClient({
                 />
               </div>
 
-              {/* Search Results Drawer */}
               {chatSearchQuery.trim() && (
                 <div className="p-4 rounded-2xl bg-blue-50/60 border border-blue-200/80 space-y-3">
                   <div className="text-xs font-bold text-blue-900">Hasil Pencarian internal Sekolah:</div>
@@ -3076,7 +3055,6 @@ export default function StudentDashboardClient({
               )}
             </div>
 
-            {/* Post Chat Input */}
             <div className="flex items-center gap-2">
               <input
                 type="text"
@@ -3095,7 +3073,6 @@ export default function StudentDashboardClient({
               </button>
             </div>
 
-            {/* Chat Feed */}
             <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
               {globalChats.map((chat) => (
                 <div key={chat.id} className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/80 space-y-2">
@@ -3114,7 +3091,7 @@ export default function StudentDashboardClient({
 
                     <button
                       onClick={() => setReportingChatId(chat.id)}
-                      className="text-slate-400 hover:text-red-500 text-[10px] flex items-center gap-1 font-semibold"
+                      className="text-slate-400 hover:text-red-500 text-[10px] flex items-center gap-1 font-semibold cursor-pointer"
                     >
                       <Flag className="w-3 h-3" /> Laporkan
                     </button>
@@ -3122,7 +3099,6 @@ export default function StudentDashboardClient({
 
                   <p className="text-xs text-slate-700 leading-relaxed">{chat.konten}</p>
 
-                  {/* Actions Bar: Suka, Komentar, Balas */}
                   <div className="flex items-center gap-4 text-xs font-semibold text-slate-500 pt-1 border-t border-slate-200/50">
                     <button
                       onClick={() => handleLikeChat(chat.id)}
@@ -3148,7 +3124,6 @@ export default function StudentDashboardClient({
                     </button>
                   </div>
 
-                  {/* Expanded Comments Thread Section */}
                   {expandedCommentsChatId === chat.id && (
                     <div className="mt-3 pt-3 border-t border-slate-200 space-y-3 bg-white p-3.5 rounded-2xl border shadow-xs animate-in fade-in duration-150">
                       <div className="flex items-center justify-between">
@@ -3158,13 +3133,12 @@ export default function StudentDashboardClient({
                         </span>
                         <button
                           onClick={() => setExpandedCommentsChatId(null)}
-                          className="text-[10px] font-bold text-slate-400 hover:text-slate-600"
+                          className="text-[10px] font-bold text-slate-400 hover:text-slate-600 cursor-pointer"
                         >
                           Tutup Thread ✖
                         </button>
                       </div>
 
-                      {/* Comments List */}
                       {loadingCommentsId === chat.id ? (
                         <div className="py-3 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
                           <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" /> Memuat balasan...
@@ -3189,7 +3163,6 @@ export default function StudentDashboardClient({
                         </div>
                       )}
 
-                      {/* Input Form Balas Komentar */}
                       <div className="flex items-center gap-2 pt-1">
                         <input
                           type="text"
@@ -3210,7 +3183,6 @@ export default function StudentDashboardClient({
                     </div>
                   )}
 
-                  {/* Report Inline Input */}
                   {reportingChatId === chat.id && (
                     <div className="p-3 bg-red-50 border border-red-200 rounded-xl space-y-2 mt-2">
                       <div className="text-xs font-bold text-red-900">Alasan Pelaporan Konten:</div>
@@ -3224,13 +3196,13 @@ export default function StudentDashboardClient({
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleReportContent(chat.id)}
-                          className="px-3 py-1 rounded-lg bg-red-600 text-white font-bold text-xs"
+                          className="px-3 py-1 rounded-lg bg-red-600 text-white font-bold text-xs cursor-pointer"
                         >
                           Kirim Laporan
                         </button>
                         <button
                           onClick={() => setReportingChatId(null)}
-                          className="px-3 py-1 rounded-lg bg-slate-200 text-slate-700 font-bold text-xs"
+                          className="px-3 py-1 rounded-lg bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer"
                         >
                           Batal
                         </button>

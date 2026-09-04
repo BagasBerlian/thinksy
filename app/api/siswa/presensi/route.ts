@@ -2,16 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { autoClaimMisi } from "@/app/api/siswa/misi/route";
-
-// ─── Helper: Tanggal hari ini dalam WIB ──────────────────────────────────────
-function getTodayWIB(): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Jakarta",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-}
+import { checkAndUpdateDailyStreak, getWIBDateString } from "@/lib/streak";
 
 // ─── POST: Simpan presensi selfie + auto-klaim misi presensi ─────────────────
 export async function POST(request: Request) {
@@ -39,52 +30,13 @@ export async function POST(request: Request) {
 
     const { foto_base64 } = body;
     const now = new Date();
-    const todayWIB = getTodayWIB();
+    const todayWIB = getWIBDateString();
 
     const formattedTime = now.toLocaleTimeString("id-ID", {
       timeZone: "Asia/Jakarta",
       hour: "2-digit",
       minute: "2-digit",
     });
-
-    // Tanggal kemarin di WIB
-    const yesterdayWIB = new Intl.DateTimeFormat("en-CA", {
-      timeZone: "Asia/Jakarta",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).format(new Date(Date.now() - 86400000));
-
-    // Cek presensi hari ini & kemarin
-    const [{ data: todayPresensi }, { data: yesterdayPresensi }] = await Promise.all([
-      supabase
-        .from("presensi")
-        .select("id")
-        .eq("siswa_id", user.id)
-        .eq("tanggal", todayWIB)
-        .maybeSingle(),
-      supabase
-        .from("presensi")
-        .select("id")
-        .eq("siswa_id", user.id)
-        .eq("tanggal", yesterdayWIB)
-        .maybeSingle(),
-    ]);
-
-    const { data: currentProfil } = await supabase
-      .from("profil")
-      .select("nama_lengkap, poin, streak")
-      .eq("id", user.id)
-      .single();
-
-    // Hitung streak
-    const oldStreak = currentProfil?.streak ?? 0;
-    let newStreak = oldStreak;
-    if (!todayPresensi) {
-      newStreak = yesterdayPresensi ? oldStreak + 1 : 1;
-    } else {
-      newStreak = Math.max(oldStreak, 1);
-    }
 
     // 1. Simpan presensi (upsert: tidak duplikat jika sudah hadir)
     const { data: presensiData, error: presensiError } = await supabase
@@ -110,18 +62,16 @@ export async function POST(request: Request) {
       );
     }
 
-    // Update streak via RPC + fallback (authenticated client)
-    try {
-      await supabase.rpc("update_streak_siswa", {
-        p_siswa_id: user.id,
-        p_streak: newStreak,
-      });
-    } catch {
-      await supabase
-        .from("profil")
-        .update({ streak: newStreak })
-        .eq("id", user.id);
-    }
+    // Ambil profil siswa
+    const { data: currentProfil } = await supabase
+      .from("profil")
+      .select("nama_lengkap, poin, streak")
+      .eq("id", user.id)
+      .single();
+
+    // Evaluasi dan update streak belajar harian siswa
+    const streakResult = await checkAndUpdateDailyStreak(user.id, "presensi");
+    const newStreak = streakResult.currentStreak;
 
     // 2. AUTO-KLAIM misi presensi (server-side, jika belum diklaim)
     const misiClaimResult = await autoClaimMisi(supabase, user.id, "presensi");
@@ -136,7 +86,7 @@ export async function POST(request: Request) {
         user_id: user.id,
         judul: "Presensi Selfie Berhasil",
         pesan: notifPesan,
-        tipe: "urgent",
+        tipe: "presensi",
         dibaca: false,
       });
     } catch {
@@ -184,7 +134,7 @@ export async function GET() {
       return NextResponse.json({ isCheckedIn: false });
     }
 
-    const todayWIB = getTodayWIB();
+    const todayWIB = getWIBDateString();
 
     const { data: presensi } = await supabase
       .from("presensi")

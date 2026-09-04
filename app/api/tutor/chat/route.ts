@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { autoClaimMisi } from "@/app/api/siswa/misi/route";
+import { checkAndUpdateDailyStreak } from "@/lib/streak";
 
 export async function POST(req: Request) {
   try {
@@ -262,6 +263,16 @@ KONTEKS MATERI YANG SEDANG DIBUKA USER SAAT INI (Gunakan info ini agar obrolan n
         misiClaimResult = await autoClaimMisi(supabase, user.id, "sokratik");
         if (!misiClaimResult.claimed) {
           misiClaimResult = await autoClaimMisi(supabase, user.id, "eksplorasi");
+        }
+      }
+
+      // Evaluasi dan trigger Daily Streak jika siswa telah berinteraksi minimal 3 kali hari ini
+      const totalChatsToday = currentCount + 1;
+      if (totalChatsToday >= 3) {
+        try {
+          await checkAndUpdateDailyStreak(user.id, "tutor_sokratik");
+        } catch (streakErr) {
+          console.error("[STREAK UPDATE ERROR (AI CHAT)]", streakErr);
         }
       }
     } catch (logErr) {
