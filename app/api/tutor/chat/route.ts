@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { autoClaimMisi } from "@/app/api/siswa/misi/route";
 import { checkAndUpdateDailyStreak } from "@/lib/streak";
 import { buildSocraticTutorPrompt } from "@/lib/prompts/tutor";
@@ -92,6 +93,7 @@ export async function POST(req: Request) {
       history = [],
       mode,
       isGeneralAi,
+      jawabanSiswa,
     } = body;
 
     const activeAttachment = attachment || (image ? { type: "image", dataUrl: image } : null);
@@ -103,11 +105,15 @@ export async function POST(req: Request) {
       );
     }
 
-    // 4.1 Extract or Fetch specific question details & secret solution
+    // 4.1 Extract or Fetch full question details, secret solution, and explanation from Database (Admin Client bypasses RLS)
     let activePertanyaan = pertanyaan || "";
     let activePembahasan = pembahasan || "";
     let activeKunci = kunciJawaban || "";
     let activeHint = hintSokratik || "";
+    let activeBabJudul = babJudul || "";
+    let activeMapel = mapel || "";
+    let activeMateriJudul = materiJudul || "";
+    let activeMateriKonten = materiKonten || "";
     let activeOpsi: Array<{ id?: string; label?: string; teks: string }> = [];
 
     if (Array.isArray(opsiJawaban) && opsiJawaban.length > 0) {
@@ -118,9 +124,13 @@ export async function POST(req: Request) {
       }));
     }
 
-    if (soalId) {
+    const isValidUUID = (str?: string) =>
+      Boolean(str && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str));
+
+    if (soalId && isValidUUID(soalId)) {
       try {
-        const { data: soalRow } = await supabase
+        const adminDb = createAdminClient();
+        const { data: soalRow } = await adminDb
           .from("soal")
           .select(`
             id,
@@ -128,17 +138,31 @@ export async function POST(req: Request) {
             pembahasan,
             kunci_jawaban,
             tipe_soal,
+            tingkat_soal,
+            bab:bab_id (id, judul, mapel, kelas),
+            materi:materi_id (id, judul, konten),
             opsi_soal (id, teks_opsi, benar, urutan)
           `)
           .eq("id", soalId)
           .maybeSingle();
 
         if (soalRow) {
-          if (!activePertanyaan) activePertanyaan = soalRow.pertanyaan || "";
-          if (!activePembahasan) activePembahasan = soalRow.pembahasan || "";
-          if (!activeKunci) activeKunci = soalRow.kunci_jawaban || "";
+          if (soalRow.pertanyaan) activePertanyaan = soalRow.pertanyaan;
+          if (soalRow.pembahasan) activePembahasan = soalRow.pembahasan;
+          if (soalRow.kunci_jawaban) activeKunci = soalRow.kunci_jawaban;
 
-          if (activeOpsi.length === 0 && soalRow.opsi_soal && Array.isArray(soalRow.opsi_soal)) {
+          if (soalRow.bab) {
+            const b = soalRow.bab as any;
+            if (!activeBabJudul && b.judul) activeBabJudul = b.judul;
+            if (!activeMapel && b.mapel) activeMapel = b.mapel;
+          }
+          if (soalRow.materi) {
+            const m = soalRow.materi as any;
+            if (!activeMateriJudul && m.judul) activeMateriJudul = m.judul;
+            if (!activeMateriKonten && m.konten) activeMateriKonten = m.konten;
+          }
+
+          if (soalRow.opsi_soal && Array.isArray(soalRow.opsi_soal) && soalRow.opsi_soal.length > 0) {
             const sortedOpsi = [...soalRow.opsi_soal].sort(
               (a, b) => (a.urutan || 0) - (b.urutan || 0)
             );
@@ -148,27 +172,36 @@ export async function POST(req: Request) {
               teks: o.teks_opsi,
             }));
             const correctOpt = sortedOpsi.find((o) => o.benar);
-            if (correctOpt && !activeKunci) {
+            if (correctOpt) {
               const correctIdx = sortedOpsi.indexOf(correctOpt);
-              activeKunci = `Opsi ${String.fromCharCode(65 + correctIdx)}: "${correctOpt.teks_opsi}"`;
+              activeKunci = `Pilihan ${String.fromCharCode(65 + correctIdx)}: "${correctOpt.teks_opsi}" (Kunci Resmi Database)`;
             }
           }
         }
       } catch (dbErr) {
-        console.warn("[TUTOR CHAT] Soal lookup by ID failed, using provided client context:", dbErr);
+        console.warn("[TUTOR CHAT] Admin soal lookup by ID failed, using provided client context:", dbErr);
       }
     }
 
-    if (!activePertanyaan && materiKonten) {
-      activePertanyaan = materiKonten;
+    if (!activePertanyaan && activeMateriKonten) {
+      activePertanyaan = activeMateriKonten;
     }
 
-    // 5. Build Socratic Prompt from Library (v2.0 with question-level deep understanding)
+    // Format label jawaban yang sedang dipilih siswa di layar (jika ada)
+    let formattedJawabanSiswa = jawabanSiswa || "";
+    if (jawabanSiswa && activeOpsi.length > 0) {
+      const matched = activeOpsi.find((o) => o.id === jawabanSiswa || o.teks === jawabanSiswa);
+      if (matched) {
+        formattedJawabanSiswa = `Pilihan ${matched.label}: "${matched.teks}"`;
+      }
+    }
+
+    // 5. Build Socratic Prompt from Library (v2.0 with full database knowledge and peer socratic persona)
     const systemPrompt = buildSocraticTutorPrompt({
-      mapel: mapel || "Informatika",
+      mapel: activeMapel || mapel || "Informatika / Matematika",
       tingkatKelas: "SMP / MTs Kelas 8",
-      babJudul: babJudul || materiJudul || "Pembelajaran Aktif",
-      materiJudul: materiJudul || babJudul || "",
+      babJudul: activeBabJudul || babJudul || activeMateriJudul || "Pembelajaran Aktif",
+      materiJudul: activeMateriJudul || materiJudul || activeBabJudul || "",
       nomorSoal: soalNomor || undefined,
       totalSoal: totalSoal || undefined,
       pertanyaanMd: activePertanyaan || "Soal latihan konsep pembelajaran.",
@@ -176,6 +209,7 @@ export async function POST(req: Request) {
       kunciJawaban: activeKunci,
       pembahasanMd: activePembahasan,
       hintSokratik: activeHint,
+      jawabanSiswa: formattedJawabanSiswa || undefined,
     });
 
     // 5.1 Enforce max 10 turns history to optimize cost (Handbook §10)
@@ -326,7 +360,6 @@ export async function POST(req: Request) {
     // 8. Log AI Token Usage (Always log to log_ai even if sekolahId is NULL)
     let misiClaimResult = { claimed: false, poinDitambahkan: 0 };
     try {
-      const { createAdminClient } = await import("@/lib/supabase/admin");
       const adminDb = createAdminClient();
 
       await adminDb.from("log_ai").insert({

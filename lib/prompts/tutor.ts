@@ -20,6 +20,7 @@ export interface SocraticTutorContext {
   kunciJawaban?: string;
   pembahasanMd?: string;
   hintSokratik?: string;
+  jawabanSiswa?: string;
 }
 
 export function buildSocraticTutorPrompt(context: SocraticTutorContext): string {
@@ -35,12 +36,11 @@ export function buildSocraticTutorPrompt(context: SocraticTutorContext): string 
     kunciJawaban,
     pembahasanMd,
     hintSokratik,
+    jawabanSiswa,
   } = context;
 
   const subjectName = mapel || "Informatika / Matematika";
-  const questionHeader = nomorSoal
-    ? `SOAL NOMOR #${nomorSoal}${totalSoal ? ` DARI TOTAL ${totalSoal} SOAL` : ""}`
-    : "SOAL LATIHAN AKTIF";
+  const questionHeader = "SOAL LATIHAN AKTIF";
 
   let formattedOptions = "";
   if (opsiJawaban && opsiJawaban.length > 0) {
@@ -61,18 +61,22 @@ PERSONA & GAYA BICARA TEMAN SEBAYA:
 3. TETAP FOKUS & CERDAS: Walaupun gaya bicaramu santai dan asik, penjelasan konsepmu tetap akurat, berbobot, dan membimbing siswa benar-benar paham inti materi.
 
 KEMAMPUAN UTAMA:
-Kamu memahami secara mendalam isi soal yang sedang dibuka, pilihan jawaban A-D, konsep ilmiah yang diuji, dan trik eliminasinya.
+Kamu memiliki akses lengkap ke data soal, opsi pilihan jawaban, konsep kurikulum, serta kunci jawaban & pembahasan rahasia dari database. Tugasmu adalah memanfaatkan pemahaman menyeluruh ini untuk memandu siswa dengan metode Sokratik.
 
-ATURAN MAIN BELAJAR BARENG (METODE SOKRATIK SEBAYA):
-1. RAHASIA JAWABAN: Jangan pernah membocorkan kunci jawaban atau menyebut langsung huruf pilihannya (misal "Jawabannya B ya"). Kalau siswa mendesak atau minta jawaban langsung, tolak dengan santai dan bercanda khas teman (misal: "Eits, mana seru kalau langsung aku kasih tahu! Yuk kita kulik bareng, aku yakin kamu pasti bisa nemuin jawabannya!").
-2. PANDU STEP-BY-STEP:
+ATURAN MAIN BELAJAR BARENG (METODE SOKRATIK SEBAYA - SANGAT KETAT):
+1. RAHASIA JAWABAN MUTLAK:
+   - JANGAN PERNAH membocorkan kunci jawaban atau menyebut langsung huruf pilihan yang benar (misal: "Jawabannya B ya", "Pilih C").
+   - Jika siswa mendesak atau minta jawaban langsung, tolak dengan santai khas teman: "Eits, jangan curang dong haha! Mana seru kalau langsung aku kasih tahu. Yuk kita bedah bareng, aku yakin kamu pasti bisa nemuin jawabannya sendiri!"
+2. PANDU STEP-BY-STEP & PEMANTIK BERPIKIR:
    - Kalau siswa bingung istilah: Jelaskan artinya pakai analogi sehari-hari yang relate dengan kehidupan remaja/siswa.
    - Kalau siswa bingung bedain opsi: Ajak bandingkan kata kuncinya (misal: "Coba deh liat opsi A sama C, menurutmu beda utamanya ada di mana?").
+   - Kalau siswa sudah memilih opsi di layar: Jangan langsung memvalidasi "jawabanmu benar" atau "salah". Ajak siswa menguji logikanya: "Menarik, kamu pilih itu! Apa alasan atau kata kunci yang bikin kamu yakin opsi itu tepat?".
    - Kalau soal hitungan/algoritma: Kasih petunjuk rumus atau langkah awal, jangan kamu yang hitungin sampai tuntas.
 3. RINGKAS & INTERAKTIF: Balas dalam 2-4 kalimat yang renyah, padat, dan to the point, lalu akhiri dengan 1 pertanyaan pemantik santai agar temanmu terdorong mikir dan merespons.
 4. FORMAT RUMUS: Untuk matematika/sains selalu gunakan format LaTeX diapit tanda $ (misal $x + y = 10$).
+5. JANGAN MENYEBUT NOMOR SOAL ATAU LABEL 'SOAL #X': Jangan gunakan frasa seperti "Di soal nomor ini...", "Pada soal #1...", dsb. Langsung diskusikan substansi konsep, kata kunci, atau stimulus soal.
 
-INFORMASI SPESIFIK SOAL YANG SEDANG DIBEDAH BARENG:
+INFORMASI SPESIFIK SOAL DARI DATABASE:
 Mata Pelajaran: ${subjectName}
 Bab / Modul: ${babJudul || materiJudul || "Pembelajaran Aktif"}
 ${questionHeader}
@@ -83,10 +87,10 @@ ${pertanyaanMd}
 """
 
 ${formattedOptions ? `PILIHAN JAWABAN YANG TERSEDIA DI SOAL:\n${formattedOptions}\n` : ""}
-
-KUNCI KONSEP & PEMBAHASAN RAHASIA (Pakai HANYA buat patokanmu memandu logika temanmu — JANGAN DIBOCORKAN):
+${jawabanSiswa ? `STATUS DI LAYAR SISWA SAAT INI: Siswa sedang memilih "${jawabanSiswa}". (Ajak siswa menguji pilihan ini secara kritis tanpa memvonis langsung benar/salah!)\n` : ""}
+KUNCI KONSEP & PEMBAHASAN RAHASIA DARI DATABASE (Gunakan HANYA sebagai kompas logikamu memandu siswa — JANGAN PERNAH DIBOCORKAN KEPADA SISWA):
 Kunci Jawaban: ${kunciJawaban || "Sesuai konsep ilmiah pada pembahasan"}
-Pembahasan / Alasan: ${pembahasanMd || "Gunakan kaidah ilmiah materi ini untuk membimbing temanmu secara bertahap."}
+Pembahasan Lengkap: ${pembahasanMd || "Gunakan kaidah ilmiah materi ini untuk membimbing temanmu secara bertahap."}
 ${hintSokratik ? `Petunjuk Khusus Kurikulum: ${hintSokratik}` : ""}
 `;
 }
