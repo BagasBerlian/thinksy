@@ -32,18 +32,20 @@ export async function GET() {
         judul,
         deskripsi,
         mapel,
+        tipe,
         durasi_menit,
         passing_grade,
         waktu_mulai,
         waktu_berakhir,
         status,
+        token,
         dibuat_pada,
         kelas:kelas_id ( id, nama_kelas )
       `)
       .order("waktu_mulai", { ascending: false });
 
     if (profil.sekolah_id) {
-      query = query.eq("sekolah_id", profil.sekolah_id);
+      query = query.or(`sekolah_id.eq.${profil.sekolah_id},sekolah_id.eq.a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11`);
     }
 
     const { data: exams, error } = await query;
@@ -121,6 +123,8 @@ export async function POST(req: Request) {
       judul,
       deskripsi,
       mapel = "Matematika",
+      tipe = "ulangan",
+      token,
       kelasId,
       babId,
       durasiMenit = 60,
@@ -140,6 +144,8 @@ export async function POST(req: Request) {
     const start = waktuMulai ? new Date(waktuMulai) : now;
     const end = waktuBerakhir ? new Date(waktuBerakhir) : new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
 
+    const defaultToken = `${mapel.substring(0, 3).toUpperCase()}-${tipe === "ulangan" ? "ULG" : "PTS"}${Math.floor(10 + Math.random() * 90)}`;
+
     // 1. Insert ke tabel ujian
     const { data: newUjian, error: insertErr } = await adminSupabase
       .from("ujian")
@@ -149,6 +155,8 @@ export async function POST(req: Request) {
         kelas_id: kelasId || null,
         bab_id: babId || null,
         mapel,
+        tipe,
+        token: (token || defaultToken).trim().toUpperCase(),
         judul,
         deskripsi: deskripsi || "",
         durasi_menit: Number(durasiMenit),
@@ -218,14 +226,30 @@ export async function PATCH(req: Request) {
     }
 
     const body = await req.json();
-    const { ujianId, status, waktuMulai, waktuBerakhir } = body;
+    const { ujianId, status, token, durasiMenit, passingGrade, waktuMulai, waktuBerakhir } = body;
 
     if (!ujianId) {
       return NextResponse.json({ error: "ujianId wajib diisi" }, { status: 400 });
     }
 
     const updatePayload: any = {};
-    if (status) updatePayload.status = status;
+    if (status) {
+      updatePayload.status = status;
+      // Jika diaktifkan (dipublikasi) dan waktu berakhir belum diatur, berikan waktu aktif 30 hari ke depan
+      if (status === "dipublikasi" && !waktuBerakhir) {
+        const now = new Date();
+        updatePayload.waktu_berakhir = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
+      }
+    }
+    if (token !== undefined) {
+      updatePayload.token = String(token).trim().toUpperCase();
+    }
+    if (durasiMenit !== undefined) {
+      updatePayload.durasi_menit = Number(durasiMenit);
+    }
+    if (passingGrade !== undefined) {
+      updatePayload.passing_grade = Number(passingGrade);
+    }
     if (waktuMulai) updatePayload.waktu_mulai = new Date(waktuMulai).toISOString();
     if (waktuBerakhir) updatePayload.waktu_berakhir = new Date(waktuBerakhir).toISOString();
 
@@ -233,7 +257,19 @@ export async function PATCH(req: Request) {
       .from("ujian")
       .update(updatePayload)
       .eq("id", ujianId)
-      .select()
+      .select(`
+        id,
+        judul,
+        deskripsi,
+        mapel,
+        tipe,
+        durasi_menit,
+        passing_grade,
+        waktu_mulai,
+        waktu_berakhir,
+        status,
+        token
+      `)
       .single();
 
     if (error) {
@@ -243,7 +279,9 @@ export async function PATCH(req: Request) {
     return NextResponse.json({
       success: true,
       ujian: data,
-      message: `Status ujian berhasil diubah menjadi ${status === "dipublikasi" ? "Dibuka (Aktif)" : "Ditutup"}!`,
+      message: status 
+        ? `Status ujian berhasil diubah menjadi ${status === "dipublikasi" ? "Dibuka (Aktif)" : "Ditutup"}!`
+        : "Data ujian berhasil diperbarui!",
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

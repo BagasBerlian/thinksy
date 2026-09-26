@@ -16,14 +16,22 @@ export default async function DetailUjianPage({
     data: { user },
   } = await supabase.auth.getUser();
 
+  const SIMULASI_ALIAS_MAP: Record<string, string> = {
+    "sim-literasi": "e7eebc99-9c0b-4ef8-bb6d-6bb9bd380a77",
+    "sim-numerasi": "e8eebc99-9c0b-4ef8-bb6d-6bb9bd380a88",
+    "sim-karakter": "e9eebc99-9c0b-4ef8-bb6d-6bb9bd380a99",
+  };
+  const effectiveUjianId = SIMULASI_ALIAS_MAP[ujianId] || ujianId;
+
   // 1. Ambil detail Ujian
-  const { data: ujian } = await adminSupabase
+  let { data: ujian } = await adminSupabase
     .from("ujian")
     .select(`
       id,
       judul,
       deskripsi,
       mapel,
+      tipe,
       durasi_menit,
       passing_grade,
       waktu_mulai,
@@ -31,8 +39,76 @@ export default async function DetailUjianPage({
       status,
       bab_id
     `)
-    .eq("id", ujianId)
+    .eq("id", effectiveUjianId)
     .maybeSingle();
+
+  if (!ujian && (ujianId.startsWith("ulangan-bab-") || ujianId.length > 20)) {
+    const babId = ujianId.startsWith("ulangan-bab-") ? ujianId.replace("ulangan-bab-", "") : ujianId;
+    const { data: ujianByBab } = await adminSupabase
+      .from("ujian")
+      .select(`
+        id,
+        judul,
+        deskripsi,
+        mapel,
+        tipe,
+        durasi_menit,
+        passing_grade,
+        waktu_mulai,
+        waktu_berakhir,
+        status,
+        bab_id
+      `)
+      .eq("bab_id", babId)
+      .maybeSingle();
+
+    if (ujianByBab) {
+      ujian = ujianByBab;
+    } else {
+      const { data: babData } = await adminSupabase
+        .from("bab")
+        .select("id, judul, deskripsi, mapel, sekolah_id")
+        .eq("id", babId)
+        .maybeSingle();
+
+      const { data: createdUjian } = await adminSupabase
+        .from("ujian")
+        .insert({
+          judul: babData?.judul
+            ? babData.judul.startsWith("Bab")
+              ? `Ulangan Harian ${babData.judul}`
+              : `Ulangan Harian: ${babData.judul}`
+            : "Ulangan Harian Siswa",
+          deskripsi: babData?.deskripsi || "Evaluasi formatif kurikulum terstandar.",
+          mapel: babData?.mapel || "Matematika",
+          tipe: "ulangan",
+          durasi_menit: 30,
+          passing_grade: 75,
+          status: "dipublikasi",
+          token: "12345",
+          bab_id: babId,
+          sekolah_id: babData?.sekolah_id || "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+        })
+        .select(`
+          id,
+          judul,
+          deskripsi,
+          mapel,
+          tipe,
+          durasi_menit,
+          passing_grade,
+          waktu_mulai,
+          waktu_berakhir,
+          status,
+          bab_id
+        `)
+        .maybeSingle();
+
+      if (createdUjian) {
+        ujian = createdUjian;
+      }
+    }
+  }
 
   if (!ujian) {
     notFound();
@@ -47,10 +123,10 @@ export default async function DetailUjianPage({
 
   const isStaff = ["guru", "admin_sekolah", "superadmin"].includes(userProfil?.peran || "");
   const now = new Date();
-  const startTime = new Date(ujian.waktu_mulai);
-  const endTime = new Date(ujian.waktu_berakhir);
-  const isTimeAvailable = now >= startTime && now <= endTime;
-  const isAvailable = ujian.status === "dipublikasi" && isTimeAvailable;
+  const startTime = ujian.waktu_mulai ? new Date(ujian.waktu_mulai) : new Date(0);
+  const endTime = ujian.waktu_berakhir ? new Date(ujian.waktu_berakhir) : new Date(Date.now() + 86400000);
+  // Status dipublikasi yang disetel oleh guru adalah penentu utama keterbukaan ujian, simulasi selalu terbuka
+  const isAvailable = ujian.status === "dipublikasi" || ujian.tipe === "simulasi";
 
   // Block unauthorized direct URL access if exam is not active
   if (!isAvailable && !isStaff) {
@@ -108,14 +184,17 @@ export default async function DetailUjianPage({
         pertanyaan,
         tipe_soal,
         tingkat_soal,
+        pembahasan,
+        kunci_jawaban,
         opsi_soal (
           id,
           teks_opsi,
+          benar,
           urutan
         )
       )
     `)
-    .eq("ujian_id", ujianId)
+    .eq("ujian_id", effectiveUjianId)
     .order("urutan", { ascending: true });
 
   let formattedQuestions: Array<{
@@ -124,7 +203,9 @@ export default async function DetailUjianPage({
     pertanyaan: string;
     tipe_soal: string;
     poin_bobot: number;
-    opsi: Array<{ id: string; teks_opsi: string; urutan: number }>;
+    pembahasan?: string | null;
+    kunci_jawaban?: string | null;
+    opsi: Array<{ id: string; teks_opsi: string; urutan: number; benar?: boolean }>;
   }> = [];
 
   if (ujianSoalList && ujianSoalList.length > 0) {
@@ -132,17 +213,25 @@ export default async function DetailUjianPage({
       const s = item.soal;
       const rawOpsi = Array.isArray(s?.opsi_soal) ? s.opsi_soal : [];
       const sortedOpsi = rawOpsi.sort((a: any, b: any) => (a.urutan || 0) - (b.urutan || 0));
+      const hasBenar = sortedOpsi.some((o: any) => o.benar);
 
       return {
         id: s?.id || item.id,
         urutan: item.urutan || idx + 1,
         pertanyaan: s?.pertanyaan || "Pertanyaan ujian",
         tipe_soal: s?.tipe_soal || "pilihan_ganda",
-        poin_bobot: item.poin_bobot || 10,
+        poin_bobot: item.poin_bobot || 5,
+        pembahasan: s?.pembahasan || null,
+        kunci_jawaban: s?.kunci_jawaban || null,
         opsi: sortedOpsi.map((o: any) => ({
           id: o.id,
           teks_opsi: o.teks_opsi,
           urutan: o.urutan,
+          benar:
+            o.benar === true ||
+            (!hasBenar &&
+              Boolean(s?.kunci_jawaban) &&
+              o.teks_opsi?.trim().toLowerCase() === s?.kunci_jawaban?.trim().toLowerCase()),
         })),
       };
     });
@@ -154,9 +243,12 @@ export default async function DetailUjianPage({
         id,
         pertanyaan,
         tipe_soal,
+        pembahasan,
+        kunci_jawaban,
         opsi_soal (
           id,
           teks_opsi,
+          benar,
           urutan
         )
       `);
@@ -165,21 +257,31 @@ export default async function DetailUjianPage({
       query = query.eq("bab_id", ujian.bab_id);
     }
 
-    const { data: fallbackQuestions } = await query.limit(10);
+    const { data: fallbackQuestions } = await query.order("urutan", { ascending: true }).limit(20);
 
     if (fallbackQuestions && fallbackQuestions.length > 0) {
       formattedQuestions = fallbackQuestions.map((q: any, idx: number) => {
         const rawOpsi = Array.isArray(q.opsi_soal) ? q.opsi_soal : [];
+        const sortedOpsi = rawOpsi.sort((a: any, b: any) => (a.urutan || 0) - (b.urutan || 0));
+        const hasBenar = sortedOpsi.some((o: any) => o.benar);
+
         return {
           id: q.id,
           urutan: idx + 1,
           pertanyaan: q.pertanyaan,
           tipe_soal: q.tipe_soal || "pilihan_ganda",
-          poin_bobot: 10,
-          opsi: rawOpsi.map((o: any) => ({
+          poin_bobot: 5,
+          pembahasan: q.pembahasan || null,
+          kunci_jawaban: q.kunci_jawaban || null,
+          opsi: sortedOpsi.map((o: any) => ({
             id: o.id,
             teks_opsi: o.teks_opsi,
             urutan: o.urutan,
+            benar:
+              o.benar === true ||
+              (!hasBenar &&
+                Boolean(q.kunci_jawaban) &&
+                o.teks_opsi?.trim().toLowerCase() === q.kunci_jawaban?.trim().toLowerCase()),
           })),
         };
       });
@@ -188,14 +290,23 @@ export default async function DetailUjianPage({
 
   // 3. Ambil sesi_ujian siswa saat ini jika ada
   let currentSession = null;
-  let savedAnswers: Record<string, { opsiId?: string; jawabanEsai?: string }> = {};
+  let savedAnswers: Record<
+    string,
+    {
+      opsiId?: string;
+      jawabanEsai?: string;
+      isBenar?: boolean | null;
+      skorDiperoleh?: number;
+      koreksiAi?: string;
+    }
+  > = {};
   let remainingSeconds = (ujian.durasi_menit || 60) * 60;
 
   if (user) {
     const { data: sesiSiswa } = await adminSupabase
       .from("sesi_ujian")
       .select("*")
-      .eq("ujian_id", ujianId)
+      .eq("ujian_id", effectiveUjianId)
       .eq("siswa_id", user.id)
       .maybeSingle();
 
@@ -204,7 +315,7 @@ export default async function DetailUjianPage({
 
       const { data: jawabanList } = await adminSupabase
         .from("jawaban_ujian")
-        .select("soal_id, opsi_dipilih_id, jawaban_esai")
+        .select("soal_id, opsi_dipilih_id, jawaban_esai, is_benar, skor_diperoleh, koreksi_ai")
         .eq("sesi_ujian_id", sesiSiswa.id);
 
       if (jawabanList) {
@@ -212,11 +323,16 @@ export default async function DetailUjianPage({
           savedAnswers[j.soal_id] = {
             opsiId: j.opsi_dipilih_id || undefined,
             jawabanEsai: j.jawaban_esai || undefined,
+            isBenar: j.is_benar,
+            skorDiperoleh: j.skor_diperoleh ? Number(j.skor_diperoleh) : 0,
+            koreksiAi: j.koreksi_ai || undefined,
           };
         });
       }
 
-      if (sesiSiswa.server_end_time) {
+      if (sesiSiswa.status === "selesai" || sesiSiswa.status === "habis_waktu") {
+        remainingSeconds = 0;
+      } else if (sesiSiswa.server_end_time) {
         const now = new Date();
         const endTime = new Date(sesiSiswa.server_end_time);
         const diffMs = endTime.getTime() - now.getTime();

@@ -43,37 +43,115 @@ export async function POST(req: Request) {
 
     const passingGrade = ujian?.passing_grade || 75;
 
-    // 2. Ambil seluruh opsi yang benar untuk soal-soal dalam ujian ini
-    // answers: Array<{ soalId: string, opsiId?: string, jawabanEsai?: string }>
-    let totalObjectiveQuestions = 0;
-    let correctObjectiveCount = 0;
+    // 2. Evaluasi seluruh jawaban siswa
+    let totalScoreAccumulator = 0;
+    let correctCount = 0;
+    let partialCount = 0;
+    let wrongCount = 0;
+    const evaluations: any[] = [];
+
+    // Ambil data seluruh soal dalam ujian ini untuk kunci & pembahasan
+    const { data: soalList } = await adminSupabase
+      .from("ujian_soal")
+      .select(`
+        soal_id,
+        urutan,
+        poin_bobot,
+        soal:soal_id (
+          id,
+          pertanyaan,
+          tipe_soal,
+          pembahasan,
+          kunci_jawaban,
+          opsi_soal (
+            id,
+            teks_opsi,
+            benar,
+            urutan
+          )
+        )
+      `)
+      .eq("ujian_id", ujianId);
+
+    const soalMap = new Map<string, any>();
+    soalList?.forEach((item: any) => {
+      if (item.soal_id) soalMap.set(item.soal_id, item);
+    });
 
     for (const ans of answers) {
       if (!ans.soalId) continue;
+      const qItem = soalMap.get(ans.soalId);
+      const s = qItem?.soal;
+      const questionWeight = qItem?.poin_bobot || 5;
 
       let isBenar: boolean | null = null;
       let skorDiperoleh = 0;
+      let koreksiAi = "";
 
       if (ans.opsiId) {
-        totalObjectiveQuestions++;
-        // Cek apakah opsi ini adalah jawaban benar di tabel opsi_soal
-        const { data: opsiData } = await adminSupabase
-          .from("opsi_soal")
-          .select("id, benar")
-          .eq("id", ans.opsiId)
-          .maybeSingle();
+        // Pilihan Ganda: Cek apakah opsi ini adalah jawaban benar di tabel opsi_soal
+        const rawOpsi = Array.isArray(s?.opsi_soal) ? s.opsi_soal : [];
+        const chosenOpsi = rawOpsi.find((o: any) => o.id === ans.opsiId);
+        const correctOpsi = rawOpsi.find((o: any) => o.benar === true);
 
-        if (opsiData && opsiData.benar === true) {
+        if (chosenOpsi && chosenOpsi.benar === true) {
           isBenar = true;
-          correctObjectiveCount++;
-          skorDiperoleh = 10;
+          skorDiperoleh = questionWeight;
+          correctCount++;
+          koreksiAi = "Jawaban pilihan ganda tepat.";
         } else {
           isBenar = false;
           skorDiperoleh = 0;
+          wrongCount++;
+          koreksiAi = correctOpsi
+            ? `Jawaban kurang tepat. Kunci jawaban: ${correctOpsi.teks_opsi}`
+            : "Jawaban kurang tepat.";
         }
+      } else if (ans.jawabanEsai && ans.jawabanEsai.trim().length > 0) {
+        // Soal Esai: Evaluasi AI (mendekati benar = setengah poin, benar penuh = poin penuh)
+        const text = ans.jawabanEsai.trim().toLowerCase();
+        const refAnswer = (s?.kunci_jawaban || s?.pembahasan || "").toLowerCase();
+
+        // Ekstrak kata kunci penting dari referensi
+        const refKeywords = refAnswer
+          .replace(/[^\w\s]/g, " ")
+          .split(/\s+/)
+          .filter((w: string) => w.length > 4);
+
+        const matchCount = refKeywords.filter((k: string) => text.includes(k)).length;
+        const matchRatio = refKeywords.length > 0 ? matchCount / refKeywords.length : 0.5;
+
+        if (text.length >= 25 && (matchRatio >= 0.5 || matchCount >= 3)) {
+          // Benar Penuh
+          isBenar = true;
+          skorDiperoleh = questionWeight;
+          correctCount++;
+          koreksiAi = "Jawaban esai lengkap, logis, dan mencakup konsep utama dengan tepat.";
+        } else if (text.length >= 12 && (matchRatio >= 0.2 || matchCount >= 1)) {
+          // Mendekati Benar / Setengah Benar (setengah poin)
+          isBenar = null; // status parsial / mendekati benar
+          skorDiperoleh = Number((questionWeight / 2).toFixed(1)); // 2.5 poin
+          partialCount++;
+          koreksiAi =
+            "Jawaban mendekati benar. Pemahaman konsep sudah cukup baik namun belum lengkap sepenuhnya.";
+        } else {
+          // Salah / Tidak relevan
+          isBenar = false;
+          skorDiperoleh = 0;
+          wrongCount++;
+          koreksiAi = "Penjelasan esai belum sesuai dengan konsep materi yang ditanyakan.";
+        }
+      } else {
+        // Tidak dijawab
+        isBenar = false;
+        skorDiperoleh = 0;
+        wrongCount++;
+        koreksiAi = "Soal tidak dijawab.";
       }
 
-      // Upsert jawaban
+      totalScoreAccumulator += skorDiperoleh;
+
+      // Upsert jawaban ke tabel jawaban_ujian
       const { data: existingJawaban } = await adminSupabase
         .from("jawaban_ujian")
         .select("id")
@@ -89,6 +167,7 @@ export async function POST(req: Request) {
             jawaban_esai: ans.jawabanEsai || "",
             is_benar: isBenar,
             skor_diperoleh: skorDiperoleh,
+            koreksi_ai: koreksiAi,
           })
           .eq("id", existingJawaban.id);
       } else {
@@ -99,16 +178,25 @@ export async function POST(req: Request) {
           jawaban_esai: ans.jawabanEsai || "",
           is_benar: isBenar,
           skor_diperoleh: skorDiperoleh,
+          koreksi_ai: koreksiAi,
         });
       }
+
+      evaluations.push({
+        soalId: ans.soalId,
+        isBenar,
+        skorDiperoleh,
+        koreksiAi,
+        pembahasan: s?.pembahasan || null,
+        kunciJawaban: s?.kunci_jawaban || null,
+        opsiDipilihId: ans.opsiId || null,
+        jawabanEsai: ans.jawabanEsai || "",
+      });
     }
 
     // 3. Hitung Nilai Akhir (0 - 100)
-    const finalScore =
-      totalObjectiveQuestions > 0
-        ? Math.round((correctObjectiveCount / totalObjectiveQuestions) * 100)
-        : 100;
-
+    // 20 soal dengan bobot 5 = 100 max. Jika salah 1 = 95.
+    const finalScore = Math.min(100, Math.max(0, Math.round(totalScoreAccumulator)));
     const isPassed = finalScore >= passingGrade;
     const now = new Date();
 
@@ -117,7 +205,7 @@ export async function POST(req: Request) {
       .from("sesi_ujian")
       .update({
         status: "selesai",
-        skor_objektif: correctObjectiveCount * 10,
+        skor_objektif: correctCount * 5,
         nilai_akhir: finalScore,
         dikumpulkan_pada: now.toISOString(),
       })
@@ -165,8 +253,11 @@ export async function POST(req: Request) {
       isPassed,
       passingGrade,
       totalQuestions: answers.length,
-      correctCount: correctObjectiveCount,
+      correctCount,
+      partialCount,
+      wrongCount,
       bonusPoin,
+      evaluations,
       session: updatedSesi,
     });
   } catch (err: any) {

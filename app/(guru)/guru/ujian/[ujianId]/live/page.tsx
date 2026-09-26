@@ -25,6 +25,7 @@ export default async function GuruLiveMonitorPage({
       judul,
       deskripsi,
       mapel,
+      tipe,
       durasi_menit,
       passing_grade,
       status,

@@ -164,6 +164,8 @@ export interface UjianItem {
   waktu_berakhir: string;
   status: string; // 'draft' | 'dipublikasi' | 'ditutup'
   tipe: "ulangan" | "ujian";
+  bab_id?: string | null;
+  token?: string;
   score?: number | null;
   sessionStatus?: "belum_mulai" | "sedang_mengerjakan" | "selesai" | "habis_waktu";
   sesiId?: string;

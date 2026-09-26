@@ -1,7 +1,6 @@
-"use client";
-
 import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useRealtimeDashboard } from "@/hooks/useRealtimeDashboard";
 import {
   TriangleAlert,
@@ -27,6 +26,11 @@ import {
   MapPin,
   Sparkles,
   X,
+  Key,
+  ArrowRight,
+  ArrowLeft,
+  ShieldCheck,
+  Search,
 } from "lucide-react";
 import {
   SekolahData,
@@ -139,16 +143,15 @@ export default function TabBelajar({
     return null;
   }, [activeAgendas, activeDayItem]);
 
-  // Selected Subject Detail Modal
-  const [selectedSubject, setSelectedSubject] = useState<{
-    name: "Matematika" | "Bahasa Inggris" | "Bahasa Indonesia";
-    teacher: string;
-    iconColor: string;
-    accentBg: string;
-  } | null>(null);
+  const router = useRouter();
 
-  // Selected Semester inside Subject Modal
-  const [selectedSubjectSemester, setSelectedSubjectSemester] = useState<1 | 2>(1);
+  // Modal State for AKU LULUS Mapel Selection & Token Verification
+  const [selectedCategoryModal, setSelectedCategoryModal] = useState<"ulangan" | "ujian" | null>(null);
+  const [selectedExamForToken, setSelectedExamForToken] = useState<UjianItem | null>(null);
+  const [inputToken, setInputToken] = useState<string>("");
+  const [isVerifyingToken, setIsVerifyingToken] = useState<boolean>(false);
+  const [tokenError, setTokenError] = useState<string | null>(null);
+  const [tokenSuccess, setTokenSuccess] = useState<string | null>(null);
 
   // Local exam state with real-time sync from Teacher Dashboard
   const [localExams, setLocalExams] = useState<UjianItem[]>(examsData || []);
@@ -164,19 +167,187 @@ export default function TabBelajar({
       setLocalExams((prev) =>
         prev.map((e) =>
           e.id === event.payload.ujianId
-            ? { ...e, status: event.payload.status }
+            ? {
+                ...e,
+                ...(event.payload.status ? { status: event.payload.status } : {}),
+                ...(event.payload.token ? { token: event.payload.token } : {}),
+                ...(event.payload.durasi_menit ? { durasi_menit: event.payload.durasi_menit } : {}),
+              }
             : e
         )
       );
     }
   });
 
+  const handleOpenTokenModal = (exam: UjianItem) => {
+    setSelectedExamForToken(exam);
+    setInputToken("");
+    setTokenError(null);
+    setTokenSuccess(null);
+  };
+
+  const handleVerifyTokenAndStart = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!selectedExamForToken) return;
+
+    const trimmed = inputToken.trim().toUpperCase();
+    if (!trimmed) {
+      setTokenError("Silakan masukkan kode token terlebih dahulu.");
+      return;
+    }
+
+    setIsVerifyingToken(true);
+    setTokenError(null);
+    setTokenSuccess(null);
+
+    try {
+      const res = await fetch("/api/siswa/ujian/verify-token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ujianId: selectedExamForToken.id,
+          token: trimmed,
+          judul: selectedExamForToken.judul,
+          mapel: selectedExamForToken.mapel,
+          babId: selectedExamForToken.bab_id,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && (data.valid || data.success)) {
+        setTokenSuccess("✅ Password Valid! Membuka ruang ujian...");
+        const targetId = data.ujianId || selectedExamForToken.id;
+        setTimeout(() => {
+          router.push(`/ujian/${targetId}`);
+        }, 600);
+      } else {
+        setTokenError(
+          data.error ||
+            "Password / Token salah! Silakan gunakan password sementara: 12345"
+        );
+      }
+    } catch (err: any) {
+      setTokenError("Terjadi gangguan jaringan: " + err.message);
+    } finally {
+      setIsVerifyingToken(false);
+    }
+  };
+
   // Separate Exams for Section "AKU LULUS"
-  const ulanganList = localExams.filter((e) => e.tipe === "ulangan");
-  const ujianList = localExams.filter((e) => e.tipe === "ujian");
+  const ulanganList = localExams.filter((e) => e.tipe === "ulangan").map((e) => ({ ...e, token: "12345" }));
+  const ujianList = localExams.filter((e) => e.tipe === "ujian").map((e) => ({ ...e, token: "12345" }));
+
+  // State for Ulangan Modal Filter & Search
+  const [selectedUlanganMapel, setSelectedUlanganMapel] = useState<string>("Semua");
+  const [searchUlanganQuery, setSearchUlanganQuery] = useState<string>("");
+
+  // Helper styling for Subject Badges with distinct harmonious palettes
+  const getMapelBadgeStyle = (mapel: string) => {
+    const m = (mapel || "").toLowerCase();
+    if (m.includes("matematika")) return "bg-indigo-100 text-indigo-800 border-indigo-200";
+    if (m.includes("indonesia")) return "bg-emerald-100 text-emerald-800 border-emerald-200";
+    if (m.includes("inggris")) return "bg-sky-100 text-sky-800 border-sky-200";
+    if (m.includes("ipa")) return "bg-amber-100 text-amber-800 border-amber-200";
+    if (m.includes("ips")) return "bg-orange-100 text-orange-800 border-orange-200";
+    if (m.includes("informatika")) return "bg-cyan-100 text-cyan-800 border-cyan-200";
+    if (m.includes("pancasila") || m.includes("ppkn")) return "bg-rose-100 text-rose-800 border-rose-200";
+    if (m.includes("agama") || m.includes("islam")) return "bg-teal-100 text-teal-800 border-teal-200";
+    if (m.includes("pjok")) return "bg-lime-100 text-lime-800 border-lime-200";
+    if (m.includes("seni")) return "bg-purple-100 text-purple-800 border-purple-200";
+    return "bg-slate-100 text-slate-800 border-slate-200";
+  };
+
+  // Helper to normalize and restrict to the 3 core subjects present in the web application
+  const normalizeToCoreMapel = (
+    m?: string | null
+  ): "Matematika" | "Bahasa Indonesia" | "Bahasa Inggris" | null => {
+    if (!m) return null;
+    const s = m.toLowerCase();
+    if (s.includes("matematika") || s.includes("math") || s === "mtk") return "Matematika";
+    if (s.includes("indonesia") || s === "bindo") return "Bahasa Indonesia";
+    if (s.includes("inggris") || s.includes("english") || s === "bing") return "Bahasa Inggris";
+    return null;
+  };
+
+  // Full list of Ulangan Harian per bab, strictly limited to the 3 subjects in the web app (Matematika, Bahasa Indonesia, Bahasa Inggris)
+  const allUlanganItems = useMemo(() => {
+    // Only include ulangan that belong to the 3 subjects
+    const list: UjianItem[] = ulanganList
+      .filter((u) => normalizeToCoreMapel(u.mapel) !== null)
+      .map((u) => ({
+        ...u,
+        mapel: normalizeToCoreMapel(u.mapel)!,
+      }));
+
+    const existingBabIds = new Set(list.map((u) => u.bab_id).filter(Boolean));
+
+    // Combine with allChapters for only the 3 subjects
+    allChapters.forEach((ch, idx) => {
+      const canonicalMapel = normalizeToCoreMapel(ch.mapel);
+      // Strictly ignore any non-3-mapel chapters
+      if (canonicalMapel && !existingBabIds.has(ch.id)) {
+        list.push({
+          id: `ulangan-bab-${ch.id}`,
+          judul: ch.judul.toLowerCase().startsWith("bab")
+            ? `Ulangan Harian ${ch.judul}`
+            : `Ulangan Harian: ${ch.judul}`,
+          deskripsi: ch.deskripsi || `Evaluasi formatif materi ${ch.judul} kurikulum terstandar.`,
+          mapel: canonicalMapel,
+          durasi_menit: 30,
+          passing_grade: 75,
+          waktu_mulai: new Date().toISOString(),
+          waktu_berakhir: new Date(Date.now() + 90 * 86400000).toISOString(),
+          status: "dipublikasi",
+          tipe: "ulangan",
+          token: "12345",
+          sessionStatus: "belum_mulai",
+          score: null,
+          bab_id: ch.id,
+        });
+      }
+    });
+
+    // Sort by Mapel (Matematika, Bahasa Indonesia, Bahasa Inggris) and then chapter title
+    const mapelOrder: Record<string, number> = {
+      Matematika: 1,
+      "Bahasa Indonesia": 2,
+      "Bahasa Inggris": 3,
+    };
+    list.sort((a, b) => {
+      const orderA = mapelOrder[a.mapel] || 99;
+      const orderB = mapelOrder[b.mapel] || 99;
+      if (orderA !== orderB) return orderA - orderB;
+      return a.judul.localeCompare(b.judul, undefined, { numeric: true });
+    });
+
+    return list;
+  }, [ulanganList, allChapters]);
+
+  // List of unique mapel available in Ulangan Harian (strictly the 3 mapel)
+  const ulanganMapels = useMemo(() => {
+    return ["Semua", "Matematika", "Bahasa Indonesia", "Bahasa Inggris"];
+  }, []);
+
+  // Filtered Ulangan List by Mapel & Search Query
+  const filteredUlanganList = useMemo(() => {
+    let list = allUlanganItems;
+    if (selectedUlanganMapel !== "Semua") {
+      list = list.filter((e) => e.mapel?.toLowerCase() === selectedUlanganMapel.toLowerCase());
+    }
+    if (searchUlanganQuery.trim()) {
+      const q = searchUlanganQuery.toLowerCase();
+      list = list.filter(
+        (e) =>
+          e.judul.toLowerCase().includes(q) ||
+          e.mapel.toLowerCase().includes(q) ||
+          (e.deskripsi && e.deskripsi.toLowerCase().includes(q))
+      );
+    }
+    return list;
+  }, [allUlanganItems, selectedUlanganMapel, searchUlanganQuery]);
 
   const targetUlangan =
-    ulanganList.find((e) => e.status === "dipublikasi") || ulanganList[0] || null;
+    allUlanganItems.find((e) => e.status === "dipublikasi") || allUlanganItems[0] || null;
   const isUlanganActive = targetUlangan?.status === "dipublikasi";
 
   const targetUjian =
@@ -193,14 +364,6 @@ export default function TabBelajar({
   const indonesianChapters = allChapters.filter(
     (c) => c.mapel?.toLowerCase().includes("indonesia")
   );
-
-  // Active Subject Detail Data
-  const getSubjectChapters = (subjName: string) => {
-    if (subjName === "Matematika") return mathChapters;
-    if (subjName === "Bahasa Inggris") return englishChapters;
-    if (subjName === "Bahasa Indonesia") return indonesianChapters;
-    return [];
-  };
 
   return (
     <main className="mx-auto max-w-7xl px-4 sm:px-6 pt-6 space-y-8 pb-16 font-sans">
@@ -666,7 +829,7 @@ export default function TabBelajar({
               AKU LULUS
             </h2>
             <p className="text-xs text-slate-500 font-medium">
-              Akses Ulangan Harian dan Ujian resmi yang telah diaktifkan oleh Guru.
+              Akses Ulangan Harian dan Ujian resmi yang telah diaktifkan oleh Guru dengan metode pengerjaan Sokratik terpandu.
             </p>
           </div>
 
@@ -674,303 +837,249 @@ export default function TabBelajar({
             href="/ujian"
             className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-[#0F172A] text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
           >
-            <span>Buka Ruang Ujian</span>
+            <span>Semua Riwayat Ujian</span>
             <ChevronRight className="w-3.5 h-3.5" />
           </Link>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {/* Card 1: ULANGAN */}
-          <div
-            className={`saas-card rounded-3xl p-6 border transition-all duration-200 flex flex-col justify-between space-y-4 ${
-              targetUlangan && isUlanganActive
-                ? "bg-white border-indigo-200 shadow-sm hover:border-indigo-300"
-                : "bg-slate-50/80 border-slate-200 text-slate-500"
-            }`}
-          >
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div
-                    className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs ${
-                      targetUlangan && isUlanganActive
-                        ? "bg-indigo-600 text-white shadow-xs"
-                        : "bg-slate-200 text-slate-500"
-                    }`}
-                  >
-                    <FileText className="w-4.5 h-4.5" />
+          {(() => {
+            const activeCount = allUlanganItems.filter((e) => e.status === "dipublikasi").length;
+            const isAnyActive = activeCount > 0;
+
+            return (
+              <div
+                onClick={isAnyActive ? () => setSelectedCategoryModal("ulangan") : undefined}
+                className={`saas-card rounded-3xl p-6 border transition-all duration-200 flex flex-col justify-between space-y-4 ${
+                  isAnyActive
+                    ? "bg-white border-indigo-200 shadow-sm hover:border-indigo-400 hover:shadow-md cursor-pointer group"
+                    : "bg-slate-50/90 border-slate-200/90 text-slate-400 cursor-not-allowed select-none opacity-85"
+                }`}
+              >
+                <div className="space-y-3.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div
+                        className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-xs shadow-xs transition ${
+                          isAnyActive
+                            ? "bg-indigo-600 text-white group-hover:scale-105"
+                            : "bg-slate-200 text-slate-400"
+                        }`}
+                      >
+                        {isAnyActive ? <FileText className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
+                      </div>
+                      <div>
+                        <span className="font-black text-base text-[#0F172A] block leading-tight">
+                          Ulangan Harian
+                        </span>
+                        <span className="text-[11px] font-semibold text-slate-500">
+                          Evaluasi Formatif Per Bab
+                        </span>
+                      </div>
+                    </div>
+
+                    {isAnyActive ? (
+                      <span className="px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase flex items-center gap-1.5 shadow-2xs">
+                        <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
+                        <span>{activeCount} Bab Ulangan Aktif (ON)</span>
+                      </span>
+                    ) : (
+                      <span className="px-3 py-1 rounded-full bg-slate-200/90 border border-slate-300 text-slate-600 text-[10px] font-extrabold uppercase flex items-center gap-1.5 shadow-2xs">
+                        <Lock className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Akses Ditutup (OFF)</span>
+                      </span>
+                    )}
                   </div>
-                  <span className="font-extrabold text-sm text-[#0F172A]">
-                    Ulangan
-                  </span>
+
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    {isAnyActive ? (
+                      <>
+                        Uji pemahaman materi bab dengan metode <strong>Sokratik AI</strong>. Terdapat evaluasi formatif per bab khusus 3 mata pelajaran (Matematika, Bahasa Indonesia, Bahasa Inggris).
+                      </>
+                    ) : (
+                      <span className="text-slate-400 italic">
+                        Akses Ulangan Harian saat ini sedang ditutup. Guru atau Admin Sekolah belum mengaktifkan asesmen ini.
+                      </span>
+                    )}
+                  </p>
+
+                  {/* Subject Pills Preview */}
+                  <div className="flex items-center flex-wrap gap-2 pt-1">
+                    {["Matematika", "Bahasa Indonesia", "Bahasa Inggris"].map((m) => {
+                      const items = allUlanganItems.filter((e) =>
+                        e.mapel?.toLowerCase().includes(m.toLowerCase())
+                      );
+                      const isItemOpen = items.some((e) => e.status === "dipublikasi");
+
+                      return (
+                        <span
+                          key={m}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold border transition ${
+                            isItemOpen
+                              ? "bg-indigo-50/80 border-indigo-200 text-indigo-800"
+                              : "bg-slate-100 border-slate-200 text-slate-400"
+                          }`}
+                        >
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              isItemOpen ? "bg-emerald-500" : "bg-slate-400"
+                            }`}
+                          />
+                          <span>
+                            {m} ({items.length} Bab)
+                          </span>
+                        </span>
+                      );
+                    })}
+                  </div>
                 </div>
 
-                {targetUlangan ? (
-                  isUlanganActive ? (
-                    <span className="px-2.5 py-0.5 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 text-[10px] font-black uppercase flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-pulse" />
-                      <span>Aktif & Tersedia</span>
-                    </span>
-                  ) : (
-                    <span className="px-2.5 py-0.5 rounded-full bg-slate-100 border border-slate-300 text-slate-600 text-[10px] font-extrabold uppercase flex items-center gap-1">
-                      <Lock className="w-3 h-3 text-slate-500" />
-                      <span>Ditutup Guru</span>
-                    </span>
-                  )
+                {/* Footer Button */}
+                {isAnyActive ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedCategoryModal("ulangan");
+                    }}
+                    className="w-full py-3 rounded-2xl bg-indigo-600 group-hover:bg-indigo-700 text-white text-xs font-black flex items-center justify-center gap-2 transition cursor-pointer shadow-xs"
+                  >
+                    <PlayCircle className="w-4 h-4 text-amber-300" />
+                    <span>Pilih Ulangan Harian Per Bab</span>
+                    <ChevronRight className="w-4 h-4 transition group-hover:translate-x-0.5" />
+                  </button>
                 ) : (
-                  <span className="px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-600 text-[10px] font-bold">
-                    Belum tersedia
-                  </span>
+                  <button
+                    type="button"
+                    disabled
+                    className="w-full py-3 rounded-2xl bg-slate-200 border border-slate-300 text-slate-500 text-xs font-bold flex items-center justify-center gap-2 cursor-not-allowed select-none"
+                    title="Akses Ulangan Harian belum diaktifkan oleh Guru atau Admin Sekolah"
+                  >
+                    <Lock className="w-4 h-4 text-slate-500" />
+                    <span>Akses Terkunci (Menunggu Guru/Admin)</span>
+                  </button>
                 )}
               </div>
+            );
+          })()}
 
-              {targetUlangan ? (
-                <div className="space-y-2">
-                  <h3 className="text-base font-extrabold text-[#0F172A]">
-                    {targetUlangan.judul}
-                  </h3>
-                  <div className="grid grid-cols-2 gap-2 text-xs text-slate-600">
-                    <div>
-                      <span className="text-[10px] font-bold text-slate-400 block uppercase">
-                        Mata Pelajaran
-                      </span>
-                      <span className="font-bold text-[#0F172A]">
-                        {targetUlangan.mapel}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-bold text-slate-400 block uppercase">
-                        Durasi
-                      </span>
-                      <span className="font-bold text-[#0F172A]">
-                        {targetUlangan.durasi_menit} Menit
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-bold text-slate-400 block uppercase">
-                        Status Pengerjaan
-                      </span>
-                      <span className="font-bold capitalize text-blue-600">
-                        {targetUlangan.sessionStatus === "selesai"
-                          ? "Selesai"
-                          : targetUlangan.sessionStatus === "sedang_mengerjakan"
-                          ? "Sedang Dikerjakan"
-                          : "Belum Dikerjakan"}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-bold text-slate-400 block uppercase">
-                        Nilai Hasil
-                      </span>
-                      <span className="font-extrabold text-emerald-700">
-                        {targetUlangan.score !== null && targetUlangan.score !== undefined
-                          ? `${targetUlangan.score} / 100`
-                          : "Belum ada nilai"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="py-4 text-center text-xs text-slate-400 space-y-1">
-                  <AlertCircle className="w-7 h-7 text-slate-300 mx-auto" />
-                  <p className="font-bold text-slate-600">
-                    Ulangan Harian Belum Tersedia
-                  </p>
-                  <p className="text-[11px]">
-                    Guru belum mengaktifkan jadwal ulangan untuk kelas Anda.
-                  </p>
-                </div>
-              )}
-            </div>
+          {/* Card 2: UJIAN RESMI (PTS) */}
+          {(() => {
+            const activeCount = ujianList.filter((e) => e.status === "dipublikasi").length;
+            const isAnyActive = activeCount > 0;
 
-            {targetUlangan ? (
-              isUlanganActive ? (
-                <Link
-                  href={`/ujian/${targetUlangan.id}`}
-                  className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black flex items-center justify-center gap-2 transition cursor-pointer shadow-xs"
-                >
-                  <PlayCircle className="w-4 h-4 text-amber-300" />
-                  <span>
-                    {targetUlangan.sessionStatus === "selesai"
-                      ? "Lihat Hasil Ulangan"
-                      : targetUlangan.sessionStatus === "sedang_mengerjakan"
-                      ? "Lanjutkan Ulangan"
-                      : "Mulai Kerjakan Ulangan"}
-                  </span>
-                </Link>
-              ) : targetUlangan.sessionStatus === "selesai" ? (
-                <Link
-                  href={`/ujian/${targetUlangan.id}`}
-                  className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 text-xs font-black flex items-center justify-center gap-2 transition cursor-pointer"
-                >
-                  <Award className="w-4 h-4 text-emerald-600" />
-                  <span>Lihat Hasil Ulangan (Selesai)</span>
-                </Link>
-              ) : (
-                <button
-                  disabled
-                  className="w-full py-2.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-400 text-xs font-extrabold flex items-center justify-center gap-2 cursor-not-allowed select-none"
-                  title="Guru sedang menutup akses ulangan ini"
-                >
-                  <Lock className="w-4 h-4 text-slate-400" />
-                  <span>Akses Dinonaktifkan oleh Guru</span>
-                </button>
-              )
-            ) : (
-              <button
-                disabled
-                className="w-full py-2.5 rounded-xl bg-slate-200 text-slate-400 text-xs font-bold cursor-not-allowed text-center"
+            return (
+              <div
+                onClick={isAnyActive ? () => setSelectedCategoryModal("ujian") : undefined}
+                className={`saas-card rounded-3xl p-6 border transition-all duration-200 flex flex-col justify-between space-y-4 ${
+                  isAnyActive
+                    ? "bg-white border-blue-200 shadow-sm hover:border-blue-400 hover:shadow-md cursor-pointer group"
+                    : "bg-slate-50/90 border-slate-200/90 text-slate-400 cursor-not-allowed select-none opacity-85"
+                }`}
               >
-                Belum tersedia
-              </button>
-            )}
-          </div>
+                <div className="space-y-3.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div
+                        className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-xs shadow-xs transition ${
+                          isAnyActive
+                            ? "bg-[#0F172A] text-white group-hover:scale-105"
+                            : "bg-slate-200 text-slate-400"
+                        }`}
+                      >
+                        {isAnyActive ? <Clock className="w-5 h-5 text-amber-400" /> : <Lock className="w-5 h-5" />}
+                      </div>
+                      <div>
+                        <span className="font-black text-base text-[#0F172A] block leading-tight">
+                          Ujian Resmi (PTS)
+                        </span>
+                        <span className="text-[11px] font-semibold text-slate-500">
+                          Asesmen Sumatif Terstandar
+                        </span>
+                      </div>
+                    </div>
 
-          {/* Card 2: UJIAN */}
-          <div
-            className={`saas-card rounded-3xl p-6 border transition-all duration-200 flex flex-col justify-between space-y-4 ${
-              targetUjian && isUjianActive
-                ? "bg-white border-blue-200 shadow-sm hover:border-blue-300"
-                : "bg-slate-50/80 border-slate-200 text-slate-500"
-            }`}
-          >
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div
-                    className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs ${
-                      targetUjian && isUjianActive
-                        ? "bg-[#0F172A] text-white shadow-xs"
-                        : "bg-slate-200 text-slate-500"
-                    }`}
-                  >
-                    <Clock className="w-4.5 h-4.5 text-amber-400" />
+                    {isAnyActive ? (
+                      <span className="px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase flex items-center gap-1.5 shadow-2xs">
+                        <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
+                        <span>{activeCount} Mapel Aktif (ON)</span>
+                      </span>
+                    ) : (
+                      <span className="px-3 py-1 rounded-full bg-slate-200/90 border border-slate-300 text-slate-600 text-[10px] font-extrabold uppercase flex items-center gap-1.5 shadow-2xs">
+                        <Lock className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Akses Ditutup (OFF)</span>
+                      </span>
+                    )}
                   </div>
-                  <span className="font-extrabold text-sm text-[#0F172A]">
-                    Ujian
-                  </span>
+
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    {isAnyActive ? (
+                      <>
+                        Asesmen resmi terjadwal dengan alokasi waktu presisi. Wajib memasukkan <strong>Kode Token Guru</strong> sebelum memulai soal.
+                      </>
+                    ) : (
+                      <span className="text-slate-400 italic">
+                        Akses Ujian Resmi saat ini sedang ditutup. Guru atau Admin Sekolah belum mengaktifkan asesmen ini.
+                      </span>
+                    )}
+                  </p>
+
+                  {/* Subject Pills Preview */}
+                  <div className="flex items-center flex-wrap gap-2 pt-1">
+                    {["Matematika", "Bahasa Indonesia", "Bahasa Inggris"].map((m) => {
+                      const item = ujianList.find((e) => e.mapel === m);
+                      const isItemOpen = item?.status === "dipublikasi";
+
+                      return (
+                        <span
+                          key={m}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold border transition ${
+                            isItemOpen
+                              ? "bg-blue-50/80 border-blue-200 text-blue-800"
+                              : "bg-slate-100 border-slate-200 text-slate-400"
+                          }`}
+                        >
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              isItemOpen ? "bg-emerald-500" : "bg-slate-400"
+                            }`}
+                          />
+                          <span>{m}</span>
+                        </span>
+                      );
+                    })}
+                  </div>
                 </div>
 
-                {targetUjian ? (
-                  isUjianActive ? (
-                    <span className="px-2.5 py-0.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-[10px] font-black uppercase flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />
-                      <span>Aktif & Tersedia</span>
-                    </span>
-                  ) : (
-                    <span className="px-2.5 py-0.5 rounded-full bg-slate-100 border border-slate-300 text-slate-600 text-[10px] font-extrabold uppercase flex items-center gap-1">
-                      <Lock className="w-3 h-3 text-slate-500" />
-                      <span>Ditutup Guru</span>
-                    </span>
-                  )
+                {/* Footer Button */}
+                {isAnyActive ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedCategoryModal("ujian");
+                    }}
+                    className="w-full py-3 rounded-2xl bg-[#0F172A] group-hover:bg-slate-800 text-white text-xs font-black flex items-center justify-center gap-2 transition cursor-pointer shadow-xs"
+                  >
+                    <PlayCircle className="w-4 h-4 text-amber-400" />
+                    <span>Pilih Mata Pelajaran Ujian PTS</span>
+                    <ChevronRight className="w-4 h-4 transition group-hover:translate-x-0.5" />
+                  </button>
                 ) : (
-                  <span className="px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-600 text-[10px] font-bold">
-                    Belum tersedia
-                  </span>
+                  <button
+                    type="button"
+                    disabled
+                    className="w-full py-3 rounded-2xl bg-slate-200 border border-slate-300 text-slate-500 text-xs font-bold flex items-center justify-center gap-2 cursor-not-allowed select-none"
+                    title="Akses Ujian Resmi belum diaktifkan oleh Guru atau Admin Sekolah"
+                  >
+                    <Lock className="w-4 h-4 text-slate-500" />
+                    <span>Akses Terkunci (Menunggu Guru/Admin)</span>
+                  </button>
                 )}
               </div>
-
-              {targetUjian ? (
-                <div className="space-y-2">
-                  <h3 className="text-base font-extrabold text-[#0F172A]">
-                    {targetUjian.judul}
-                  </h3>
-                  <div className="grid grid-cols-2 gap-2 text-xs text-slate-600">
-                    <div>
-                      <span className="text-[10px] font-bold text-slate-400 block uppercase">
-                        Mata Pelajaran
-                      </span>
-                      <span className="font-bold text-[#0F172A]">
-                        {targetUjian.mapel}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-bold text-slate-400 block uppercase">
-                        Durasi
-                      </span>
-                      <span className="font-bold text-[#0F172A]">
-                        {targetUjian.durasi_menit} Menit
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-bold text-slate-400 block uppercase">
-                        Status Pengerjaan
-                      </span>
-                      <span className="font-bold capitalize text-blue-600">
-                        {targetUjian.sessionStatus === "selesai"
-                          ? "Selesai"
-                          : targetUjian.sessionStatus === "sedang_mengerjakan"
-                          ? "Sedang Dikerjakan"
-                          : "Belum Dikerjakan"}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-bold text-slate-400 block uppercase">
-                        Nilai Hasil
-                      </span>
-                      <span className="font-extrabold text-emerald-700">
-                        {targetUjian.score !== null && targetUjian.score !== undefined
-                          ? `${targetUjian.score} / 100`
-                          : "Belum ada nilai"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="py-4 text-center text-xs text-slate-400 space-y-1">
-                  <AlertCircle className="w-7 h-7 text-slate-300 mx-auto" />
-                  <p className="font-bold text-slate-600">
-                    Ujian Terjadwal Belum Tersedia
-                  </p>
-                  <p className="text-[11px]">
-                    Guru atau Admin belum membuka sesi ujian untuk saat ini.
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {targetUjian ? (
-              isUjianActive ? (
-                <Link
-                  href={`/ujian/${targetUjian.id}`}
-                  className="w-full py-2.5 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-black flex items-center justify-center gap-2 transition cursor-pointer shadow-xs"
-                >
-                  <PlayCircle className="w-4 h-4 text-amber-400" />
-                  <span>
-                    {targetUjian.sessionStatus === "selesai"
-                      ? "Lihat Hasil Ujian"
-                      : targetUjian.sessionStatus === "sedang_mengerjakan"
-                      ? "Lanjutkan Ujian"
-                      : "Mulai Kerjakan Ujian"}
-                  </span>
-                </Link>
-              ) : targetUjian.sessionStatus === "selesai" ? (
-                <Link
-                  href={`/ujian/${targetUjian.id}`}
-                  className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 text-xs font-black flex items-center justify-center gap-2 transition cursor-pointer"
-                >
-                  <Award className="w-4 h-4 text-emerald-600" />
-                  <span>Lihat Hasil Ujian (Selesai)</span>
-                </Link>
-              ) : (
-                <button
-                  disabled
-                  className="w-full py-2.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-400 text-xs font-extrabold flex items-center justify-center gap-2 cursor-not-allowed select-none"
-                  title="Guru sedang menutup akses ujian ini"
-                >
-                  <Lock className="w-4 h-4 text-slate-400" />
-                  <span>Akses Dinonaktifkan oleh Guru</span>
-                </button>
-              )
-            ) : (
-              <button
-                disabled
-                className="w-full py-2.5 rounded-xl bg-slate-200 text-slate-400 text-xs font-bold cursor-not-allowed text-center"
-              >
-                Belum tersedia
-              </button>
-            )}
-          </div>
+            );
+          })()}
         </div>
       </section>
 
@@ -983,7 +1092,7 @@ export default function TabBelajar({
               <span>Kelas Aktif</span>
             </h2>
             <p className="text-xs text-slate-500 font-medium">
-              3 Mata Pelajaran Utama Kelas 8. Klik kartu untuk melihat rincian guru, bab, dan materi.
+              3 Mata Pelajaran Utama Kelas 8. Klik kartu untuk langsung masuk ke materi dan bab di tab Belajar.
             </p>
           </div>
           <Link
@@ -996,16 +1105,9 @@ export default function TabBelajar({
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           {/* Card 1: MATEMATIKA */}
-          <div
-            onClick={() =>
-              setSelectedSubject({
-                name: "Matematika",
-                teacher: "Ibu Siti Rahmawati, M.Pd.",
-                iconColor: "text-blue-600",
-                accentBg: "bg-blue-50 border-blue-200",
-              })
-            }
-            className="saas-card saas-card-hover rounded-3xl p-6 border border-slate-200 flex flex-col justify-between space-y-5 shadow-xs group bg-white cursor-pointer"
+          <Link
+            href={`/belajar?mapel=Matematika${mathChapters[0]?.id ? `&babId=${mathChapters[0].id}` : ""}`}
+            className="saas-card saas-card-hover rounded-3xl p-6 border border-slate-200 hover:border-blue-400 flex flex-col justify-between space-y-5 shadow-xs hover:shadow-md group bg-white cursor-pointer transition-all duration-200"
           >
             <div className="space-y-3">
               <div className="flex items-center justify-between">
@@ -1040,24 +1142,17 @@ export default function TabBelajar({
               <span className="text-xs font-bold text-slate-600">
                 Ulangan Harian 1 Aktif
               </span>
-              <span className="inline-flex items-center gap-1 text-xs font-extrabold text-blue-600 group-hover:translate-x-0.5 transition">
-                <span>Rincian</span>
+              <span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-blue-600 group-hover:translate-x-1 transition">
+                <span>Buka Belajar Bab</span>
                 <ChevronRight className="w-4 h-4" />
               </span>
             </div>
-          </div>
+          </Link>
 
           {/* Card 2: BAHASA INGGRIS */}
-          <div
-            onClick={() =>
-              setSelectedSubject({
-                name: "Bahasa Inggris",
-                teacher: "Budi Santoso, S.Pd.",
-                iconColor: "text-indigo-600",
-                accentBg: "bg-indigo-50 border-indigo-200",
-              })
-            }
-            className="saas-card saas-card-hover rounded-3xl p-6 border border-slate-200 flex flex-col justify-between space-y-5 shadow-xs group bg-white cursor-pointer"
+          <Link
+            href={`/belajar?mapel=Bahasa%20Inggris${englishChapters[0]?.id ? `&babId=${englishChapters[0].id}` : ""}`}
+            className="saas-card saas-card-hover rounded-3xl p-6 border border-slate-200 hover:border-indigo-400 flex flex-col justify-between space-y-5 shadow-xs hover:shadow-md group bg-white cursor-pointer transition-all duration-200"
           >
             <div className="space-y-3">
               <div className="flex items-center justify-between">
@@ -1092,24 +1187,17 @@ export default function TabBelajar({
               <span className="text-xs font-bold text-slate-600">
                 PTS Ganjil Tersedia
               </span>
-              <span className="inline-flex items-center gap-1 text-xs font-extrabold text-indigo-600 group-hover:translate-x-0.5 transition">
-                <span>Rincian</span>
+              <span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-indigo-600 group-hover:translate-x-1 transition">
+                <span>Buka Belajar Bab</span>
                 <ChevronRight className="w-4 h-4" />
               </span>
             </div>
-          </div>
+          </Link>
 
           {/* Card 3: BAHASA INDONESIA */}
-          <div
-            onClick={() =>
-              setSelectedSubject({
-                name: "Bahasa Indonesia",
-                teacher: "Dra. Nurul Hidayah",
-                iconColor: "text-emerald-600",
-                accentBg: "bg-emerald-50 border-emerald-200",
-              })
-            }
-            className="saas-card saas-card-hover rounded-3xl p-6 border border-slate-200 flex flex-col justify-between space-y-5 shadow-xs group bg-white cursor-pointer"
+          <Link
+            href={`/belajar?mapel=Bahasa%20Indonesia${indonesianChapters[0]?.id ? `&babId=${indonesianChapters[0].id}` : ""}`}
+            className="saas-card saas-card-hover rounded-3xl p-6 border border-slate-200 hover:border-emerald-400 flex flex-col justify-between space-y-5 shadow-xs hover:shadow-md group bg-white cursor-pointer transition-all duration-200"
           >
             <div className="space-y-3">
               <div className="flex items-center justify-between">
@@ -1144,12 +1232,12 @@ export default function TabBelajar({
               <span className="text-xs font-bold text-slate-600">
                 Tugas Proyek LHO
               </span>
-              <span className="inline-flex items-center gap-1 text-xs font-extrabold text-emerald-600 group-hover:translate-x-0.5 transition">
-                <span>Rincian</span>
+              <span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-emerald-600 group-hover:translate-x-1 transition">
+                <span>Buka Belajar Bab</span>
                 <ChevronRight className="w-4 h-4" />
               </span>
             </div>
-          </div>
+          </Link>
         </div>
       </section>
 
@@ -1257,108 +1345,590 @@ export default function TabBelajar({
         </div>
       </section>
 
-      {/* 6. MODAL INTERAKTIF: RINCIAN MATA PELAJARAN KELAS AKTIF */}
-      {selectedSubject && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-2xl p-6 sm:p-7 space-y-6 max-h-[90vh] overflow-y-auto relative">
+      {/* 6. NORMAL SCREEN VIEW: PEMILIHAN ASESMEN (AKU LULUS) */}
+      {selectedCategoryModal && (
+        <div className="fixed inset-0 z-50 bg-slate-50 flex flex-col overflow-y-auto animate-in fade-in duration-150 text-slate-900 font-sans">
+          {/* Top Sticky Header */}
+          <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-2xs shrink-0">
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedCategoryModal(null);
+                    setSearchUlanganQuery("");
+                    setSelectedUlanganMapel("Semua");
+                  }}
+                  className="p-2 -ml-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition flex items-center gap-1.5 cursor-pointer font-bold text-xs shrink-0"
+                  title="Kembali ke Beranda"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                  <span className="hidden sm:inline">Kembali ke Beranda</span>
+                </button>
+                <div className="h-5 w-px bg-slate-200 hidden sm:block" />
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center font-black shadow-xs shrink-0 ${
+                      selectedCategoryModal === "ulangan"
+                        ? "bg-indigo-50 text-indigo-600 border border-indigo-200"
+                        : "bg-sky-50 text-sky-600 border border-sky-200"
+                    }`}
+                  >
+                    {selectedCategoryModal === "ulangan" ? (
+                      <FileText className="w-4.5 h-4.5" />
+                    ) : (
+                      <Clock className="w-4.5 h-4.5" />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                        {selectedCategoryModal === "ulangan"
+                          ? "Asesmen Formatif Per Bab"
+                          : "Asesmen Sumatif Terstandar"}
+                      </span>
+                      <span className="text-xs font-bold text-slate-400 hidden md:inline">
+                        Tingkat Kelas 8 • Fase D
+                      </span>
+                    </div>
+                    <h2 className="text-sm sm:text-base font-black text-[#0F172A] truncate">
+                      {selectedCategoryModal === "ulangan"
+                        ? "Daftar Ulangan Harian Per Bab"
+                        : "Daftar Ujian Resmi (PTS)"}
+                    </h2>
+                  </div>
+                </div>
+              </div>
+
+              {/* Header Right Actions */}
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedCategoryModal(null);
+                    setSearchUlanganQuery("");
+                    setSelectedUlanganMapel("Semua");
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border border-slate-200"
+                >
+                  <X className="w-4 h-4" />
+                  <span className="hidden sm:inline">Tutup Halaman</span>
+                </button>
+              </div>
+            </div>
+          </header>
+
+          {/* Normal Screen Body Container */}
+          <div className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
+            {/* Header Hero Banner */}
+            <div className="saas-card rounded-3xl p-6 sm:p-8 bg-white border border-slate-200 shadow-sm relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6">
+              {/* Top Accent Gradient Line */}
+              <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-indigo-500 via-sky-500 to-emerald-500" />
+
+              <div className="space-y-2 max-w-2xl pt-1">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-[11px] font-black uppercase tracking-wider">
+                  <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>
+                    {selectedCategoryModal === "ulangan"
+                      ? "Evaluasi Formatif Per Bab • Sokratik AI"
+                      : "Evaluasi Sumatif Terstandar • Sokratik AI"}
+                  </span>
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-black text-[#0F172A] tracking-tight">
+                  {selectedCategoryModal === "ulangan"
+                    ? "Pilih Mata Pelajaran — Ulangan Harian Per Bab"
+                    : "Pilih Mata Pelajaran — Ujian Resmi (PTS)"}
+                </h1>
+                <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium">
+                  {selectedCategoryModal === "ulangan"
+                    ? "Daftar ulangan formatif per bab untuk 3 mata pelajaran (Matematika, Bahasa Indonesia, Bahasa Inggris) dengan bimbingan Sokratik AI. Pilih bab dan masukkan token dari Guru."
+                    : "Pengerjaan asesmen resmi bersifat Sokratik AI. Pilih mata pelajaran aktif di bawah ini dan masukkan token dari Guru untuk mulai mengerjakan."}
+                </p>
+              </div>
+
+              <div className="shrink-0 flex items-center gap-3">
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center gap-3.5">
+                  <div
+                    className={`w-11 h-11 rounded-xl flex items-center justify-center font-bold text-sm ${
+                      selectedCategoryModal === "ulangan"
+                        ? "bg-indigo-100 text-indigo-700"
+                        : "bg-sky-100 text-sky-700"
+                    }`}
+                  >
+                    {selectedCategoryModal === "ulangan" ? (
+                      <FileText className="w-6 h-6" />
+                    ) : (
+                      <Clock className="w-6 h-6" />
+                    )}
+                  </div>
+                  <div>
+                    <div className="text-xs font-black text-[#0F172A]">
+                      {selectedCategoryModal === "ulangan"
+                        ? `${allUlanganItems.length} Bab Ulangan`
+                        : "3 Mata Pelajaran"}
+                    </div>
+                    <div className="text-[10px] text-slate-500 font-medium">
+                      Tingkat Kelas 8 SMP
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Content Body - preserved exactly */}
+            {selectedCategoryModal === "ujian" ? (
+              /* KHUSUS UJIAN: HANYA MEMUNCULKAN 3 MAPEL */
+              <div className="space-y-4">
+                <div className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">
+                  MATA PELAJARAN UJIAN RESMI TERSEDIA
+                </div>
+                <div className="space-y-3.5">
+                  {["Matematika", "Bahasa Indonesia", "Bahasa Inggris"].map((m) => {
+                    const exam =
+                      ujianList.find((e) =>
+                        e.mapel?.toLowerCase().includes(m.toLowerCase())
+                      ) || null;
+                    const isOpen = exam?.status === "dipublikasi";
+                    const isCompleted = exam?.sessionStatus === "selesai";
+
+                    return (
+                      <div
+                        key={m}
+                        onClick={
+                          isOpen && exam && !isCompleted
+                            ? () => {
+                                handleOpenTokenModal(exam);
+                              }
+                            : undefined
+                        }
+                        className={`saas-card rounded-2xl p-5 sm:p-6 border transition-all duration-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+                          isOpen
+                            ? "bg-white border-slate-200 hover:border-indigo-400 hover:shadow-md cursor-pointer group"
+                            : "bg-slate-50/70 border-slate-200/80 opacity-80 cursor-not-allowed select-none"
+                        }`}
+                      >
+                        <div className="space-y-2">
+                          <div className="flex items-center flex-wrap gap-2">
+                            <span
+                              className={`px-2.5 py-0.5 rounded-xl text-[10px] font-black uppercase tracking-wider border ${getMapelBadgeStyle(
+                                m
+                              )}`}
+                            >
+                              {m}
+                            </span>
+
+                            {isOpen ? (
+                              <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black uppercase flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                                <span>Akses Terbuka (ON)</span>
+                              </span>
+                            ) : (
+                              <span className="px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-600 text-[10px] font-bold uppercase flex items-center gap-1">
+                                <Lock className="w-3 h-3 text-slate-500" />
+                                <span>Akses Ditutup (OFF)</span>
+                              </span>
+                            )}
+
+                            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200 flex items-center gap-1">
+                              <Sparkles className="w-3 h-3" /> Sokratik AI
+                            </span>
+                          </div>
+
+                          <h4 className="text-base font-extrabold text-[#0F172A] group-hover:text-indigo-600 transition">
+                            {exam?.judul || `Penilaian Tengah Semester (PTS) ${m}`}
+                          </h4>
+
+                          <div className="flex items-center flex-wrap gap-2 text-xs text-slate-500 font-medium">
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3.5 h-3.5 text-slate-400" />
+                              {exam?.durasi_menit || 90} Menit (Diatur Guru)
+                            </span>
+                            <span>•</span>
+                            <span>KKM: {exam?.passing_grade || 75}</span>
+                            {exam?.score !== null && exam?.score !== undefined && (
+                              <>
+                                <span>•</span>
+                                <span className="text-emerald-700 font-black">
+                                  Nilai Anda: {exam.score}/100
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Action Button */}
+                        <div className="sm:shrink-0">
+                          {isCompleted ? (
+                            <Link
+                              href={`/ujian/${exam?.id}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="px-5 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 text-xs font-black flex items-center gap-1.5 transition cursor-pointer"
+                            >
+                              <Award className="w-4 h-4 text-emerald-600" />
+                              <span>Lihat Hasil Ujian</span>
+                            </Link>
+                          ) : isOpen && exam ? (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenTokenModal(exam);
+                              }}
+                              className="w-full sm:w-auto px-5 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black flex items-center justify-center gap-2 transition cursor-pointer shadow-xs"
+                            >
+                              <Key className="w-4 h-4 text-amber-300" />
+                              <span>Masukkan Token & Kerjakan</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled
+                              className="w-full sm:w-auto px-5 py-3 rounded-xl bg-slate-100 border border-slate-200 text-slate-400 text-xs font-bold flex items-center justify-center gap-1.5 cursor-not-allowed select-none"
+                              title="Guru sedang menutup akses untuk mata pelajaran ini"
+                            >
+                              <Lock className="w-3.5 h-3.5" />
+                              <span>Ditutup oleh Guru</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              /* KHUSUS ULANGAN: MACAM-MACAM LIST PER BAB SERTA TERTERA MAPELNYA */
+              <div className="space-y-4">
+                {/* Controls: Filter Pills & Search */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-3">
+                  {/* Mapel Filter Pills */}
+                  <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+                    {ulanganMapels.map((m) => {
+                      const count =
+                        m === "Semua"
+                          ? allUlanganItems.length
+                          : allUlanganItems.filter(
+                              (u) => u.mapel?.toLowerCase() === m.toLowerCase()
+                            ).length;
+                      const isSelected = selectedUlanganMapel === m;
+
+                      return (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => setSelectedUlanganMapel(m)}
+                          className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer shrink-0 flex items-center gap-2 border ${
+                            isSelected
+                              ? "bg-[#0F172A] text-white border-[#0F172A] shadow-xs"
+                              : "bg-slate-100 hover:bg-slate-200/80 text-slate-700 border-slate-200"
+                          }`}
+                        >
+                          <span>{m}</span>
+                          <span
+                            className={`text-[10px] px-2 py-0.5 rounded-full font-black ${
+                              isSelected
+                                ? "bg-white/20 text-white"
+                                : "bg-slate-200 text-slate-600"
+                            }`}
+                          >
+                            {count}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Search Input */}
+                  <div className="relative">
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={searchUlanganQuery}
+                      onChange={(e) => setSearchUlanganQuery(e.target.value)}
+                      placeholder="Cari judul bab, materi, atau mata pelajaran ulangan..."
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
+                    />
+                    {searchUlanganQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setSearchUlanganQuery("")}
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold cursor-pointer"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* List of Ulangan Per Bab */}
+                <div className="space-y-3.5">
+                  {filteredUlanganList.length === 0 ? (
+                    <div className="p-12 text-center bg-white rounded-3xl border border-slate-200 space-y-2 shadow-xs">
+                      <FileText className="w-10 h-10 text-slate-300 mx-auto" />
+                      <p className="text-sm font-bold text-slate-700">
+                        Tidak ada ulangan harian yang cocok dengan pencarian Anda.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedUlanganMapel("Semua");
+                          setSearchUlanganQuery("");
+                        }}
+                        className="text-xs text-indigo-600 font-bold hover:underline cursor-pointer"
+                      >
+                        Reset Filter
+                      </button>
+                    </div>
+                  ) : (
+                    filteredUlanganList.map((exam) => {
+                      const isOpen = exam.status === "dipublikasi";
+                      const isCompleted = exam.sessionStatus === "selesai";
+
+                      return (
+                        <div
+                          key={exam.id}
+                          onClick={
+                            isOpen && !isCompleted
+                              ? () => {
+                                  handleOpenTokenModal(exam);
+                                }
+                              : undefined
+                          }
+                          className={`saas-card rounded-2xl p-5 sm:p-6 border transition-all duration-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+                            isOpen
+                              ? "bg-white border-slate-200 hover:border-indigo-400 hover:shadow-md cursor-pointer group"
+                              : "bg-slate-50/70 border-slate-200/80 opacity-80 cursor-not-allowed select-none"
+                          }`}
+                        >
+                          <div className="space-y-2">
+                            {/* Badges: Mapel & Status */}
+                            <div className="flex items-center flex-wrap gap-2">
+                              {/* TERTERA MAPELNYA SECARA JELAS */}
+                              <span
+                                className={`px-2.5 py-0.5 rounded-xl text-[10px] font-black uppercase tracking-wider border ${getMapelBadgeStyle(
+                                  exam.mapel
+                                )}`}
+                              >
+                                {exam.mapel}
+                              </span>
+
+                              {isOpen ? (
+                                <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black uppercase flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                                  <span>Akses Terbuka (ON)</span>
+                                </span>
+                              ) : (
+                                <span className="px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-600 text-[10px] font-bold uppercase flex items-center gap-1">
+                                  <Lock className="w-3 h-3 text-slate-500" />
+                                  <span>Akses Ditutup (OFF)</span>
+                                </span>
+                              )}
+
+                              <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200 flex items-center gap-1">
+                                <Sparkles className="w-3 h-3" /> Sokratik AI
+                              </span>
+                            </div>
+
+                            {/* Judul Ulangan Per Bab */}
+                            <h4 className="text-sm sm:text-base font-extrabold text-[#0F172A] group-hover:text-indigo-600 transition leading-snug">
+                              {exam.judul}
+                            </h4>
+
+                            {/* Info durasi, KKM & nilai */}
+                            <div className="flex items-center flex-wrap gap-2 text-xs text-slate-500 font-medium">
+                              <span className="flex items-center gap-1">
+                                <Clock className="w-3.5 h-3.5 text-slate-400" />
+                                {exam.durasi_menit || 30} Menit (Diatur Guru)
+                              </span>
+                              <span>•</span>
+                              <span>KKM: {exam.passing_grade || 75}</span>
+                              {exam.score !== null && exam.score !== undefined && (
+                                <>
+                                  <span>•</span>
+                                  <span className="text-emerald-700 font-black">
+                                    Nilai Anda: {exam.score}/100
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Tombol Aksi */}
+                          <div className="sm:shrink-0">
+                            {isCompleted ? (
+                              <Link
+                                href={`/ujian/${exam.id}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 text-xs font-black flex items-center justify-center gap-1.5 transition cursor-pointer"
+                              >
+                                <Award className="w-4 h-4 text-emerald-600" />
+                                <span>Lihat Hasil & Pembahasan</span>
+                              </Link>
+                            ) : isOpen ? (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenTokenModal(exam);
+                                }}
+                                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black flex items-center justify-center gap-2 transition cursor-pointer shadow-xs whitespace-nowrap"
+                              >
+                                <Key className="w-4 h-4 text-amber-300" />
+                                <span>Masukkan Token & Kerjakan</span>
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                disabled
+                                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-400 text-xs font-bold flex items-center justify-center gap-1.5 cursor-not-allowed select-none whitespace-nowrap"
+                                title="Guru sedang menutup akses untuk ulangan bab ini"
+                              >
+                                <Lock className="w-3.5 h-3.5" />
+                                <span>Ditutup oleh Guru</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Footer */}
+            <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-slate-500 pb-8">
+              <span className="text-xs text-slate-400">
+                Hubungi Guru pengampu jika asesmen yang ingin Anda kerjakan belum dibuka.
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedCategoryModal(null);
+                  setSearchUlanganQuery("");
+                  setSelectedUlanganMapel("Semua");
+                }}
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-xs font-bold hover:bg-white transition cursor-pointer shadow-2xs"
+              >
+                Kembali ke Beranda
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 8. MODAL INTERAKTIF: INPUT & VERIFIKASI TOKEN GURU */}
+      {selectedExamForToken && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-150">
+          <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-md p-6 sm:p-7 space-y-5 relative">
+            {/* Top Gold Accent Bar */}
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-amber-400 via-orange-400 to-indigo-600" />
+
             <button
-              onClick={() => setSelectedSubject(null)}
+              type="button"
+              onClick={() => setSelectedExamForToken(null)}
               className="absolute top-5 right-5 p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
 
-            {/* Header Subject Modal */}
-            <div className="flex items-center gap-3.5 border-b border-slate-100 pb-4">
-              <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-black shadow-xs">
-                <BookOpen className="w-6 h-6" />
+            {/* Modal Header */}
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center shrink-0 shadow-inner">
+                <Key className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-xl font-black text-[#0F172A]">
-                  {selectedSubject.name} • Kelas 8
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                  Autentikasi Ujian • {selectedExamForToken.mapel}
+                </span>
+                <h3 className="text-lg font-black text-[#0F172A] leading-tight">
+                  Masukkan Token Ujian
                 </h3>
-                <p className="text-xs text-slate-600 font-medium">
-                  Guru Pengampu: <strong>{selectedSubject.teacher}</strong>
-                </p>
               </div>
             </div>
 
-            {/* Semester Switcher */}
-            <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
-              <button
-                onClick={() => setSelectedSubjectSemester(1)}
-                className={`flex-1 py-2 px-4 rounded-xl text-xs font-extrabold transition cursor-pointer ${
-                  selectedSubjectSemester === 1
-                    ? "bg-[#0F172A] text-white shadow-xs"
-                    : "text-slate-600 hover:bg-slate-200"
-                }`}
-              >
-                Semester 1 (Bab 1 - 3)
-              </button>
-              <button
-                onClick={() => setSelectedSubjectSemester(2)}
-                className={`flex-1 py-2 px-4 rounded-xl text-xs font-extrabold transition cursor-pointer ${
-                  selectedSubjectSemester === 2
-                    ? "bg-[#0F172A] text-white shadow-xs"
-                    : "text-slate-600 hover:bg-slate-200"
-                }`}
-              >
-                Semester 2 (Bab 4 - 6)
-              </button>
+            {/* Exam Details Pill */}
+            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-1 text-xs">
+              <div className="font-extrabold text-[#0F172A]">
+                {selectedExamForToken.judul}
+              </div>
+              <div className="flex items-center gap-2 text-slate-500 font-medium text-[11px]">
+                <span>⏱️ Durasi: {selectedExamForToken.durasi_menit} Menit</span>
+                <span>•</span>
+                <span className="text-indigo-600 font-bold">Model Sokratik AI</span>
+              </div>
             </div>
 
-            {/* Bab List for Selected Semester from Supabase */}
-            <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
-              {getSubjectChapters(selectedSubject.name)
-                .filter(
-                  (ch) =>
-                    (ch.semester || (ch.urutan <= 3 ? 1 : 2)) ===
-                    selectedSubjectSemester
-                )
-                .map((bab, idx) => (
-                  <div
-                    key={bab.id}
-                    className="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 hover:bg-white hover:border-blue-300 transition space-y-1.5 shadow-2xs"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800 uppercase">
-                        Bab {bab.urutan || idx + 1}
-                      </span>
-                      <span className="text-xs font-bold text-slate-500">
-                        {bab.materi?.length || 3} Modul Pembelajaran
-                      </span>
-                    </div>
-                    <h4 className="text-sm font-extrabold text-[#0F172A]">
-                      {bab.judul}
-                    </h4>
-                    {bab.deskripsi && (
-                      <p className="text-xs text-slate-500 leading-relaxed">
-                        {bab.deskripsi}
-                      </p>
-                    )}
-                  </div>
-                ))}
-            </div>
+            {/* Information Notice */}
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Gunakan password sementara resmi: <strong className="text-slate-900 bg-amber-100 px-2 py-0.5 rounded-lg border border-amber-300">12345</strong>. Setelah token berhasil diverifikasi, Anda akan langsung diarahkan ke lembar ujian.
+            </p>
 
-            {/* Action Footer: [Lanjutkan Belajar] */}
-            <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
-              <button
-                onClick={() => setSelectedSubject(null)}
-                className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50 transition cursor-pointer"
-              >
-                Tutup
-              </button>
+            {/* Token Form */}
+            <form onSubmit={handleVerifyTokenAndStart} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-black text-[#0F172A] uppercase tracking-wider block">
+                  Password / Kode Token Masuk:
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={inputToken}
+                    onChange={(e) => setInputToken(e.target.value.toUpperCase())}
+                    placeholder="PASSWORD: 12345"
+                    className="w-full px-4 py-3 text-center text-lg font-mono font-black tracking-widest uppercase rounded-2xl border-2 border-slate-300 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 bg-white transition outline-none"
+                    autoFocus
+                    required
+                  />
+                  <Key className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
 
-              {getSubjectChapters(selectedSubject.name)[0] && (
-                <Link
-                  href={`/bab/${getSubjectChapters(selectedSubject.name)[0].id}`}
-                  className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black flex items-center gap-2 transition cursor-pointer shadow-md"
-                >
-                  <span>Lanjutkan Belajar</span>
-                  <ChevronRight className="w-4 h-4" />
-                </Link>
+              {/* Error Message */}
+              {tokenError && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-start gap-2 animate-in fade-in">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-600" />
+                  <span>{tokenError}</span>
+                </div>
               )}
-            </div>
+
+              {/* Success Message */}
+              {tokenSuccess && (
+                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2 animate-in fade-in">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>{tokenSuccess}</span>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="pt-2 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setSelectedExamForToken(null)}
+                  disabled={isVerifyingToken}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-100 transition cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isVerifyingToken || !inputToken.trim()}
+                  className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-black flex items-center gap-2 transition cursor-pointer shadow-xs"
+                >
+                  {isVerifyingToken ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin text-white" />
+                      <span>Memverifikasi...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Verifikasi & Mulai Ujian</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

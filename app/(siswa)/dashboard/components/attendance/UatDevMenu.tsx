@@ -31,6 +31,18 @@ export default function UatDevMenu({
     minute: "2-digit",
   });
 
+  const handleTimeChange = (newVal: string | null) => {
+    setMockTime(newVal);
+    try {
+      if (newVal) {
+        localStorage.setItem("thinksy_mock_time", newVal);
+      } else {
+        localStorage.removeItem("thinksy_mock_time");
+      }
+      window.dispatchEvent(new Event("thinksy_mock_time_change"));
+    } catch {}
+  };
+
   return (
     <div className="fixed bottom-4 left-4 z-40">
       <div className="bg-[#0F172A]/95 text-white backdrop-blur-md border border-slate-700/80 rounded-2xl shadow-2xl p-2.5 flex items-center gap-2.5 text-xs transition-all">
@@ -45,7 +57,7 @@ export default function UatDevMenu({
 
         <select
           value={mockTime || ""}
-          onChange={(e) => setMockTime(e.target.value || null)}
+          onChange={(e) => handleTimeChange(e.target.value || null)}
           suppressHydrationWarning
           className="bg-slate-800 text-white font-semibold text-xs rounded-xl px-2.5 py-1.5 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-400 cursor-pointer"
         >

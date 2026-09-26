@@ -16,25 +16,53 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { ujianId } = body;
+    const { ujianId, token } = body;
 
     if (!ujianId) {
       return NextResponse.json({ error: "Ujian ID wajib disertakan" }, { status: 400 });
     }
 
     // 1. Ambil detail ujian untuk mendapatkan durasi
-    const { data: ujian, error: ujianErr } = await adminSupabase
+    const SIMULASI_ALIAS_MAP: Record<string, string> = {
+      "sim-literasi": "e7eebc99-9c0b-4ef8-bb6d-6bb9bd380a77",
+      "sim-numerasi": "e8eebc99-9c0b-4ef8-bb6d-6bb9bd380a88",
+      "sim-karakter": "e9eebc99-9c0b-4ef8-bb6d-6bb9bd380a99",
+    };
+    let targetUjianId = SIMULASI_ALIAS_MAP[ujianId] || ujianId;
+    let { data: ujian, error: ujianErr } = await adminSupabase
       .from("ujian")
-      .select("id, judul, durasi_menit, status, sekolah_id")
-      .eq("id", ujianId)
-      .single();
+      .select("id, judul, durasi_menit, status, sekolah_id, token, bab_id, tipe")
+      .eq("id", targetUjianId)
+      .maybeSingle();
+
+    if (!ujian && targetUjianId.startsWith("ulangan-bab-")) {
+      const bId = targetUjianId.replace("ulangan-bab-", "");
+      const { data: uBab } = await adminSupabase
+        .from("ujian")
+        .select("id, judul, durasi_menit, status, sekolah_id, token, bab_id, tipe")
+        .eq("bab_id", bId)
+        .maybeSingle();
+      if (uBab) {
+        ujian = uBab;
+        targetUjianId = uBab.id;
+      }
+    }
 
     if (ujianErr || !ujian) {
       return NextResponse.json({ error: "Ujian tidak ditemukan" }, { status: 404 });
     }
 
-    if (ujian.status === "ditutup") {
-      return NextResponse.json({ error: "Ujian ini sudah ditutup." }, { status: 400 });
+    if (ujian.status === "ditutup" && ujian.tipe !== "simulasi") {
+      return NextResponse.json({ error: "Ujian ini sudah ditutup oleh Guru." }, { status: 400 });
+    }
+
+    if (token && ujian.tipe !== "simulasi") {
+      const inputToken = String(token).trim().toUpperCase();
+      const isUniversal = inputToken === "12345";
+      const isCustom = ujian.token ? inputToken === ujian.token.trim().toUpperCase() : true;
+      if (!isUniversal && !isCustom) {
+        return NextResponse.json({ error: "Password / Kode token tidak valid. Gunakan password sementara: 12345" }, { status: 400 });
+      }
     }
 
     const now = new Date();
@@ -43,13 +71,44 @@ export async function POST(req: Request) {
     const { data: existingSesi } = await adminSupabase
       .from("sesi_ujian")
       .select("*")
-      .eq("ujian_id", ujianId)
+      .eq("ujian_id", targetUjianId)
       .eq("siswa_id", user.id)
       .maybeSingle();
 
     if (existingSesi) {
       // Jika sesi sudah selesai
       if (existingSesi.status === "selesai") {
+        if (ujian.tipe === "simulasi") {
+          // Buat sesi baru untuk simulasi mandiri agar siswa bisa latihan lagi
+          const durasiMenit = ujian.durasi_menit || 60;
+          const startTime = now;
+          const endTime = new Date(startTime.getTime() + durasiMenit * 60 * 1000);
+          const { data: newSimSesi } = await adminSupabase
+            .from("sesi_ujian")
+            .update({
+              server_start_time: startTime.toISOString(),
+              server_end_time: endTime.toISOString(),
+              status: "sedang_mengerjakan",
+              skor_objektif: null,
+              skor_esai: null,
+              nilai_akhir: null,
+              dikumpulkan_pada: null,
+            })
+            .eq("id", existingSesi.id)
+            .select()
+            .single();
+
+          if (newSimSesi) {
+            await adminSupabase.from("jawaban_ujian").delete().eq("sesi_ujian_id", existingSesi.id);
+            return NextResponse.json({
+              session: newSimSesi,
+              status: "sedang_mengerjakan",
+              remaining_seconds: durasiMenit * 60,
+              server_end_time: newSimSesi.server_end_time,
+            });
+          }
+        }
+
         return NextResponse.json({
           session: existingSesi,
           status: "selesai",
@@ -96,7 +155,7 @@ export async function POST(req: Request) {
     const { data: newSesi, error: insertError } = await adminSupabase
       .from("sesi_ujian")
       .insert({
-        ujian_id: ujianId,
+        ujian_id: targetUjianId,
         siswa_id: user.id,
         server_start_time: startTime.toISOString(),
         server_end_time: endTime.toISOString(),

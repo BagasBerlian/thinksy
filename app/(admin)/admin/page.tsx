@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import AdminLayout from "@/components/admin/AdminLayout";
+import AdminExamControlWidget from "@/components/admin/AdminExamControlWidget";
 import Link from "next/link";
 import {
   Download,
@@ -267,6 +268,9 @@ export default function AdminSekolahDashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* 2.5. KONTROL ASESMEN SISWA (AKU LULUS) - OTORITAS ADMIN SEKOLAH */}
+        <AdminExamControlWidget />
 
         {/* 3. MAIN CONTENT GRID */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">

@@ -403,7 +403,9 @@ export default async function SiswaDashboardPage() {
       waktu_mulai,
       waktu_berakhir,
       status,
-      tipe
+      tipe,
+      token,
+      bab_id
     `)
     .order("waktu_mulai", { ascending: false });
 
@@ -421,17 +423,113 @@ export default async function SiswaDashboardPage() {
     }
   }
 
-  if (dbExams) {
+  if (dbExams && dbExams.length > 0) {
     examsData = dbExams.map((e: any) => {
       const s = userExamSessions[e.id];
       return {
         ...e,
         tipe: e.tipe || "ujian",
+        token: e.token || "THINKSY26",
         sessionStatus: s?.status || "belum_mulai",
         score: s?.nilai_akhir ?? null,
         sesiId: s?.id,
+        bab_id: e.bab_id || null,
       };
     });
+  } else {
+    // Fallback default sample exams if DB is empty
+    examsData = [
+      {
+        id: "e1eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+        judul: "Ulangan Harian 1: Bilangan Berpangkat & Aljabar",
+        deskripsi: "Evaluasi formatif bab bilangan berpangkat & aljabar.",
+        mapel: "Matematika",
+        durasi_menit: 60,
+        passing_grade: 75,
+        waktu_mulai: new Date().toISOString(),
+        waktu_berakhir: new Date(Date.now() + 30 * 86400000).toISOString(),
+        status: "dipublikasi",
+        tipe: "ulangan",
+        token: "MTK-ULG26",
+        sessionStatus: "belum_mulai",
+        score: null,
+      },
+      {
+        id: "e3eebc99-9c0b-4ef8-bb6d-6bb9bd380a33",
+        judul: "Ulangan Harian: Teks LHO & Kalimat Efektif",
+        deskripsi: "Evaluasi formatif struktur teks LHO & kebahasaan.",
+        mapel: "Bahasa Indonesia",
+        durasi_menit: 60,
+        passing_grade: 75,
+        waktu_mulai: new Date().toISOString(),
+        waktu_berakhir: new Date(Date.now() + 30 * 86400000).toISOString(),
+        status: "dipublikasi",
+        tipe: "ulangan",
+        token: "IND-ULG26",
+        sessionStatus: "belum_mulai",
+        score: null,
+      },
+      {
+        id: "e4eebc99-9c0b-4ef8-bb6d-6bb9bd380a44",
+        judul: "Ulangan Harian: Descriptive Text & Daily Routines",
+        deskripsi: "Evaluasi tenses, vocabulary, and descriptive context.",
+        mapel: "Bahasa Inggris",
+        durasi_menit: 60,
+        passing_grade: 75,
+        waktu_mulai: new Date().toISOString(),
+        waktu_berakhir: new Date(Date.now() + 30 * 86400000).toISOString(),
+        status: "dipublikasi",
+        tipe: "ulangan",
+        token: "ENG-ULG26",
+        sessionStatus: "belum_mulai",
+        score: null,
+      },
+      {
+        id: "e5eebc99-9c0b-4ef8-bb6d-6bb9bd380a55",
+        judul: "Penilaian Tengah Semester (PTS) Matematika Terpadu",
+        deskripsi: "Asesmen sumatif resmi tengah semester mata pelajaran Matematika.",
+        mapel: "Matematika",
+        durasi_menit: 90,
+        passing_grade: 75,
+        waktu_mulai: new Date().toISOString(),
+        waktu_berakhir: new Date(Date.now() + 30 * 86400000).toISOString(),
+        status: "dipublikasi",
+        tipe: "ujian",
+        token: "MTK-PTS26",
+        sessionStatus: "belum_mulai",
+        score: null,
+      },
+      {
+        id: "e6eebc99-9c0b-4ef8-bb6d-6bb9bd380a66",
+        judul: "Penilaian Tengah Semester (PTS) Bahasa Indonesia",
+        deskripsi: "Asesmen sumatif resmi tengah semester mata pelajaran Bahasa Indonesia.",
+        mapel: "Bahasa Indonesia",
+        durasi_menit: 90,
+        passing_grade: 75,
+        waktu_mulai: new Date().toISOString(),
+        waktu_berakhir: new Date(Date.now() + 30 * 86400000).toISOString(),
+        status: "dipublikasi",
+        tipe: "ujian",
+        token: "IND-PTS26",
+        sessionStatus: "belum_mulai",
+        score: null,
+      },
+      {
+        id: "e2eebc99-9c0b-4ef8-bb6d-6bb9bd380a22",
+        judul: "Penilaian Tengah Semester (PTS) Bahasa Inggris",
+        deskripsi: "Asesmen sumatif resmi tengah semester mata pelajaran Bahasa Inggris.",
+        mapel: "Bahasa Inggris",
+        durasi_menit: 90,
+        passing_grade: 75,
+        waktu_mulai: new Date().toISOString(),
+        waktu_berakhir: new Date(Date.now() + 30 * 86400000).toISOString(),
+        status: "dipublikasi",
+        tipe: "ujian",
+        token: "ENG-PTS26",
+        sessionStatus: "belum_mulai",
+        score: null,
+      },
+    ];
   }
 
   // Fallback default sample peer avatars if no peers in DB yet

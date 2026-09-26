@@ -323,7 +323,7 @@ export default function DaftarMateriClient({
           {/* Left: Back Link & Subject Badge */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <Link
-              href="/dashboard"
+              href={`/belajar?mapel=${encodeURIComponent(mapel)}&babId=${babId}`}
               className={`p-2 rounded-xl border transition flex items-center gap-1.5 text-xs font-bold ${
                 readingTheme === "dark"
                   ? "bg-slate-800 border-slate-700 hover:bg-slate-700 text-white"
@@ -331,7 +331,7 @@ export default function DaftarMateriClient({
               }`}
             >
               <ArrowLeft className="w-4 h-4" />
-              <span className="hidden md:inline">Kembali ke Beranda</span>
+              <span className="hidden md:inline">Kembali ke Belajar</span>
             </Link>
 
             <div className="border-l border-slate-300/50 pl-2 sm:pl-3">

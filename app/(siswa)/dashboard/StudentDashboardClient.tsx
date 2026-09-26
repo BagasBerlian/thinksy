@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useRealtimeDashboard } from "@/hooks/useRealtimeDashboard";
 import {
   StudentDashboardProps,
@@ -85,9 +86,46 @@ export default function StudentDashboardClient({
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
 
-  // UAT Mock Time State
-  const [mockTime, setMockTime] = useState<string | null>(null);
+  // UAT Mock Time State (persisted & synced with localStorage)
+  const [mockTime, setMockTime] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("thinksy_mock_time") || null;
+    }
+    return null;
+  });
   const [isDevMenuOpen, setIsDevMenuOpen] = useState(false);
+
+  // Read searchParams for direct tab linking (?tab=peringkat or ?tab=pencapaian)
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const tabParam = searchParams.get("tab");
+    if (tabParam === "peringkat") {
+      setActiveTab("Peringkat");
+    } else if (tabParam === "pencapaian") {
+      setActiveTab("Pencapaian");
+    } else if (tabParam === "belajar") {
+      setActiveTab("Belajar");
+    } else if (tabParam === "home") {
+      setActiveTab("Home");
+    }
+  }, [searchParams]);
+
+  // Sync mockTime across tabs/windows
+  useEffect(() => {
+    const handleMockTimeSync = () => {
+      try {
+        const saved = localStorage.getItem("thinksy_mock_time") || null;
+        setMockTime(saved);
+      } catch {}
+    };
+
+    window.addEventListener("thinksy_mock_time_change", handleMockTimeSync);
+    window.addEventListener("storage", handleMockTimeSync);
+    return () => {
+      window.removeEventListener("thinksy_mock_time_change", handleMockTimeSync);
+      window.removeEventListener("storage", handleMockTimeSync);
+    };
+  }, []);
 
   // Toast Notification State
   const [toastNotification, setToastNotification] =
@@ -247,10 +285,26 @@ export default function StudentDashboardClient({
     return (h || 0) * 60 + (m || 0);
   };
 
-  // Time boundaries: > 08.00 WIB (> 480 mins) = Closed/Alpha | 07.16 - 08.00 WIB = Late
-  const isPresensiClosed = () => getEffectiveMinutes() > 480;
+  // Dynamic Cutoff & Late Threshold from Sekolah Data (default: Tutup 08:00 WIB, Terlambat > 07:15 WIB)
+  const getCutoffMinutes = () => {
+    if (sekolahData?.jam_tutup) {
+      const [h, m] = sekolahData.jam_tutup.split(":").map(Number);
+      if (!isNaN(h) && !isNaN(m)) return h * 60 + m;
+    }
+    return 480; // Default 08.00 WIB
+  };
+
+  const getLateMinutes = () => {
+    if (sekolahData?.jam_masuk) {
+      const [h, m] = sekolahData.jam_masuk.split(":").map(Number);
+      if (!isNaN(h) && !isNaN(m)) return h * 60 + m;
+    }
+    return 435; // Default 07.15 WIB
+  };
+
+  const isPresensiClosed = () => getEffectiveMinutes() > getCutoffMinutes();
   const isPresensiLate = () =>
-    getEffectiveMinutes() > 435 && getEffectiveMinutes() <= 480;
+    getEffectiveMinutes() > getLateMinutes() && getEffectiveMinutes() <= getCutoffMinutes();
 
   // Mount effects: load persisted theme & remote data
   useEffect(() => {

@@ -90,7 +90,8 @@ export default function DemoRoleSwitcher() {
     }
   }, [pathname]);
 
-  if (!mounted) {
+  // Sembunyikan switcher ketika siswa sedang mengerjakan ujian agar tidak menutupi tombol pengerjaan
+  if (!mounted || (pathname && pathname.startsWith("/ujian/") && pathname !== "/ujian")) {
     return null;
   }
 

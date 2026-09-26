@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   BookOpen,
@@ -14,11 +15,20 @@ import {
   Award,
   Check,
 } from "lucide-react";
+import { useRealtimeDashboard } from "@/hooks/useRealtimeDashboard";
 import StudentNavbar from "../dashboard/components/layout/StudentNavbar";
 import StudentProfileModal from "../dashboard/components/modals/StudentProfileModal";
 import SettingsModal from "../dashboard/components/modals/SettingsModal";
 import HelpCenterModal from "../dashboard/components/modals/HelpCenterModal";
-import { ChapterItem, SekolahData } from "../dashboard/types";
+import AttendanceModal from "../dashboard/components/attendance/AttendanceModal";
+import UatDevMenu from "../dashboard/components/attendance/UatDevMenu";
+import ToastNotification from "../dashboard/components/modals/ToastNotification";
+import {
+  ChapterItem,
+  SekolahData,
+  ToastNotificationData,
+  NotificationItem,
+} from "../dashboard/types";
 
 interface BelajarClientProps {
   userProfile: {
@@ -31,6 +41,7 @@ interface BelajarClientProps {
     totalStudents: number;
     isCheckedIn: boolean;
     checkInTime: string | null;
+    checkInStatus?: string | null;
     tingkat_kelas?: number;
     nama_kelas?: string;
     nisn?: string | null;
@@ -42,6 +53,9 @@ interface BelajarClientProps {
   sekolahData?: SekolahData | null;
   chapters: ChapterItem[];
   completedMateriIds: string[];
+  initialMapel?: string | null;
+  initialBabId?: string | null;
+  initialSemester?: number | null;
 }
 
 const SUBJECTS = [
@@ -71,18 +85,301 @@ const SUBJECTS = [
   },
 ];
 
+function matchSubjectName(name?: string | null): string {
+  if (!name) return "Matematika";
+  const lower = name.toLowerCase();
+  if (lower.includes("inggris")) return "Bahasa Inggris";
+  if (lower.includes("indonesia")) return "Bahasa Indonesia";
+  if (lower.includes("matematika")) return "Matematika";
+  return "Matematika";
+}
+
 export default function BelajarClient({
   userProfile,
   sekolahData,
   chapters,
   completedMateriIds = [],
+  initialMapel,
+  initialBabId,
+  initialSemester,
 }: BelajarClientProps) {
-  const [selectedSubject, setSelectedSubject] = useState<string>("Matematika");
-  const [selectedSemester, setSelectedSemester] = useState<number>(1);
+  const searchParams = useSearchParams();
+
+  // Determine initial subject
+  const resolvedInitialSubject = useMemo(() => {
+    if (initialMapel) return matchSubjectName(initialMapel);
+    if (initialBabId) {
+      const found = chapters.find((c) => c.id === initialBabId);
+      if (found?.mapel) return matchSubjectName(found.mapel);
+    }
+    return "Matematika";
+  }, [initialMapel, initialBabId, chapters]);
+
+  // Determine initial semester
+  const resolvedInitialSemester = useMemo(() => {
+    if (initialSemester === 1 || initialSemester === 2) return initialSemester;
+    if (initialBabId) {
+      const found = chapters.find((c) => c.id === initialBabId);
+      if (found) {
+        return found.semester || (found.urutan <= 3 ? 1 : 2);
+      }
+    }
+    return 1;
+  }, [initialSemester, initialBabId, chapters]);
+
+  const [selectedSubject, setSelectedSubject] = useState<string>(resolvedInitialSubject);
+  const [selectedSemester, setSelectedSemester] = useState<number>(resolvedInitialSemester);
+  const [highlightedBabId, setHighlightedBabId] = useState<string | null>(initialBabId || null);
+
+  // Sync state if searchParams change dynamically on client
+  useEffect(() => {
+    if (!searchParams) return;
+    const qMapel = searchParams.get("mapel") || searchParams.get("subject");
+    const qBabId = searchParams.get("babId") || searchParams.get("bab");
+    const qSemester = searchParams.get("semester");
+
+    if (qMapel) {
+      setSelectedSubject(matchSubjectName(qMapel));
+    }
+
+    if (qBabId) {
+      setHighlightedBabId(qBabId);
+      const targetChapter = chapters.find((c) => c.id === qBabId);
+      if (targetChapter) {
+        if (!qMapel && targetChapter.mapel) {
+          setSelectedSubject(matchSubjectName(targetChapter.mapel));
+        }
+        const sem = targetChapter.semester || (targetChapter.urutan <= 3 ? 1 : 2);
+        setSelectedSemester(sem);
+      }
+    } else if (qSemester) {
+      const semNum = parseInt(qSemester, 10);
+      if (semNum === 1 || semNum === 2) setSelectedSemester(semNum);
+    }
+  }, [searchParams, chapters]);
+
+  // Smooth scroll to target chapter when opened/highlighted
+  useEffect(() => {
+    if (highlightedBabId) {
+      const timer = setTimeout(() => {
+        const el = document.getElementById(`bab-${highlightedBabId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 250);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightedBabId, selectedSubject, selectedSemester]);
+
+  const handleSubjectSelect = (subId: string) => {
+    setSelectedSubject(subId);
+    setHighlightedBabId(null);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("mapel", subId);
+      url.searchParams.delete("babId");
+      window.history.replaceState({}, "", url.toString());
+    }
+  };
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
+
+  // Dynamic Attendance & Profile State
+  const [isCheckedIn, setIsCheckedIn] = useState(userProfile.isCheckedIn || false);
+  const [checkInTime, setCheckInTime] = useState<string | null>(
+    userProfile.checkInTime || null
+  );
+  const [checkInStatus, setCheckInStatus] = useState<string | null>(
+    userProfile.checkInStatus || null
+  );
+  const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
+  const [learningPoints, setLearningPoints] = useState(userProfile.poin || 0);
+  const [dailyStreak, setDailyStreak] = useState(userProfile.streak || 0);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [toastNotification, setToastNotification] =
+    useState<ToastNotificationData | null>(null);
+
+  // UAT Mock Time State (synced with localStorage)
+  const [mockTime, setMockTime] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("thinksy_mock_time") || null;
+    }
+    return null;
+  });
+  const [isDevMenuOpen, setIsDevMenuOpen] = useState(false);
+
+  // Listen for mock time changes from other tabs/menu
+  useEffect(() => {
+    const handleMockTimeSync = () => {
+      try {
+        const saved = localStorage.getItem("thinksy_mock_time") || null;
+        setMockTime(saved);
+      } catch {}
+    };
+
+    window.addEventListener("thinksy_mock_time_change", handleMockTimeSync);
+    window.addEventListener("storage", handleMockTimeSync);
+    return () => {
+      window.removeEventListener("thinksy_mock_time_change", handleMockTimeSync);
+      window.removeEventListener("storage", handleMockTimeSync);
+    };
+  }, []);
+
+  // Fetch fresh attendance status & notifications on mount
+  const fetchPresensiStatus = async () => {
+    try {
+      const res = await fetch("/api/siswa/presensi");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.isCheckedIn) {
+          setIsCheckedIn(true);
+          setCheckInTime(data.checkInTime || null);
+          setCheckInStatus(data.status || "Hadir (Tepat Waktu)");
+        }
+      }
+    } catch {}
+  };
+
+  const fetchNotifications = async () => {
+    try {
+      const res = await fetch("/api/siswa/notifikasi");
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.notifications)) setNotifications(data.notifications);
+      }
+    } catch {}
+  };
+
+  useEffect(() => {
+    fetchPresensiStatus();
+    fetchNotifications();
+  }, []);
+
+  // Realtime Dashboard Hook
+  const { broadcastEvent } = useRealtimeDashboard((event) => {
+    if (event.type === "ATTENDANCE_VERIFIED" || event.type === "ATTENDANCE_CHECKIN") {
+      setIsCheckedIn(true);
+      setCheckInStatus(event.payload?.status || "Hadir (Terverifikasi)");
+      if (event.payload?.waktu_masuk) {
+        setCheckInTime(
+          new Date(event.payload.waktu_masuk).toLocaleTimeString("id-ID", {
+            hour: "2-digit",
+            minute: "2-digit",
+          }) + " WIB"
+        );
+      }
+      setToastNotification({
+        show: true,
+        title: "Presensi Terverifikasi 🎉",
+        message: "Kehadiran Anda telah disetujui resmi oleh Guru di dashboard!",
+        time: "Baru saja",
+        type: "success",
+      });
+    }
+  });
+
+  // Effective Time Calculator (incorporating Dev Mock Time)
+  const getEffectiveCurrentTime = () => {
+    if (mockTime) return mockTime;
+    const now = new Date();
+    return now.toLocaleTimeString("id-ID", {
+      timeZone: "Asia/Jakarta",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+  };
+
+  const getEffectiveMinutes = () => {
+    const timeStr = getEffectiveCurrentTime();
+    const [h, m] = timeStr.split(":").map(Number);
+    return (h || 0) * 60 + (m || 0);
+  };
+
+  // Dynamic Cutoff & Late Threshold from Sekolah Data (default: Tutup 08:00 WIB, Terlambat > 07:15 WIB)
+  const getCutoffMinutes = () => {
+    if (sekolahData?.jam_tutup) {
+      const [h, m] = sekolahData.jam_tutup.split(":").map(Number);
+      if (!isNaN(h) && !isNaN(m)) return h * 60 + m;
+    }
+    return 480; // Default 08.00 WIB
+  };
+
+  const getLateMinutes = () => {
+    if (sekolahData?.jam_masuk) {
+      const [h, m] = sekolahData.jam_masuk.split(":").map(Number);
+      if (!isNaN(h) && !isNaN(m)) return h * 60 + m;
+    }
+    return 435; // Default 07.15 WIB
+  };
+
+  const isPresensiClosed = () => getEffectiveMinutes() > getCutoffMinutes();
+  const isPresensiLate = () =>
+    getEffectiveMinutes() > getLateMinutes() && getEffectiveMinutes() <= getCutoffMinutes();
+
+  const handleStartAttendance = () => {
+    if (isPresensiClosed()) {
+      const activeTime = getEffectiveCurrentTime();
+      setToastNotification({
+        show: true,
+        title: "Presensi Ditutup (Status: Alpha)",
+        message:
+          "Batas waktu presensi telah berakhir (Pukul >08.00 WIB). Status kehadiran Anda tercatat Alpha. Silakan hubungi wali kelas Anda untuk merubah status kehadiran menjadi hadir.",
+        time: `${activeTime} WIB`,
+        type: "alpha",
+      });
+      return;
+    }
+    setIsAttendanceModalOpen(true);
+  };
+
+  const handleAttendanceSuccess = (data: {
+    waktu: string;
+    status: string;
+    poinReward: number;
+    streak?: number;
+    poinTotal?: number;
+  }) => {
+    setIsCheckedIn(true);
+    setCheckInTime(data.waktu);
+    setCheckInStatus(data.status);
+    if (typeof data.streak === "number") setDailyStreak(data.streak);
+    if (typeof data.poinTotal === "number") setLearningPoints(data.poinTotal);
+
+    setToastNotification({
+      show: true,
+      title: `Presensi Berhasil (${data.status})!`,
+      message: `Kehadiran Anda dicatat pukul ${data.waktu} WIB. Selamat! +${data.poinReward} Poin ditambahkan.`,
+      time: `${data.waktu} WIB`,
+      type: "success",
+    });
+
+    setNotifications((prev) => [
+      {
+        id: Date.now(),
+        title: `Presensi Berhasil (${data.status})`,
+        desc: `Kehadiran dicatat pukul ${data.waktu} WIB (+${data.poinReward} Poin).`,
+        time: "Baru saja",
+        type: "urgent",
+      },
+      ...prev,
+    ]);
+
+    broadcastEvent("ATTENDANCE_CHECKIN", {
+      studentName: userProfile.nama_lengkap,
+      time: data.waktu,
+      status: data.status,
+    });
+  };
+
+  const handleMarkAllNotificationsAsRead = async () => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, dibaca: true })));
+    try {
+      await fetch("/api/siswa/notifikasi", { method: "PUT" });
+    } catch {}
+  };
 
   const completedSet = new Set(completedMateriIds);
 
@@ -122,13 +419,13 @@ export default function BelajarClient({
         isDarkMode={isDarkMode}
         sekolahData={sekolahData}
         activeTab="Belajar"
-        isCheckedIn={userProfile.isCheckedIn}
-        checkInStatus="Hadir"
-        checkInTime={userProfile.checkInTime}
-        isPresensiClosed={() => false}
-        onStartAttendance={() => {}}
-        notifications={[]}
-        onMarkAllNotificationsAsRead={() => {}}
+        isCheckedIn={isCheckedIn}
+        checkInStatus={checkInStatus}
+        checkInTime={checkInTime}
+        isPresensiClosed={isPresensiClosed}
+        onStartAttendance={handleStartAttendance}
+        notifications={notifications}
+        onMarkAllNotificationsAsRead={handleMarkAllNotificationsAsRead}
         studentName={userProfile.nama_lengkap}
         onOpenSettings={() => setIsSettingsModalOpen(true)}
         onOpenHelp={() => setIsHelpModalOpen(true)}
@@ -190,7 +487,7 @@ export default function BelajarClient({
                   return (
                     <button
                       key={sub.id}
-                      onClick={() => setSelectedSubject(sub.id)}
+                      onClick={() => handleSubjectSelect(sub.id)}
                       className={`w-full text-left p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
                         isActive
                           ? "bg-[#0F172A] text-white border-slate-900 shadow-md ring-2 ring-slate-900/20"
@@ -335,23 +632,41 @@ export default function BelajarClient({
                     materiList.length > 0
                       ? Math.round((completedInBab / materiList.length) * 100)
                       : 0;
+                  const isHighlighted = highlightedBabId === bab.id;
 
                   return (
                     <div
                       key={bab.id}
-                      className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs hover:shadow-md transition-all space-y-4"
+                      id={`bab-${bab.id}`}
+                      className={`rounded-3xl p-6 border transition-all duration-300 space-y-4 ${
+                        isHighlighted
+                          ? "bg-white border-blue-500 ring-4 ring-blue-500/20 shadow-xl scale-[1.01]"
+                          : "bg-white border-slate-200/80 shadow-xs hover:shadow-md"
+                      }`}
                     >
                       {/* Bab Card Header */}
                       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 pb-3 border-b border-slate-100">
                         <div className="flex items-start gap-3">
-                          <div className="w-10 h-10 rounded-2xl bg-[#0F172A] text-amber-400 font-black text-sm flex items-center justify-center shrink-0 shadow-xs">
+                          <div
+                            className={`w-10 h-10 rounded-2xl font-black text-sm flex items-center justify-center shrink-0 shadow-xs transition-colors ${
+                              isHighlighted
+                                ? "bg-blue-600 text-white ring-2 ring-blue-400"
+                                : "bg-[#0F172A] text-amber-400"
+                            }`}
+                          >
                             {bab.urutan || idx + 1}
                           </div>
                           <div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
                                 Bab {bab.urutan || idx + 1} • Semester {bab.semester || selectedSemester}
                               </span>
+                              {isHighlighted && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-blue-600 text-white text-[10px] font-black uppercase tracking-wider shadow-xs animate-pulse">
+                                  <Sparkles className="w-3 h-3 text-amber-300" />
+                                  Bab Terpilih
+                                </span>
+                              )}
                               {babProgress === 100 && (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-extrabold">
                                   <CheckCircle2 className="w-3 h-3" />
@@ -359,7 +674,11 @@ export default function BelajarClient({
                                 </span>
                               )}
                             </div>
-                            <h3 className="text-base sm:text-lg font-black text-[#0F172A] mt-0.5">
+                            <h3
+                              className={`text-base sm:text-lg font-black mt-0.5 ${
+                                isHighlighted ? "text-blue-950" : "text-[#0F172A]"
+                              }`}
+                            >
                               {bab.judul}
                             </h3>
                             <p className="text-xs text-slate-500 font-medium mt-1 leading-relaxed">
@@ -479,6 +798,41 @@ export default function BelajarClient({
       <HelpCenterModal
         isOpen={isHelpModalOpen}
         onClose={() => setIsHelpModalOpen(false)}
+      />
+
+      {/* Attendance Verification Modal */}
+      <AttendanceModal
+        isOpen={isAttendanceModalOpen}
+        onClose={() => setIsAttendanceModalOpen(false)}
+        effectiveTime={getEffectiveCurrentTime()}
+        isLate={isPresensiLate()}
+        mockTime={mockTime}
+        onSubmitSuccess={handleAttendanceSuccess}
+        onPresensiClosed={(time, errorMsg) => {
+          setToastNotification({
+            show: true,
+            title: "Presensi Ditutup (Status: Alpha)",
+            message:
+              errorMsg ||
+              "Batas waktu presensi telah berakhir (Pukul >08.00 WIB). Status kehadiran Anda tercatat Alpha. Silakan hubungi wali kelas Anda.",
+            time: `${time} WIB`,
+            type: "alpha",
+          });
+        }}
+      />
+
+      {/* Toast Notification */}
+      <ToastNotification
+        notification={toastNotification}
+        onClose={() => setToastNotification(null)}
+      />
+
+      {/* UAT Dev Menu Mock Time */}
+      <UatDevMenu
+        mockTime={mockTime}
+        setMockTime={setMockTime}
+        isOpen={isDevMenuOpen}
+        setIsOpen={setIsDevMenuOpen}
       />
     </div>
   );

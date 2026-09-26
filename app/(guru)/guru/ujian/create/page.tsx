@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import GuruLayout from "@/components/guru/GuruLayout";
 import {
@@ -16,16 +16,30 @@ import {
   BookOpen,
   CheckCircle2,
   HelpCircle,
+  Key,
+  Layers,
+  FileText,
 } from "lucide-react";
 
 export default function GuruBuatUjianPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
+  const paramTipe = searchParams.get("tipe");
+  const initialTipe: "ulangan" | "ujian" = paramTipe === "ujian" ? "ujian" : "ulangan";
+  const initialMapel = searchParams.get("mapel") || "Matematika";
+
+  const [tipe, setTipe] = useState<"ulangan" | "ujian">(initialTipe);
+  const [mapel, setMapel] = useState(initialMapel);
   const [judul, setJudul] = useState("");
   const [deskripsi, setDeskripsi] = useState("");
-  const [mapel, setMapel] = useState("Matematika");
-  const [durasiMenit, setDurasiMenit] = useState(60);
+  const [durasiMenit, setDurasiMenit] = useState(initialTipe === "ulangan" ? 60 : 90);
   const [passingGrade, setPassingGrade] = useState(75);
+  const [token, setToken] = useState(() => {
+    const prefix = initialMapel.substring(0, 3).toUpperCase();
+    const tag = initialTipe === "ulangan" ? "ULG" : "PTS";
+    return `${prefix}-${tag}26`;
+  });
   const [babList, setBabList] = useState<Array<{ id: string; judul: string }>>([]);
   const [selectedBabId, setSelectedBabId] = useState("");
 
@@ -180,6 +194,8 @@ export default function GuruBuatUjianPage() {
           judul,
           deskripsi,
           mapel,
+          tipe,
+          token: token.trim().toUpperCase(),
           durasiMenit,
           passingGrade,
           babId: selectedBabId || null,
@@ -241,6 +257,87 @@ export default function GuruBuatUjianPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* Integrasikan ke Card Siswa */}
+            <div className="md:col-span-2 space-y-2">
+              <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <Layers className="w-3.5 h-3.5 text-blue-600" />
+                <span>Integrasikan Soal ke Card Dashboard Siswa:</span>
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTipe("ulangan");
+                    setDurasiMenit(60);
+                  }}
+                  className={`p-4 rounded-2xl border text-left transition flex items-start gap-3 cursor-pointer ${
+                    tipe === "ulangan"
+                      ? "bg-indigo-50/80 border-indigo-300 ring-2 ring-indigo-500/20 shadow-xs"
+                      : "bg-slate-50 border-slate-200 hover:bg-slate-100"
+                  }`}
+                >
+                  <div
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                      tipe === "ulangan"
+                        ? "bg-indigo-600 text-white"
+                        : "bg-slate-200 text-slate-500"
+                    }`}
+                  >
+                    <FileText className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-extrabold text-xs text-[#0F172A]">
+                        Card 1: Ulangan Harian
+                      </span>
+                      {tipe === "ulangan" && (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600" />
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                      Evaluasi formatif bab. Langsung muncul di Card Ulangan siswa.
+                    </p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTipe("ujian");
+                    setDurasiMenit(90);
+                  }}
+                  className={`p-4 rounded-2xl border text-left transition flex items-start gap-3 cursor-pointer ${
+                    tipe === "ujian"
+                      ? "bg-blue-50/80 border-blue-300 ring-2 ring-blue-500/20 shadow-xs"
+                      : "bg-slate-50 border-slate-200 hover:bg-slate-100"
+                  }`}
+                >
+                  <div
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                      tipe === "ujian"
+                        ? "bg-[#0F172A] text-white"
+                        : "bg-slate-200 text-slate-500"
+                    }`}
+                  >
+                    <Clock className="w-5 h-5 text-amber-400" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-extrabold text-xs text-[#0F172A]">
+                        Card 2: Ujian Resmi (PTS/PAS)
+                      </span>
+                      {tipe === "ujian" && (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" />
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                      Asesmen sumatif resmi sekolah. Terintegrasi ke Card Ujian siswa.
+                    </p>
+                  </div>
+                </button>
+              </div>
+            </div>
+
             <div className="md:col-span-2 space-y-1.5">
               <label className="text-xs font-bold text-slate-700">Judul Ujian / Asesmen *</label>
               <input
@@ -327,6 +424,38 @@ export default function GuruBuatUjianPage() {
                 />
                 <Award className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
               </div>
+            </div>
+
+            {/* Token Ujian Siswa */}
+            <div className="md:col-span-2 space-y-1.5">
+              <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <Key className="w-3.5 h-3.5 text-amber-500" />
+                <span>Kode Token Akses Siswa (Wajib Dibagikan ke Siswa) *</span>
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  required
+                  value={token}
+                  onChange={(e) => setToken(e.target.value.toUpperCase())}
+                  placeholder="CONTOH: MTK-ULG26"
+                  className="w-full p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs sm:text-sm font-mono font-black uppercase text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 tracking-wider"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const prefix = mapel.substring(0, 3).toUpperCase();
+                    const tag = tipe === "ulangan" ? "ULG" : "PTS";
+                    setToken(`${prefix}-${tag}${Math.floor(10 + Math.random() * 90)}`);
+                  }}
+                  className="px-4 py-3.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold shrink-0 border border-slate-200 cursor-pointer"
+                >
+                  Acak Token
+                </button>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Siswa harus memasukkan kode token ini setelah memilih mata pelajaran sebelum masuk ke ruang ujian.
+              </p>
             </div>
           </div>
         </div>
