@@ -1528,20 +1528,6 @@ export default function ExamRoomClient({
               )}
             </div>
 
-            {/* Tutor AI Sokratik Quick Button (Tablet / Desktop) */}
-            <button
-              type="button"
-              onClick={() => {
-                setIsSocraticDrawerOpen(true);
-                const el = document.getElementById("sokratik-card");
-                if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
-              }}
-              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 hover:from-amber-100 hover:to-orange-100 text-amber-950 border border-amber-300/80 text-xs font-bold transition shadow-2xs hover:shadow-xs cursor-pointer group"
-              title="Buka Panel Bimbingan Sokratik AI"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-600 group-hover:scale-110 transition-transform" />
-              <span>Tutor AI Sokratik</span>
-            </button>
 
             {/* Fullscreen Toggle Button */}
             <button
@@ -1601,20 +1587,10 @@ export default function ExamRoomClient({
             </span>
           </button>
 
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => {
-                setIsSocraticDrawerOpen(true);
-                const el = document.getElementById("sokratik-card");
-                if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
-              }}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-900 border border-amber-300 font-bold text-[11px]"
-            >
-              <Sparkles className="w-3 h-3 text-amber-600 animate-pulse" />
-              <span>Tutor AI</span>
-            </button>
 
+
+          {/* Mobile Right Actions */}
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={toggleFullscreen}
@@ -1643,43 +1619,8 @@ export default function ExamRoomClient({
               />
 
               <div className="space-y-6 flex-1 flex flex-col">
-                {/* Question Header & Flag Toggle */}
-                <div className="flex items-center justify-between border-b border-slate-100 pb-4 pt-1">
-                  <div className="flex items-center gap-2.5">
-                    <span className="text-xs font-black px-3.5 py-1.5 rounded-xl bg-[#0F172A] text-white shadow-xs tracking-wider">
-                      SOAL #{currentIndex + 1}
-                    </span>
-                    <span className="text-xs font-bold text-slate-600 px-3 py-1 rounded-xl bg-slate-100 border border-slate-200/80 flex items-center gap-1">
-                      <span>⭐</span>
-                      <span>Bobot {currentQuestion.poin_bobot} Poin</span>
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => toggleFlagQuestion(currentQuestion.id)}
-                      className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl transition cursor-pointer ${
-                        flaggedQuestions.has(currentQuestion.id)
-                          ? "bg-amber-100 text-amber-900 border border-amber-300 font-extrabold shadow-2xs"
-                          : "bg-slate-100 text-slate-600 hover:bg-slate-200/80 border border-slate-200"
-                      }`}
-                    >
-                      <Flag
-                        className={`w-3.5 h-3.5 ${
-                          flaggedQuestions.has(currentQuestion.id)
-                            ? "text-amber-700 fill-amber-500"
-                            : "text-slate-400"
-                        }`}
-                      />
-                      <span>
-                        {flaggedQuestions.has(currentQuestion.id) ? "Ditandai Ragu" : "Tandai Ragu"}
-                      </span>
-                    </button>
-                  </div>
-                </div>
-
                 {/* Question Text with Typography & KaTeX rendering */}
-                <div className="py-2 text-slate-900 text-base sm:text-lg font-semibold leading-relaxed tracking-normal font-sans">
+                <div className="text-slate-900 text-base sm:text-lg font-semibold leading-relaxed tracking-normal font-sans">
                   <MarkdownRenderer content={currentQuestion.pertanyaan} />
                 </div>
 
@@ -1764,7 +1705,30 @@ export default function ExamRoomClient({
                   <span className="sm:hidden">Sebelumnya</span>
                 </button>
 
-                <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-2 sm:gap-2.5">
+                  {/* Tandai Ragu Button */}
+                  <button
+                    type="button"
+                    onClick={() => toggleFlagQuestion(currentQuestion.id)}
+                    className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 sm:px-3.5 py-2.5 rounded-xl transition cursor-pointer ${
+                      flaggedQuestions.has(currentQuestion.id)
+                        ? "bg-amber-100 text-amber-900 border border-amber-300 font-extrabold shadow-2xs"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200/80 border border-slate-200"
+                    }`}
+                    title="Tandai ragu untuk ditinjau nanti"
+                  >
+                    <Flag
+                      className={`w-3.5 h-3.5 ${
+                        flaggedQuestions.has(currentQuestion.id)
+                          ? "text-amber-700 fill-amber-500"
+                          : "text-slate-400"
+                      }`}
+                    />
+                    <span className="hidden sm:inline">
+                      {flaggedQuestions.has(currentQuestion.id) ? "Ditandai Ragu" : "Tandai Ragu"}
+                    </span>
+                  </button>
+
                   <button
                     onClick={saveDraftAnswers}
                     className="px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer"
@@ -1907,7 +1871,7 @@ export default function ExamRoomClient({
                           Bantuan Sokratik AI
                         </h4>
                         <span className="text-[11px] text-amber-800 font-extrabold block">
-                          Panduan Berpikir Soal #{currentIndex + 1}
+                          Panduan Berpikir Mandiri
                         </span>
                       </div>
                     </div>
@@ -1928,7 +1892,7 @@ export default function ExamRoomClient({
                     className="w-full py-3.5 px-4 rounded-2xl bg-[#0F172A] hover:bg-slate-800 text-white text-xs sm:text-sm font-black flex items-center justify-center gap-2 transition shadow-sm hover:shadow-md cursor-pointer group"
                   >
                     <Sparkles className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
-                    <span>Buka Bantuan Sokratik (Soal #{currentIndex + 1})</span>
+                    <span>Buka Bantuan Sokratik</span>
                   </button>
 
                   {/* Quick Preset Buttons */}
@@ -1937,7 +1901,7 @@ export default function ExamRoomClient({
                       type="button"
                       onClick={() => {
                         setIsSocraticDrawerOpen(true);
-                        handleSendSocratic("Beri saya petunjuk konsep inti untuk soal nomor " + (currentIndex + 1));
+                        handleSendSocratic("Beri saya petunjuk konsep inti untuk soal ini");
                       }}
                       className="p-2.5 rounded-xl bg-white hover:bg-amber-50 border border-amber-200 text-xs font-bold text-amber-950 transition flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
                     >
@@ -1948,7 +1912,7 @@ export default function ExamRoomClient({
                       type="button"
                       onClick={() => {
                         setIsSocraticDrawerOpen(true);
-                        handleSendSocratic("Bagaimana langkah awal menganalisis soal nomor " + (currentIndex + 1) + "?");
+                        handleSendSocratic("Bagaimana langkah awal menganalisis soal ini?");
                       }}
                       className="p-2.5 rounded-xl bg-white hover:bg-amber-50 border border-amber-200 text-xs font-bold text-amber-950 transition flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
                     >
@@ -1967,14 +1931,9 @@ export default function ExamRoomClient({
                       <Sparkles className="w-4 h-4 text-slate-900" />
                     </div>
                     <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-xs sm:text-sm font-black text-[#0F172A] uppercase tracking-wider">
-                          Bantuan Sokratik
-                        </h4>
-                        <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 border border-amber-300">
-                          Soal #{currentIndex + 1}
-                        </span>
-                      </div>
+                      <h4 className="text-xs sm:text-sm font-black text-[#0F172A] uppercase tracking-wider">
+                        Bantuan Sokratik
+                      </h4>
                     </div>
                   </div>
 
@@ -1996,7 +1955,7 @@ export default function ExamRoomClient({
                       AI
                     </div>
                     <div className="flex-1 p-3.5 rounded-2xl rounded-tl-none bg-slate-100 border border-slate-200/80 text-slate-800 text-xs sm:text-[13px] leading-relaxed max-w-[94%]">
-                      Halo! Tanyakan bagian mana dari <strong>Soal #{currentIndex + 1}</strong> yang membuatmu bingung agar kita telaah konsepnya bersama.
+                      Halo! Tanyakan bagian konsep atau langkah yang membuatmu bingung agar kita telaah bersama.
                     </div>
                   </div>
 
