@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET() {
   try {
     const supabase = await createClient();
@@ -37,7 +40,7 @@ export async function GET() {
     }
 
     // 3. Fetch Students from RPC get_peringkat_sekolah or profil table
-    const { data: rpcData, error: rpcError } = await supabase.rpc(
+    const { data: rpcData, error: rpcError } = await adminDb.rpc(
       "get_peringkat_sekolah",
       { p_sekolah_id: teacherProfil.sekolah_id || null }
     );
@@ -116,17 +119,25 @@ export async function GET() {
           )
         : 0;
 
-    return NextResponse.json({
-      success: true,
-      students,
-      stats: {
-        totalStudents,
-        veryActiveCount,
-        needAttentionCount,
-        avgPoints,
-        topStudent: students[0] || null,
+    return NextResponse.json(
+      {
+        success: true,
+        students,
+        stats: {
+          totalStudents,
+          veryActiveCount,
+          needAttentionCount,
+          avgPoints,
+          topStudent: students[0] || null,
+        },
+        updatedAt: new Date().toISOString(),
       },
-    });
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      }
+    );
   } catch (err: any) {
     return NextResponse.json(
       { error: "Terjadi kesalahan server: " + err.message },

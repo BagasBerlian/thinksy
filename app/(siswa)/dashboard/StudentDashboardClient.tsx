@@ -361,19 +361,32 @@ export default function StudentDashboardClient({
   };
 
   const fetchLeaderboard = async () => {
-    setIsLoadingLeaderboard(true);
+    // Only show full spinner on initial empty load to avoid jarring flicker during real-time sync
+    if (leaderboardList.length === 0) {
+      setIsLoadingLeaderboard(true);
+    }
     try {
-      const res = await fetch("/api/siswa/peringkat");
+      const res = await fetch("/api/siswa/peringkat", { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
-        if (data.leaderboard) {
+        if (Array.isArray(data.leaderboard)) {
           setLeaderboardList(data.leaderboard);
           const me = data.leaderboard.find((st: any) => st.isCurrentUser);
-          if (me) setCurrentUserRank(me.rank);
+          if (me) {
+            setCurrentUserRank(me.rank);
+            if (typeof me.points === "number" && me.points > 0) {
+              setLearningPoints(me.points);
+            }
+            if (typeof me.streak === "number" && me.streak > 0) {
+              setDailyStreak(me.streak);
+            }
+          }
           if (data.totalStudents) setTotalStudentsCount(data.totalStudents);
         }
       }
-    } catch {} finally {
+    } catch (err) {
+      console.warn("[FETCH LEADERBOARD ERROR]", err);
+    } finally {
       setIsLoadingLeaderboard(false);
     }
   };
@@ -481,11 +494,10 @@ export default function StudentDashboardClient({
     } else if (
       event.type === "POINTS_UPDATED" ||
       event.type === "ATTENDANCE_CHECKIN" ||
-      event.type === "ATTENDANCE_VERIFIED"
+      event.type === "ATTENDANCE_VERIFIED" ||
+      event.type === "EXAM_STATUS_CHANGED"
     ) {
       fetchLeaderboard();
-      fetchPencapaian();
-    } else if (event.type === "EXAM_STATUS_CHANGED") {
       fetchPencapaian();
     } else if (event.type === "CHAT_POSTED" && event.payload?.chat) {
       setGlobalChats((prev) => [
@@ -549,6 +561,8 @@ export default function StudentDashboardClient({
     if (typeof data.poinTotal === "number") setLearningPoints(data.poinTotal);
 
     fetchMissions();
+    fetchLeaderboard();
+    fetchPencapaian();
 
     setToastNotification({
       show: true,
@@ -573,6 +587,10 @@ export default function StudentDashboardClient({
       studentName,
       time: data.waktu,
       status: data.status,
+    });
+    broadcastEvent("POINTS_UPDATED", {
+      studentName,
+      poinTotal: data.poinTotal,
     });
   };
 
@@ -599,6 +617,12 @@ export default function StudentDashboardClient({
           setLearningPoints((prev) => prev + (data.poinDitambahkan || 20));
         }
         fetchMissions();
+        fetchLeaderboard();
+        fetchPencapaian();
+        broadcastEvent("POINTS_UPDATED", {
+          studentName,
+          poinTotal: data.poinTotal,
+        });
       } else {
         setToastNotification({
           show: true,

@@ -48,16 +48,19 @@ export default function StudentLeaderboardWidget() {
     if (
       event.type === "POINTS_UPDATED" ||
       event.type === "ATTENDANCE_CHECKIN" ||
-      event.type === "ATTENDANCE_VERIFIED"
+      event.type === "ATTENDANCE_VERIFIED" ||
+      event.type === "EXAM_STATUS_CHANGED"
     ) {
       loadStudentLeaderboard();
     }
   });
 
   const loadStudentLeaderboard = async () => {
-    setIsLoading(true);
+    if (students.length === 0) {
+      setIsLoading(true);
+    }
     try {
-      const res = await fetch("/api/guru/keaktifan");
+      const res = await fetch("/api/guru/keaktifan", { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data.students)) {
@@ -300,7 +303,7 @@ export default function StudentLeaderboardWidget() {
 
       {/* Leaderboard Table */}
       <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
-        {isLoading ? (
+        {isLoading && students.length === 0 ? (
           <div className="py-12 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
             <Loader2 className="w-5 h-5 animate-spin text-amber-500" />
             <span>Memuat data peringkat siswa dari Supabase...</span>

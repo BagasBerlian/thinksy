@@ -23,15 +23,21 @@ export default function TabPeringkat({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-black uppercase tracking-wider mb-1">
-            <Trophy className="w-3.5 h-3.5 text-amber-600" />
-            <span>Papan Peringkat Real-Time</span>
+          <div className="flex flex-wrap items-center gap-2 mb-1">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-black uppercase tracking-wider">
+              <Trophy className="w-3.5 h-3.5 text-amber-600" />
+              <span>Papan Peringkat Real-Time</span>
+            </div>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-bold">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>Terhubung Database Supabase</span>
+            </div>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0F172A] tracking-tight flex items-center gap-2.5">
             <span>Peringkat Siswa Per Sekolah</span>
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 font-medium max-w-2xl">
-            Peringkat diperbarui secara real-time berdasarkan akumulasi total Poin Belajar siswa yang tercatat di database Supabase.
+            Peringkat diperbarui secara otomatis dan terhitung real-time langsung dari database setiap kali ada perolehan Poin Belajar baru.
           </p>
         </div>
 
@@ -45,12 +51,12 @@ export default function TabPeringkat({
               isLoadingLeaderboard ? "animate-spin text-amber-500" : ""
             }`}
           />
-          <span>Refresh Peringkat</span>
+          <span>{isLoadingLeaderboard ? "Menyinkronkan..." : "Refresh Peringkat"}</span>
         </button>
       </div>
 
       {/* TOP 3 PODIUM CARDS (If at least 3 students exist) */}
-      {!isLoadingLeaderboard && leaderboardList.length >= 3 && (
+      {leaderboardList.length >= 3 && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end pt-4">
           {/* Rank 2 (Silver) */}
           {top2 && (
@@ -181,7 +187,7 @@ export default function TabPeringkat({
           </span>
         </div>
 
-        {isLoadingLeaderboard ? (
+        {isLoadingLeaderboard && leaderboardList.length === 0 ? (
           <div className="py-16 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
             <Loader2 className="w-5 h-5 animate-spin text-amber-500" />
             <span>Memuat data peringkat siswa secara real-time...</span>
@@ -192,7 +198,7 @@ export default function TabPeringkat({
             <p className="font-bold text-slate-600">Belum ada data siswa di papan peringkat.</p>
             <button
               onClick={onRefreshLeaderboard}
-              className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-700 transition"
+              className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-700 transition cursor-pointer"
             >
               Segarkan Data
             </button>

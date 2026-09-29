@@ -31,6 +31,16 @@ let globalChannel: any = null;
 let globalIsConnected = false;
 const connectionListeners = new Set<(connected: boolean) => void>();
 
+function dispatchRealtimeEvent(eventData: RealtimeEvent) {
+  eventListeners.forEach((listener) => {
+    try {
+      listener(eventData);
+    } catch (e) {
+      console.error("[Realtime Dashboard Listener Error]", e);
+    }
+  });
+}
+
 function initGlobalChannel() {
   if (globalChannel) return;
 
@@ -44,40 +54,82 @@ function initGlobalChannel() {
 
     globalChannel
       .on("broadcast", { event: "dashboard_action" }, ({ payload }: { payload: any }) => {
-        const eventData = payload as RealtimeEvent;
-        eventListeners.forEach((listener) => {
-          try {
-            listener(eventData);
-          } catch (e) {
-            console.error("[Realtime Dashboard Listener Error]", e);
-          }
-        });
+        dispatchRealtimeEvent(payload as RealtimeEvent);
       })
-      .on("postgres_changes", { event: "*", schema: "public" }, (payload: any) => {
-        let eventType: RealtimeEvent["type"] = "NEW_ESSAY_SUBMISSION";
-        if (payload.table === "presensi") {
-          eventType = payload.eventType === "INSERT" ? "ATTENDANCE_CHECKIN" : "ATTENDANCE_VERIFIED";
-        } else if (payload.table === "notifikasi") {
-          eventType = "NOTIFICATION_RECEIVED";
-        } else if (payload.table === "ujian") {
-          eventType = "EXAM_STATUS_CHANGED";
-        } else if (payload.table === "profil") {
-          eventType = "POINTS_UPDATED";
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "profil" },
+        (payload: any) => {
+          dispatchRealtimeEvent({
+            type: "POINTS_UPDATED",
+            payload: payload.new || payload.old,
+            timestamp: new Date().toISOString(),
+          });
         }
-
-        const eventData: RealtimeEvent = {
-          type: eventType,
-          payload: payload.new || payload.old,
-          timestamp: new Date().toISOString(),
-        };
-        eventListeners.forEach((listener) => {
-          try {
-            listener(eventData);
-          } catch (e) {
-            console.error("[Realtime Dashboard Postgres Listener Error]", e);
-          }
-        });
-      })
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "presensi" },
+        (payload: any) => {
+          dispatchRealtimeEvent({
+            type:
+              payload.eventType === "INSERT"
+                ? "ATTENDANCE_CHECKIN"
+                : "ATTENDANCE_VERIFIED",
+            payload: payload.new || payload.old,
+            timestamp: new Date().toISOString(),
+          });
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "sesi" },
+        (payload: any) => {
+          dispatchRealtimeEvent({
+            type: "POINTS_UPDATED",
+            payload: payload.new || payload.old,
+            timestamp: new Date().toISOString(),
+          });
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "sesi_ujian" },
+        (payload: any) => {
+          dispatchRealtimeEvent({
+            type: "EXAM_STATUS_CHANGED",
+            payload: payload.new || payload.old,
+            timestamp: new Date().toISOString(),
+          });
+          dispatchRealtimeEvent({
+            type: "POINTS_UPDATED",
+            payload: payload.new || payload.old,
+            timestamp: new Date().toISOString(),
+          });
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "ujian" },
+        (payload: any) => {
+          dispatchRealtimeEvent({
+            type: "EXAM_STATUS_CHANGED",
+            payload: payload.new || payload.old,
+            timestamp: new Date().toISOString(),
+          });
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "notifikasi" },
+        (payload: any) => {
+          dispatchRealtimeEvent({
+            type: "NOTIFICATION_RECEIVED",
+            payload: payload.new || payload.old,
+            timestamp: new Date().toISOString(),
+          });
+        }
+      )
       .subscribe((status: string) => {
         if (status === "SUBSCRIBED") {
           globalIsConnected = true;
