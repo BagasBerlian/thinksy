@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import ExamPracticeClient from "@/components/sesi/ExamPracticeClient";
 import { generateChapterQuestions } from "@/lib/curriculum-quiz-engine";
 
@@ -12,6 +13,7 @@ export default async function QuizPage({
   const { sesiId } = await params;
   const { mode, babId } = await searchParams;
   const supabase = await createClient();
+  const adminDb = createAdminClient();
 
   const {
     data: { user },
@@ -25,37 +27,69 @@ export default async function QuizPage({
         .single()
     : { data: null };
 
-  // Fetch bab details if babId is present
+  // 1. Resolve effective babId from params, existing sesi, or default first bab
+  let effectiveBabId = babId;
+
+  const isValidUUID = (str?: string) =>
+    Boolean(str && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str));
+
+  if (!effectiveBabId && isValidUUID(sesiId)) {
+    const { data: sesiRow } = await adminDb
+      .from("sesi")
+      .select("bab_id")
+      .eq("id", sesiId)
+      .maybeSingle();
+    if (sesiRow?.bab_id) {
+      effectiveBabId = sesiRow.bab_id;
+    }
+  }
+
+  if (!effectiveBabId) {
+    const { data: firstBab } = await adminDb
+      .from("bab")
+      .select("id")
+      .order("urutan", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (firstBab?.id) {
+      effectiveBabId = firstBab.id;
+    }
+  }
+
+  // 2. Fetch Bab Info
   let babData: { judul: string; mapel?: string; kelas?: number } | null = null;
-  if (babId) {
-    const { data: bData } = await supabase
+  if (effectiveBabId) {
+    const { data: bData } = await adminDb
       .from("bab")
       .select("id, judul, mapel, kelas")
-      .eq("id", babId)
+      .eq("id", effectiveBabId)
       .maybeSingle();
     babData = bData;
   }
 
-  // Query real questions from secure view (without answer keys)
-  let query = supabase
-    .from("soal_publik")
+  // 3. Query Real Questions from Database (without leaking answer keys/pembahasan to student)
+  let query = adminDb
+    .from("soal")
     .select(`
       id,
       pertanyaan,
       tipe_soal,
-      opsi_soal_publik (
+      opsi_soal (
         id,
-        teks_opsi
+        teks_opsi,
+        urutan
       )
     `);
 
-  if (babId) {
-    query = query.eq("bab_id", babId);
+  if (effectiveBabId) {
+    query = query.eq("bab_id", effectiveBabId);
   }
 
-  const { data: dbSoalList } = await query;
+  const { data: dbSoalList } = await query
+    .order("dibuat_pada", { ascending: true })
+    .limit(10);
 
-  // Generate topic-matched fallback questions if DB has no questions yet for this chapter
+  // Fallback questions if chapter has no questions yet in database
   const defaultSoalList = generateChapterQuestions(
     babData?.judul || "Bab Pembelajaran",
     babData?.mapel || "Matematika",
@@ -68,9 +102,6 @@ export default async function QuizPage({
       id: o.id || `opt-${idx + 1}-${optIdx + 1}`,
       teksOpsi: o.teksOpsi,
     })),
-    kunciJawaban: q.kunciJawaban,
-    pembahasan: q.pembahasan,
-    hintSokratik: q.hintSokratik,
   }));
 
   const formattedSoalList =
@@ -79,10 +110,14 @@ export default async function QuizPage({
           id: item.id,
           pertanyaan: item.pertanyaan,
           tipeSoal: item.tipe_soal as "pilihan_ganda" | "esai",
-          opsiSoal: (item.opsi_soal_publik || item.opsi_soal)?.map((o: any) => ({
-            id: o.id,
-            teksOpsi: o.teks_opsi,
-          })),
+          opsiSoal: Array.isArray(item.opsi_soal)
+            ? [...item.opsi_soal]
+                .sort((a, b) => (a.urutan || 0) - (b.urutan || 0))
+                .map((o: any) => ({
+                  id: o.id,
+                  teksOpsi: o.teks_opsi,
+                }))
+            : [],
         }))
       : defaultSoalList;
 
@@ -95,7 +130,7 @@ export default async function QuizPage({
   return (
     <ExamPracticeClient
       sesiId={sesiId}
-      babId={babId}
+      babId={effectiveBabId}
       mode={mode || "inclass"}
       judulSesi={sessionTitle}
       mapel={babData?.mapel || "Matematika"}

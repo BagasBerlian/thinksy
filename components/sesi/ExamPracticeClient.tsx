@@ -15,6 +15,7 @@ import {
   List,
   ChevronDown,
   ChevronUp,
+  FlagTriangleLeft,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -58,6 +59,50 @@ export default function ExamPracticeClient({
   const [flagged, setFlagged] = useState<Record<string, boolean>>({});
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [submitPhase, setSubmitPhase] = useState(0);
+
+  const SUBMIT_PHASES = [
+    {
+      title: "Mengirimkan Lembar Jawaban",
+      desc: "Menghubungkan lembar jawaban kuis ke server...",
+      progress: 25,
+    },
+    {
+      title: "Pencocokan Kunci Jawaban Database",
+      desc: "Mengevaluasi setiap nomor soal dengan kunci di database...",
+      progress: 50,
+    },
+    {
+      title: "Analisis Pembahasan AI",
+      desc: "AI menganalisis konsep dan menyusun pembahasan edukatif...",
+      progress: 75,
+    },
+    {
+      title: "Menyimpan Skor & Poin Belajar",
+      desc: "Menyinkronkan hasil asesmen ke sistem Thinksy...",
+      progress: 90,
+    },
+    {
+      title: "Membuka Lembar Hasil",
+      desc: "Menyiapkan ringkasan evaluasi dan pembahasan AI...",
+      progress: 100,
+    },
+  ];
+
+  useEffect(() => {
+    if (!submitting) {
+      setSubmitPhase(0);
+      return;
+    }
+    const timer1 = setTimeout(() => setSubmitPhase(1), 1200);
+    const timer2 = setTimeout(() => setSubmitPhase(2), 2600);
+    const timer3 = setTimeout(() => setSubmitPhase(3), 4200);
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
+    };
+  }, [submitting]);
 
   // Palette Navigation Collapsible State
   const [isPaletteMinimized, setIsPaletteMinimized] = useState(false);
@@ -182,18 +227,31 @@ export default function ExamPracticeClient({
     return () => clearTimeout(timer);
   }, [currentQuestionMessages.length, isAiLoading, isAiOpen, currentIdx]);
 
-  const handleToggleAi = () => {
-    setIsAiOpen((prev) => {
-      const nextState = !prev;
-      if (nextState) {
-        setTimeout(() => {
-          const el = document.getElementById("ai-assistant-section");
-          if (el && window.innerWidth < 1024) {
-            el.scrollIntoView({ behavior: "smooth", block: "start" });
-          }
-        }, 100);
+  const handleOpenAi = () => {
+    setIsAiOpen(true);
+    setIsPaletteMinimized(true);
+    setTimeout(() => {
+      const el = document.getElementById("ai-assistant-section");
+      if (el && window.innerWidth < 1024) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
       }
-      return nextState;
+    }, 100);
+  };
+
+  const handleCloseAi = () => {
+    setIsAiOpen(false);
+    setIsPaletteMinimized(false);
+  };
+
+  const handleTogglePalette = () => {
+    setIsPaletteMinimized((prev) => {
+      const nextMinimized = !prev;
+      if (nextMinimized) {
+        setIsAiOpen(true);
+      } else {
+        setIsAiOpen(false);
+      }
+      return nextMinimized;
     });
   };
 
@@ -302,25 +360,57 @@ export default function ExamPracticeClient({
         throw new Error(data.error || "Gagal mengirimkan kuis.");
       }
 
+      // Advance to final transition phase and keep loading state active until new page mounts
+      setSubmitPhase(4);
       router.push(`/hasil/${data.sesiId || sesiId}`);
     } catch (err: any) {
-      alert(err.message || "Gagal mengirimkan kuis.");
-    } finally {
       setSubmitting(false);
+      alert(err.message || "Gagal mengirimkan kuis.");
     }
   };
 
   const answeredCount = Object.keys(answers).length;
 
   if (submitting) {
+    const currentPhase = SUBMIT_PHASES[submitPhase] || SUBMIT_PHASES[0];
     return (
-      <div className="min-h-screen bg-mesh-gradient flex flex-col items-center justify-center p-6 text-center">
-        <div className="saas-card rounded-3xl p-8 max-w-md w-full border border-slate-200 shadow-xl bg-white space-y-4">
-          <Loader2 className="w-10 h-10 text-indigo-600 animate-spin mx-auto" />
-          <h2 className="text-xl font-extrabold text-[#0F172A]">Menilai Jawaban Kuis...</h2>
-          <p className="text-xs text-slate-500">
-            Sistem sedang menghitung skor, menambahkan poin belajar, dan mengirimkan hasil jawaban ke dashboard guru secara realtime.
+      <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center p-6 text-center font-sans">
+        <div className="bg-white rounded-2xl p-7 sm:p-9 max-w-md w-full border border-slate-200 shadow-sm space-y-5 text-left">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center shrink-0">
+              <Loader2 className="w-5 h-5 animate-spin" />
+            </div>
+            <div>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
+                Evaluasi Kuis Sedang Berlangsung
+              </span>
+              <h2 className="text-base font-bold text-slate-900">
+                {currentPhase.title}
+              </h2>
+            </div>
+          </div>
+
+          <p className="text-xs text-slate-600 leading-relaxed">
+            {currentPhase.desc}
           </p>
+
+          {/* Progress bar */}
+          <div className="space-y-1.5 pt-1">
+            <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-slate-900 rounded-full transition-all duration-700 ease-out"
+                style={{ width: `${currentPhase.progress}%` }}
+              />
+            </div>
+            <div className="flex justify-between text-[10px] text-slate-400 font-medium">
+              <span>Langkah {submitPhase + 1} dari {SUBMIT_PHASES.length}</span>
+              <span>{currentPhase.progress}%</span>
+            </div>
+          </div>
+
+          <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-400 text-center">
+            Mohon jangan menutup halaman ini selagi AI memproses analisis jawaban.
+          </div>
         </div>
       </div>
     );
@@ -376,21 +466,7 @@ export default function ExamPracticeClient({
             className="glass-card rounded-3xl p-6 sm:p-8 border border-white/90 shadow-xl space-y-6 bg-white lg:min-h-[520px] flex flex-col justify-between"
           >
             {/* Question Header & Controls */}
-            <div className="flex items-center justify-between border-b border-slate-200/80 pb-4">
-              {/* Single "Bantuan AI" Button for this Question */}
-              <button
-                type="button"
-                onClick={handleToggleAi}
-                className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer border ${
-                  isAiOpen
-                    ? "bg-[#0F172A] text-white border-slate-900 shadow-xs"
-                    : "bg-white hover:bg-slate-50 text-slate-700 border-slate-200 shadow-xs"
-                }`}
-              >
-                <Sparkles className={`w-3.5 h-3.5 ${isAiOpen ? "text-amber-300" : "text-slate-500"}`} />
-                <span>Bantuan AI</span>
-              </button>
-
+            <div className="flex items-center justify-end border-b border-slate-200/80 pb-4">
               {/* Tandai Ragu Button */}
               <button
                 type="button"
@@ -511,7 +587,7 @@ export default function ExamPracticeClient({
           >
             <div className="flex items-center justify-between pb-3 border-b border-slate-200">
               <div className="flex items-center gap-2">
-                <List className="w-4 h-4 text-blue-600" />
+                <FlagTriangleLeft className="w-4 h-4 text-blue-600" />
                 <h3 className="text-xs font-black uppercase tracking-wider text-[#0F172A]">
                   Navigasi Soal
                 </h3>
@@ -520,26 +596,32 @@ export default function ExamPracticeClient({
               {/* Minimize/Expand Palette Button */}
               <button
                 type="button"
-                onClick={() => setIsPaletteMinimized(!isPaletteMinimized)}
+                onClick={handleTogglePalette}
                 className="px-2.5 py-1 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 border border-slate-200/60 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
                 title={isPaletteMinimized ? "Tampilkan Navigasi Soal" : "Sembunyikan Navigasi Soal"}
               >
                 <span className="text-[11px] text-slate-500 font-semibold sm:inline hidden">
                   {isPaletteMinimized ? "Tampilkan" : "Minimize"}
                 </span>
-                {isPaletteMinimized ? (
-                  <ChevronDown className="w-3.5 h-3.5 text-slate-600" />
-                ) : (
-                  <ChevronUp className="w-3.5 h-3.5 text-slate-600" />
-                )}
+                <ChevronDown
+                  className={`w-3.5 h-3.5 text-slate-600 transition-transform duration-300 ease-in-out ${
+                    isPaletteMinimized ? "rotate-0" : "-rotate-180"
+                  }`}
+                />
               </button>
             </div>
 
-            {/* Collapsible Palette Body */}
-            {!isPaletteMinimized && (
-              <div className="space-y-4 pt-1 transition-all">
+            {/* Collapsible Palette Body with Smooth Grid Transition */}
+            <div
+              className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out ${
+                isPaletteMinimized
+                  ? "grid-rows-[0fr] opacity-0 pointer-events-none"
+                  : "grid-rows-[1fr] opacity-100"
+              }`}
+            >
+              <div className="overflow-hidden space-y-4">
                 {/* Grid of Question Number Badges */}
-                <div className="grid grid-cols-4 sm:grid-cols-5 gap-2.5">
+                <div className="grid grid-cols-4 sm:grid-cols-5 gap-2.5 pt-1">
                   {activeQuestions.map((q, idx) => {
                     const isAnswered = Boolean(answers[q.id]);
                     const isCurrent = currentIdx === idx;
@@ -587,7 +669,7 @@ export default function ExamPracticeClient({
                   </div>
                 </div>
               </div>
-            )}
+            </div>
 
             {/* Big Finish Button */}
             <button
@@ -599,110 +681,120 @@ export default function ExamPracticeClient({
             </button>
           </div>
 
-          {/* 2. Window Bantuan AI (Inline below Navigasi Soal) */}
-          {isAiOpen ? (
-            <div
-              id="ai-assistant-section"
-              style={aiBoxHeight ? { height: `${aiBoxHeight}px` } : undefined}
-              className="rounded-3xl border border-slate-200/90 shadow-2xs bg-white overflow-hidden flex flex-col transition-[height] duration-200 text-xs sm:text-sm max-lg:min-h-[280px] max-lg:max-h-[420px]"
-            >
-              {/* Clean, Simple Header (Tanpa info Soal #X) */}
-              <div className="px-3.5 py-2.5 bg-white border-b border-slate-100 flex items-center justify-between shrink-0">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-slate-700" />
-                  <h4 className="text-xs font-bold text-[#0F172A]">Bantuan AI</h4>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setIsAiOpen(false)}
-                  className="text-slate-400 hover:text-slate-700 p-1 rounded-md hover:bg-slate-100 transition cursor-pointer"
-                  title="Tutup Bantuan AI"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* Messages Area (Ukuran font normal text-xs sm:text-sm, flex-1 min-h-0) */}
+          {/* 2. Window Bantuan AI with Smooth Transition */}
+          <div
+            className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out ${
+              isAiOpen
+                ? "grid-rows-[1fr] opacity-100"
+                : "grid-rows-[0fr] opacity-0 pointer-events-none"
+            }`}
+          >
+            <div className="overflow-hidden">
               <div
-                ref={chatScrollContainerRef}
-                className="p-3.5 flex-1 min-h-0 overflow-y-auto space-y-2.5 bg-slate-50/50 text-xs sm:text-sm scroll-smooth"
+                id="ai-assistant-section"
+                style={aiBoxHeight ? { height: `${aiBoxHeight}px` } : undefined}
+                className="rounded-3xl border border-slate-200/90 shadow-2xs bg-white overflow-hidden flex flex-col transition-[height] duration-200 text-xs sm:text-sm max-lg:min-h-[280px] max-lg:max-h-[420px]"
               >
-                {currentQuestionMessages.map((msg, i) => (
-                  <div
-                    key={i}
-                    className={`p-3 rounded-2xl leading-relaxed text-xs sm:text-sm ${
-                      msg.sender === "user"
-                        ? "bg-[#0F172A] text-white ml-5 rounded-tr-xs"
-                        : "bg-white text-slate-800 mr-5 border border-slate-200/90 shadow-2xs rounded-tl-xs"
-                    }`}
+                {/* Clean, Simple Header (Tanpa info Soal #X) */}
+                <div className="px-3.5 py-2.5 bg-white border-b border-slate-100 flex items-center justify-between shrink-0">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-slate-700" />
+                    <h4 className="text-xs font-bold text-[#0F172A]">Bantuan AI</h4>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleCloseAi}
+                    className="text-slate-400 hover:text-slate-700 p-1 rounded-md hover:bg-slate-100 transition cursor-pointer"
+                    title="Tutup Bantuan AI"
                   >
-                    <MarkdownRenderer content={msg.text} isCompact />
-                  </div>
-                ))}
-
-                {isAiLoading && (
-                  <div className="flex items-center gap-2 text-slate-500 text-xs italic p-2.5 bg-white rounded-xl border border-slate-200/80 shadow-2xs">
-                    <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-600" />
-                    <span>Sedang memproses...</span>
-                  </div>
-                )}
-                <div ref={messagesEndRef} className="h-0 w-0" />
-              </div>
-
-              {/* Chat Input (1 baris tampilan awal, otomatis membesar vertikal, maks 200 karakter) */}
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleSendAiMessage();
-                }}
-                className="p-2.5 bg-white border-t border-slate-100 shrink-0"
-              >
-                <div className="flex items-end gap-2 px-3 py-1.5 rounded-2xl border border-slate-200 bg-slate-50 focus-within:bg-white focus-within:border-slate-400 focus-within:ring-1 focus-within:ring-slate-300 transition">
-                  <textarea
-                    ref={textareaRef}
-                    value={inputMsg}
-                    onChange={handleInputChange}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSendAiMessage();
-                      }
-                    }}
-                    rows={1}
-                    maxLength={MAX_AI_INPUT_CHARS}
-                    placeholder="Tanyakan ke AI... (Maks 200 karakter)"
-                    className="flex-1 text-xs sm:text-sm bg-transparent focus:outline-none resize-none text-slate-800 placeholder:text-slate-400 leading-normal py-0.5 min-h-[26px] max-h-[100px] overflow-y-auto"
-                  />
-                  <div className="flex items-center gap-1.5 shrink-0 self-end pb-0.5">
-                    {inputMsg.length > 0 && (
-                      <span
-                        className={`font-mono text-[10px] ${
-                          inputMsg.length >= MAX_AI_INPUT_CHARS
-                            ? "text-red-500 font-bold"
-                            : "text-slate-400"
-                        }`}
-                      >
-                        {inputMsg.length}/{MAX_AI_INPUT_CHARS}
-                      </span>
-                    )}
-                    <button
-                      type="submit"
-                      disabled={isAiLoading || !inputMsg.trim()}
-                      className="w-7 h-7 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-white disabled:opacity-25 disabled:pointer-events-none transition cursor-pointer flex items-center justify-center shrink-0 shadow-2xs"
-                      title="Kirim (Enter)"
-                    >
-                      <Send className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
-              </form>
+
+                {/* Messages Area */}
+                <div
+                  ref={chatScrollContainerRef}
+                  className="p-3.5 flex-1 min-h-0 overflow-y-auto space-y-2.5 bg-slate-50/50 text-xs sm:text-sm scroll-smooth"
+                >
+                  {currentQuestionMessages.map((msg, i) => (
+                    <div
+                      key={i}
+                      className={`p-3 rounded-2xl leading-relaxed text-xs sm:text-sm ${
+                        msg.sender === "user"
+                          ? "bg-[#0F172A] text-white ml-5 rounded-tr-xs"
+                          : "bg-white text-slate-800 mr-5 border border-slate-200/90 shadow-2xs rounded-tl-xs"
+                      }`}
+                    >
+                      <MarkdownRenderer content={msg.text} isCompact />
+                    </div>
+                  ))}
+
+                  {isAiLoading && (
+                    <div className="flex items-center gap-2 text-slate-500 text-xs italic p-2.5 bg-white rounded-xl border border-slate-200/80 shadow-2xs">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-600" />
+                      <span>Sedang memproses...</span>
+                    </div>
+                  )}
+                  <div ref={messagesEndRef} className="h-0 w-0" />
+                </div>
+
+                {/* Chat Input */}
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleSendAiMessage();
+                  }}
+                  className="p-2.5 bg-white border-t border-slate-100 shrink-0"
+                >
+                  <div className="flex items-end gap-2 px-3 py-1.5 rounded-2xl border border-slate-200 bg-slate-50 focus-within:bg-white focus-within:border-slate-400 focus-within:ring-1 focus-within:ring-slate-300 transition">
+                    <textarea
+                      ref={textareaRef}
+                      value={inputMsg}
+                      onChange={handleInputChange}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSendAiMessage();
+                        }
+                      }}
+                      rows={1}
+                      maxLength={MAX_AI_INPUT_CHARS}
+                      placeholder="Tanyakan ke AI... (Maks 200 karakter)"
+                      className="flex-1 text-xs sm:text-sm bg-transparent focus:outline-none resize-none text-slate-800 placeholder:text-slate-400 leading-normal py-0.5 min-h-[26px] max-h-[100px] overflow-y-auto"
+                    />
+                    <div className="flex items-center gap-1.5 shrink-0 self-end pb-0.5">
+                      {inputMsg.length > 0 && (
+                        <span
+                          className={`font-mono text-[10px] ${
+                            inputMsg.length >= MAX_AI_INPUT_CHARS
+                              ? "text-red-500 font-bold"
+                              : "text-slate-400"
+                          }`}
+                        >
+                          {inputMsg.length}/{MAX_AI_INPUT_CHARS}
+                        </span>
+                      )}
+                      <button
+                        type="submit"
+                        disabled={isAiLoading || !inputMsg.trim()}
+                        className="w-7 h-7 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-white disabled:opacity-25 disabled:pointer-events-none transition cursor-pointer flex items-center justify-center shrink-0 shadow-2xs"
+                        title="Kirim (Enter)"
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              </div>
             </div>
-          ) : (
+          </div>
+
+          {!isAiOpen && (
             <button
               type="button"
-              onClick={() => setIsAiOpen(true)}
-              className="w-full py-2.5 px-3 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+              onClick={handleOpenAi}
+              className="w-full py-2.5 px-3 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all duration-200 flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-[0.99] animate-in fade-in"
             >
               <Sparkles className="w-4 h-4 text-slate-500" />
               <span>Buka Bantuan AI</span>

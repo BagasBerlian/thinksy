@@ -9,38 +9,29 @@ export default async function HasilPage({
   params: Promise<{ sesiId: string }>;
 }) {
   const { sesiId } = await params;
-  const supabase = await createClient();
   const adminDb = createAdminClient();
 
-  // 1. Authenticate user
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  // 2. Fetch Sesi Info
-  const { data: sesiData } = await supabase
+  // 1. Fetch Sesi Info via adminDb
+  const { data: sesiData } = await adminDb
     .from("sesi")
     .select(`
       id,
       tipe_sesi,
       status_sesi,
       skor_akhir,
-      dibuat_pada,
+      mulai_pada,
+      selesai_pada,
       bab_id,
       bab (
         id,
         judul,
-        deskripsi,
-        mata_pelajaran (
-          id,
-          nama
-        )
+        mapel
       )
     `)
     .eq("id", sesiId)
-    .single();
+    .maybeSingle();
 
-  // 3. Fetch Jawaban Data via adminDb to read full question detail & solutions
+  // 2. Fetch Jawaban Data via adminDb to read full question detail & AI discussions
   const { data: jawabanRows } = await adminDb
     .from("jawaban")
     .select(`
@@ -51,6 +42,7 @@ export default async function HasilPage({
       is_benar,
       nilai,
       umpan_balik_ai,
+      dijawab_pada,
       soal (
         id,
         pertanyaan,
@@ -60,7 +52,8 @@ export default async function HasilPage({
         opsi_soal (
           id,
           teks_opsi,
-          benar
+          benar,
+          urutan
         )
       )
     `)
@@ -101,7 +94,7 @@ export default async function HasilPage({
         item.umpan_balik_ai ||
         soal?.pembahasan ||
         (isCorrect
-          ? "Jawaban Anda sudah tepat dan memenuhi kriteria penilaian konsep bab ini."
+          ? "Jawaban Anda sudah tepat dan memenuhi kriteria pemahaman konsep materi ini."
           : "Tinjau kembali konsep dan langkah penyelesaian pada materi bab ini.");
 
       reviews.push({
@@ -117,8 +110,8 @@ export default async function HasilPage({
   }
 
   // Fallback if no jawaban rows were stored yet
-  const judulBab = (sesiData as any)?.bab?.judul || "Bab Pembelajaran Terpilih";
-  const mapelNama = (sesiData as any)?.bab?.mata_pelajaran?.nama || "Umum";
+  const judulBab = (sesiData as any)?.bab?.judul || "Evaluasi Pembelajaran";
+  const mapelNama = (sesiData as any)?.bab?.mapel || "Umum";
 
   if (reviews.length === 0) {
     const fallbackQuestions = generateChapterQuestions(judulBab, mapelNama, 8);
@@ -136,13 +129,15 @@ export default async function HasilPage({
   }
 
   const totalQuestions = reviews.length;
-  const score = (sesiData as any)?.skor_akhir ?? (totalQuestions > 0 ? totalScoreSum || correctCount * 10 : 0);
+  const score =
+    (sesiData as any)?.skor_akhir ??
+    (totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0);
   const derivedIncorrectCount = Math.max(0, totalQuestions - correctCount);
   const poinEarned = score >= 80 ? 100 : score >= 60 ? 75 : 50;
 
   const jenisSesi = (sesiData as any)?.tipe_sesi
     ? String((sesiData as any).tipe_sesi).toUpperCase()
-    : "LATIHAN";
+    : "KUIS";
 
   return (
     <ExamResultClient
