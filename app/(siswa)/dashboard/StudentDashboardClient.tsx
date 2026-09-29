@@ -1262,7 +1262,6 @@ export default function StudentDashboardClient({
       {activeTab === "Pencapaian" && (
         <TabPencapaian
           completedQuizCount={completedQuizCount}
-          dailyStreak={dailyStreak}
           learningPoints={learningPoints}
           answeredSoalCount={answeredSoalCount}
           badgesList={pencapaianBadges}

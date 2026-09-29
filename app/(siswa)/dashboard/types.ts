@@ -130,7 +130,7 @@ export interface LeaderboardStudent {
   id: string;
   name: string;
   points: number;
-  streak: number;
+  streak?: number;
   school: string;
   isCurrentUser: boolean;
 }

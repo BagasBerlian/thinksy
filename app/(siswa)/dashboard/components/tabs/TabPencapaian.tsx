@@ -22,7 +22,7 @@ import { StudentBadgeDetail } from "@/app/api/siswa/pencapaian/route";
 
 interface TabPencapaianProps {
   completedQuizCount: number;
-  dailyStreak: number;
+  dailyStreak?: number;
   learningPoints: number;
   answeredSoalCount: number;
   badgesList?: StudentBadgeDetail[];
@@ -33,7 +33,7 @@ interface TabPencapaianProps {
 
 export default function TabPencapaian({
   completedQuizCount,
-  dailyStreak,
+  dailyStreak = 0,
   learningPoints,
   answeredSoalCount,
   badgesList,
@@ -92,25 +92,25 @@ export default function TabPencapaian({
     },
     {
       id: "b3",
-      title: "Pejuang Streak",
-      desc: "Kehadiran presensi sekolah harian berturut-turut selama 7 hari.",
+      title: "Penjelajah Materi",
+      desc: "Menyelesaikan minimal 5 kuis atau latihan materi.",
       tier: "Gold",
       tierColor: "from-amber-400 to-orange-500 border-amber-400 text-orange-950 bg-amber-50/80",
-      icon: "🔥",
-      rewardPoints: 200,
-      isUnlocked: dailyStreak >= 7,
-      currentValue: dailyStreak,
-      targetValue: 7,
-      unit: "Hari",
-      progressPercent: Math.min(100, Math.round((dailyStreak / 7) * 100)),
-      progressText: `${dailyStreak}/7 Hari`,
+      icon: "📚",
+      rewardPoints: 150,
+      isUnlocked: completedQuizCount >= 5,
+      currentValue: completedQuizCount,
+      targetValue: 5,
+      unit: "Kuis",
+      progressPercent: Math.min(100, Math.round((completedQuizCount / 5) * 100)),
+      progressText: `${completedQuizCount}/5 Kuis`,
       remainingText:
-        dailyStreak >= 7
-          ? "Streak 7 hari tercapai! Pertahankan api belajarmu 🔥"
-          : `Kurang ${Math.max(0, 7 - dailyStreak)} hari berturut-turut`,
-      tips: "Lakukan presensi selfie setiap pagi sebelum pukul 07.15 WIB.",
-      actionUrl: "#presensi",
-      actionLabel: "Cek Presensi",
+        completedQuizCount >= 5
+           ? "Target 5 kuis tercapai! Terus tingkatkan prestasimu 🌟"
+           : `Kurang ${Math.max(0, 5 - completedQuizCount)} kuis lagi`,
+      tips: "Kerjakan kuis pada setiap bab materi untuk membuka lencana ini.",
+      actionUrl: "/belajar",
+      actionLabel: "Mulai Belajar",
     },
     {
       id: "b4",
@@ -309,8 +309,8 @@ export default function TabPencapaian({
             </div>
           </div>
 
-          {/* Right: 4 Real-time Stat Pills */}
-          <div className="grid grid-cols-2 gap-3 w-full lg:w-auto shrink-0">
+          {/* Right: 3 Real-time Stat Pills */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full lg:w-auto shrink-0">
             <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5 backdrop-blur-md">
               <div className="flex items-center gap-2 text-amber-400 text-xs font-extrabold mb-1">
                 <Zap className="w-4 h-4" />
@@ -319,16 +319,6 @@ export default function TabPencapaian({
               <div className="text-lg sm:text-xl font-black text-white">
                 {learningPoints.toLocaleString("id-ID")}{" "}
                 <span className="text-xs text-slate-400 font-normal">XP</span>
-              </div>
-            </div>
-
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5 backdrop-blur-md">
-              <div className="flex items-center gap-2 text-orange-400 text-xs font-extrabold mb-1">
-                <Flame className="w-4 h-4" />
-                <span>Streak Harian</span>
-              </div>
-              <div className="text-lg sm:text-xl font-black text-white">
-                {dailyStreak} <span className="text-xs text-slate-400 font-normal">Hari</span>
               </div>
             </div>
 
