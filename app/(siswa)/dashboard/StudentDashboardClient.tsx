@@ -1261,6 +1261,8 @@ export default function StudentDashboardClient({
 
       {activeTab === "Pencapaian" && (
         <TabPencapaian
+          studentName={studentName}
+          schoolName={sekolahData?.nama}
           completedQuizCount={completedQuizCount}
           learningPoints={learningPoints}
           answeredSoalCount={answeredSoalCount}
