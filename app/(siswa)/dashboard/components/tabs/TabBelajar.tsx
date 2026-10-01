@@ -375,7 +375,7 @@ export default function TabBelajar({
   );
 
   return (
-    <main className="mx-auto max-w-7xl px-4 sm:px-6 pt-6 space-y-8 pb-16 font-sans">
+    <main className="mx-auto max-w-7xl px-4 sm:px-6 pt-10 sm:pt-14 space-y-8 pb-16 font-sans animate-in fade-in duration-200">
       {/* 1. SCHOOL BANNER */}
       {!sekolahData ? (
         <section className="relative rounded-3xl overflow-hidden shadow-xl border border-amber-500/30 text-white bg-slate-900 w-full mb-8">

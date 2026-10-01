@@ -409,7 +409,7 @@ export default function TabKursusSaya({
   const currentGradeTotalChapters = studentGradeChapters.length;
 
   return (
-    <main className="mx-auto max-w-7xl px-4 sm:px-6 pt-6 pb-16 space-y-6 animate-in fade-in duration-200">
+    <main className="mx-auto max-w-7xl px-4 sm:px-6 pt-10 sm:pt-14 pb-16 space-y-6 animate-in fade-in duration-200">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200/80 pb-5">
         <div className="space-y-1">
