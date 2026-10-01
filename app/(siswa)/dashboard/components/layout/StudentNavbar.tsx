@@ -237,9 +237,10 @@ export default function StudentNavbar({
             {/* Right Header Controls (Presensi, Notification, Profile) */}
             <div className="flex items-center space-x-1.5 sm:space-x-2.5 shrink-0">
               {/* Presensi Button in Navbar */}
-              <div className="relative">
+              <div className="relative" suppressHydrationWarning>
                 {isCheckedIn ? (
                   <div
+                    suppressHydrationWarning
                     title={`Presensi hari ini telah dicatat (${
                       checkInStatus || "Hadir"
                     }) pada pukul ${checkInTime || "08.00"} WIB`}
@@ -266,6 +267,7 @@ export default function StudentNavbar({
                   </div>
                 ) : (
                   <button
+                    suppressHydrationWarning
                     onClick={onStartAttendance}
                     disabled={isSubmittingAttendance}
                     title={

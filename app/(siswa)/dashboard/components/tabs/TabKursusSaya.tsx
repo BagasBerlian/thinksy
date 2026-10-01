@@ -703,7 +703,7 @@ export default function TabKursusSaya({
             </div>
 
             {/* Bab Search Input */}
-            <div className="relative min-w-[200px] sm:w-64">
+            <div className="relative min-w-50 sm:w-64">
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"

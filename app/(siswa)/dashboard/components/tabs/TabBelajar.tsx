@@ -798,7 +798,7 @@ export default function TabBelajar({
           </div>
 
           {/* Mini Sleek Interactive Footer Strip */}
-          <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] min-h-[26px]">
+          <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] min-h-6.5">
             {activeInfo ? (
               <div className="flex items-center gap-1.5 text-blue-700 font-extrabold truncate animate-in fade-in duration-150">
                 <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0" />
