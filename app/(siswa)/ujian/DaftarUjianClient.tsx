@@ -581,7 +581,7 @@ Dr. Hendra Wijaya, M.Pd.
         onOpenProfile={() => setIsProfileModalOpen(true)}
       />
 
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 pt-6 space-y-6">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 pt-10 sm:pt-14 space-y-8 animate-in fade-in duration-200">
         {/* Banner Hero */}
         <div className="saas-card rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm relative overflow-hidden bg-white flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2 max-w-2xl">
