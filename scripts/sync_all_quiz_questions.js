@@ -46,10 +46,11 @@ async function syncAllQuizQuestions() {
       const b = babsRes.rows[bIdx];
       const generatedQuestions = generateChapterQuestions(b.judul, b.mapel, b.kelas);
 
-      for (const q of generatedQuestions) {
+      for (let qIdx = 0; qIdx < generatedQuestions.length; qIdx++) {
+        const q = generatedQuestions[qIdx];
         const insertSoalRes = await client.query(
-          `INSERT INTO soal (bab_id, pertanyaan, tipe_soal, kunci_jawaban, pembahasan, dibuat_pada)
-           VALUES ($1, $2, $3, $4, $5, now())
+          `INSERT INTO soal (bab_id, pertanyaan, tipe_soal, status_soal, kunci_jawaban, pembahasan, dibuat_pada)
+           VALUES ($1, $2, $3, 'dipublikasi', $4, $5, now() + ($6 || ' seconds')::interval)
            RETURNING id;`,
           [
             b.id,
@@ -57,6 +58,7 @@ async function syncAllQuizQuestions() {
             q.tipeSoal,
             q.kunciJawaban,
             q.pembahasan,
+            qIdx,
           ]
         );
 

@@ -12,6 +12,99 @@ interface BatchItem {
   konsepKunci: string;
 }
 
+interface EssayToGrade {
+  soalId: string;
+  pertanyaan: string;
+  jawabanSiswa: string;
+  kunciJawaban: string;
+  pembahasanDb: string;
+}
+
+interface EssayGradeResult {
+  nilai: number;
+  isBenar: boolean;
+  umpanBalik: string;
+}
+
+async function gradeBatchEssaysWithAi(
+  items: EssayToGrade[],
+  apiKey: string
+): Promise<Record<string, EssayGradeResult>> {
+  if (!items.length || !apiKey) return {};
+
+  const prompt = `Kamu adalah Penguji & Guru AI Ahli di platform edukasi Thinksy.
+Tugasmu adalah menganalisis dan mengoreksi lembar jawaban ESAI/URAIAN siswa secara cerdas, objektif, dan mendalam.
+
+KEUNGGULAN UTAMA PENILAIAN AI (SEMANTIC EVALUATION):
+1. Evaluasi PEMAHAMAN SEMANTIK, substansi ide, logika penalaran, atau langkah penyelesaian matematika/ilmiah yang disampaikan siswa.
+2. JANGAN HANYA mencocokkan kata demi kata (exact keyword matching) secara kaku!
+3. Meskipun siswa menggunakan kalimat, struktur kata, atau gaya bahasanya sendiri yang BERBEDA dari kunci jawaban, JIKA inti konsep atau hasil logikanya tepat, anggap BENAR dan berikan nilai tinggi (7-10). Inilah kelebihan AI dibanding pencocokan teks biasa.
+
+PANDUAN PEMBERIAN NILAI (Skala Integer 0 sampai 10 per nomor):
+- Nilai 9 - 10: SANGAT TEPAT. Konsep materi dipahami secara utuh, penalaran logis, dan menjawab esensi pertanyaan dengan tepat.
+- Nilai 7 - 8: TEPAT / BAIK. Konsep inti benar dan tepat, walaupun ada langkah atau penjelasan minor yang disederhanakan oleh siswa.
+- Nilai 4 - 6: SEBAGIAN BENAR. Menunjukkan pemahaman sebagian konsep, namun ada langkah atau detail krusial yang terlewat atau keliru.
+- Nilai 1 - 3: KURANG TEPAT. Siswa mencoba menjawab namun ada miskonsepsi atau kurang relevan dengan pertanyaan.
+- Nilai 0: KOSONG / ASAL-ASALAN (misal: "tidak tahu", "asdf", tanda baca acak, dsb).
+
+ATURAN UMPAN BALIK EDUKATIF:
+1. Panjang: Tepat 2 sampai 3 kalimat per soal. Wajib hemat token, bernada santun, mendidik, dan apresiatif.
+2. Jelaskan bagian mana dari pemikiran siswa yang sudah tepat, dan berikan penjelasan konsep yang benar/sempurna sesuai kunci jawaban.
+3. Tentukan "isBenar": true jika nilai >= 7, false jika nilai < 7.
+
+FORMAT OUTPUT WAJIB:
+Wajib HANYA me-return objek JSON valid murni tanpa markdown wrapper:
+{
+  "<soalId>": {
+    "nilai": <angka 0-10>,
+    "isBenar": <true/false>,
+    "umpanBalik": "<penjelasan edukatif 2-3 kalimat>"
+  }
+}
+
+Daftar Soal Esai & Jawaban Siswa:
+${JSON.stringify(items, null, 2)}`;
+
+  const models = [
+    "gemini-flash-lite-latest",
+    "gemini-2.5-flash-lite",
+    "gemini-3.5-flash-lite",
+    "gemini-flash-latest",
+    "gemini-3.8-flash",
+  ];
+
+  for (const model of models) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseMimeType: "application/json",
+            temperature: 0.2,
+            maxOutputTokens: 1500,
+          },
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+        const parsed = JSON.parse(rawText.replace(/```json|```/g, "").trim());
+        if (parsed && typeof parsed === "object") {
+          return parsed as Record<string, EssayGradeResult>;
+        }
+      }
+    } catch (e) {
+      console.warn(`[GRADE-ESSAY-AI] Model ${model} failed, trying next...`, e);
+    }
+  }
+
+  return {};
+}
+
 async function generateBatchAiExplanations(
   items: BatchItem[],
   apiKey: string
@@ -19,7 +112,7 @@ async function generateBatchAiExplanations(
   if (!items.length || !apiKey) return {};
 
   const prompt = `Kamu adalah Asisten Guru Thinksy.
-Tugasmu adalah membuat pembahasan ringkas, edukatif, dan to-the-point untuk setiap nomor soal kuis berikut.
+Tugasmu adalah membuat pembahasan ringkas, edukatif, dan to-the-point untuk setiap nomor soal pilihan ganda berikut.
 
 ATURAN PEMBAHASAN:
 1. Panjang: Tepat 2 sampai 3 kalimat per soal. Wajib hemat token: padat, lugas, jangan bertele-tele atau berbasa-basi.
@@ -35,9 +128,11 @@ Daftar Soal & Jawaban Siswa:
 ${JSON.stringify(items, null, 2)}`;
 
   const models = [
-    "gemini-3.1-flash-lite",
-    "gemini-1.5-flash",
-    "gemini-2.0-flash",
+    "gemini-flash-lite-latest",
+    "gemini-2.5-flash-lite",
+    "gemini-3.5-flash-lite",
+    "gemini-flash-latest",
+    "gemini-3.8-flash",
   ];
 
   for (const model of models) {
@@ -144,13 +239,17 @@ export async function POST(req: Request) {
     const batchItemsToGrade: Array<{
       soalId: string;
       pertanyaan: string;
+      tipeSoal: "pilihan_ganda" | "esai";
       opsiDipilihId?: string;
       jawabanTeks: string;
       kunciJawaban: string;
       pembahasanDb: string;
       isBenar: boolean;
       nilai: number;
+      customUmpanBalik?: string;
     }> = [];
+
+    const essayItemsToGrade: EssayToGrade[] = [];
 
     for (const item of jawabanList) {
       const { soalId, opsiDipilihId, jawabanTeks } = item;
@@ -188,6 +287,7 @@ export async function POST(req: Request) {
         batchItemsToGrade.push({
           soalId,
           pertanyaan: soalData.pertanyaan,
+          tipeSoal: "pilihan_ganda",
           opsiDipilihId: opsiDipilihId || undefined,
           jawabanTeks: studentText,
           kunciJawaban: correctText,
@@ -196,43 +296,113 @@ export async function POST(req: Request) {
           nilai,
         });
       } else {
-        // Essay question
+        // Essay question queued for intelligent AI grading
         const trimmed = (jawabanTeks || "").trim();
-        const containsKeywords = (soalData.kunci_jawaban || "")
-          .toLowerCase()
-          .split(" ")
-          .filter((w: string) => w.length > 4)
-          .some((w: string) => trimmed.toLowerCase().includes(w));
-
-        const isBenar = Boolean(trimmed.length > 20 && containsKeywords);
-        const nilai = isBenar ? 10 : trimmed.length > 10 ? 5 : 0;
-
-        batchItemsToGrade.push({
+        essayItemsToGrade.push({
           soalId,
           pertanyaan: soalData.pertanyaan,
-          jawabanTeks: trimmed || "Tidak Dijawab",
+          jawabanSiswa: trimmed || "Tidak Dijawab",
           kunciJawaban: soalData.kunci_jawaban || "Sesuai kriteria bab",
           pembahasanDb: soalData.pembahasan || "",
-          isBenar,
-          nilai,
         });
       }
     }
 
-    // 4. Batch Generate AI Discussion for ALL questions (correct and incorrect)
+    // 4. Intelligent AI Grading for Essay Questions (Semantic Evaluation)
     const geminiApiKey = process.env.GEMINI_API_KEY || "";
-    const aiPromptItems: BatchItem[] = batchItemsToGrade.map((q) => ({
-      soalId: q.soalId,
-      pertanyaan: q.pertanyaan,
-      jawabanSiswa: q.jawabanTeks,
-      kunciJawaban: q.kunciJawaban,
-      isBenar: q.isBenar,
-      konsepKunci: q.pembahasanDb,
-    }));
+    let essayAiResults: Record<string, EssayGradeResult> = {};
 
-    let aiExplanations: Record<string, string> = {};
-    if (geminiApiKey && aiPromptItems.length > 0) {
-      aiExplanations = await generateBatchAiExplanations(aiPromptItems, geminiApiKey);
+    if (geminiApiKey && essayItemsToGrade.length > 0) {
+      // Filter out non-empty essays for AI grading
+      const activeEssays = essayItemsToGrade.filter(
+        (e) => e.jawabanSiswa && e.jawabanSiswa !== "Tidak Dijawab" && e.jawabanSiswa.trim().length >= 3
+      );
+      if (activeEssays.length > 0) {
+        essayAiResults = await gradeBatchEssaysWithAi(activeEssays, geminiApiKey);
+      }
+    }
+
+    // Process essay grades and merge into batchItemsToGrade
+    for (const essay of essayItemsToGrade) {
+      const isBlank =
+        !essay.jawabanSiswa ||
+        essay.jawabanSiswa === "Tidak Dijawab" ||
+        essay.jawabanSiswa.trim().length < 3;
+
+      const aiRes = essayAiResults[essay.soalId];
+
+      let nilai = 0;
+      let isBenar = false;
+      let umpanBalik = "";
+
+      if (isBlank) {
+        nilai = 0;
+        isBenar = false;
+        umpanBalik = `Soal ini belum dijawab oleh siswa. Konsep yang diharapkan: ${
+          essay.pembahasanDb || essay.kunciJawaban
+        }`;
+      } else if (aiRes && typeof aiRes.nilai === "number") {
+        nilai = Math.min(10, Math.max(0, Math.round(aiRes.nilai)));
+        isBenar = typeof aiRes.isBenar === "boolean" ? aiRes.isBenar : nilai >= 7;
+        umpanBalik =
+          aiRes.umpanBalik ||
+          (isBenar
+            ? `Jawaban Anda tepat dan memahami konsep materi dengan baik. ${essay.pembahasanDb || ""}`
+            : `Jawaban perlu disempurnakan. Kunci konsep yang tepat: ${essay.kunciJawaban}`);
+      } else {
+        // Fallback semantic heuristic if Gemini API is unreachable
+        const trimmed = essay.jawabanSiswa.trim();
+        const lowerAns = trimmed.toLowerCase();
+        const keywords = (essay.kunciJawaban || "")
+          .toLowerCase()
+          .split(/[\s,.;:()\-+/*=]+/)
+          .filter((w) => w.length > 3);
+        const matchCount = keywords.filter((k) => lowerAns.includes(k)).length;
+        const ratio = keywords.length > 0 ? matchCount / keywords.length : 0;
+
+        if (ratio >= 0.35 || trimmed.length > 40) {
+          nilai = 8;
+          isBenar = true;
+          umpanBalik = `Uraian Anda telah menunjukkan pemahaman konsep yang baik. ${essay.pembahasanDb || ""}`;
+        } else if (ratio >= 0.15 || trimmed.length > 15) {
+          nilai = 5;
+          isBenar = false;
+          umpanBalik = `Pemikiran Anda sudah mulai mengarah pada konsep yang tepat, namun perlu penjelasan yang lebih terperinci. Kunci jawaban: ${essay.kunciJawaban}`;
+        } else {
+          nilai = 2;
+          isBenar = false;
+          umpanBalik = `Jawaban belum memenuhi kriteria pembahasan. Kunci konsep yang tepat: ${essay.kunciJawaban}`;
+        }
+      }
+
+      batchItemsToGrade.push({
+        soalId: essay.soalId,
+        pertanyaan: essay.pertanyaan,
+        tipeSoal: "esai",
+        jawabanTeks: essay.jawabanSiswa,
+        kunciJawaban: essay.kunciJawaban,
+        pembahasanDb: essay.pembahasanDb,
+        isBenar,
+        nilai,
+        customUmpanBalik: umpanBalik,
+      });
+    }
+
+    // 5. Batch Generate AI Discussion for Multiple Choice Questions
+    const mcPromptItems: BatchItem[] = batchItemsToGrade
+      .filter((q) => q.tipeSoal === "pilihan_ganda")
+      .map((q) => ({
+        soalId: q.soalId,
+        pertanyaan: q.pertanyaan,
+        jawabanSiswa: q.jawabanTeks,
+        kunciJawaban: q.kunciJawaban,
+        isBenar: q.isBenar,
+        konsepKunci: q.pembahasanDb,
+      }));
+
+    let mcAiExplanations: Record<string, string> = {};
+    if (geminiApiKey && mcPromptItems.length > 0) {
+      mcAiExplanations = await generateBatchAiExplanations(mcPromptItems, geminiApiKey);
     }
 
     // 5. Store Each Graded Answer into Supabase `jawaban` Table
@@ -242,8 +412,8 @@ export async function POST(req: Request) {
     for (const q of batchItemsToGrade) {
       totalScoreSum += q.nilai;
 
-      // Extract generated AI explanation or build clean fallback
-      let explanation = aiExplanations[q.soalId]?.trim();
+      // Extract generated AI explanation (from AI essay grader or AI MC explanation)
+      let explanation = q.customUmpanBalik?.trim() || mcAiExplanations[q.soalId]?.trim();
       if (!explanation) {
         if (q.isBenar) {
           explanation = `Jawaban Anda tepat. Pilihan ini benar karena ${

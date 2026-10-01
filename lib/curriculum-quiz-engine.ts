@@ -137,30 +137,91 @@ function ensureExactly10Questions(
   mapel: string,
   kelas: number
 ): QuizQuestionData[] {
-  if (currentList.length === 10) {
-    return currentList.map((q, idx) => ({ ...q, id: `q-${idx + 1}` }));
+  const result: QuizQuestionData[] = [];
+
+  // 1. Ensure exactly 7 Multiple Choice (pilihan_ganda) for indices 0 to 6
+  for (let i = 0; i < 7; i++) {
+    const item = currentList[i];
+    if (item && item.tipeSoal === "pilihan_ganda" && item.opsiSoal && item.opsiSoal.length > 0) {
+      result.push({
+        ...item,
+        id: `q-${i + 1}`,
+      });
+    } else if (item && item.opsiSoal && item.opsiSoal.length > 0) {
+      result.push({
+        ...item,
+        id: `q-${i + 1}`,
+        tipeSoal: "pilihan_ganda",
+      });
+    } else {
+      const nextIdx = i + 1;
+      result.push({
+        id: `q-${nextIdx}`,
+        pertanyaan: `${nextIdx}. Dalam penerapan materi "${topicTitle}" (${mapel} Kelas ${kelas}), manakah langkah penalaran yang paling tepat untuk menganalisis dan memecahkan persoalan kontekstual?`,
+        tipeSoal: "pilihan_ganda",
+        opsiSoal: [
+          { id: `opt-${nextIdx}-1`, teksOpsi: `Mengidentifikasi data penting, menerapkan konsep dasar ${topicTitle}, dan memverifikasi kesimpulan secara logis.`, benar: true },
+          { id: `opt-${nextIdx}-2`, teksOpsi: "Menghafal rumus tanpa memahami logika di balik konsep tersebut.", benar: false },
+          { id: `opt-${nextIdx}-3`, teksOpsi: "Mengabaikan hubungan antara data yang diketahui dengan apa yang ditanyakan.", benar: false },
+          { id: `opt-${nextIdx}-4`, teksOpsi: "Mengambil kesimpulan instan tanpa melakukan langkah pembuktian.", benar: false },
+        ],
+        kunciJawaban: `Mengidentifikasi data penting, menerapkan konsep dasar ${topicTitle}, dan memverifikasi kesimpulan secara logis.`,
+        pembahasan: `Pada pembelajaran ${mapel} materi "${topicTitle}", pemecahan masalah yang efektif memerlukan pemahaman konsep yang kokoh, identifikasi informasi relevan, dan penalaran sistematis langkah demi langkah.`,
+        hintSokratik: `Perhatikan prinsip utama materi ${topicTitle}. Pilihlah pendekatan yang mengutamakan pemahaman konsep dan penalaran terstruktur.`,
+      });
+    }
   }
 
-  const result = [...currentList];
-  while (result.length < 10) {
-    const nextIdx = result.length + 1;
-    result.push({
-      id: `q-${nextIdx}`,
-      pertanyaan: `[Soal #${nextIdx}] Dalam penerapan materi "${topicTitle}" (${mapel} Kelas ${kelas}), manakah langkah penalaran yang paling tepat untuk menganalisis dan memecahkan persoalan kontekstual?`,
-      tipeSoal: "pilihan_ganda",
-      opsiSoal: [
-        { id: `opt-${nextIdx}-1`, teksOpsi: `Mengidentifikasi data & variabel penting, menerapkan konsep dasar ${topicTitle}, dan memverifikasi kesimpulan secara logis.`, benar: true },
-        { id: `opt-${nextIdx}-2`, teksOpsi: "Menghafal rumus tanpa memahami logika di balik konsep tersebut.", benar: false },
-        { id: `opt-${nextIdx}-3`, teksOpsi: "Mengabaikan hubungan antara data yang diketahui dengan apa yang ditanyakan.", benar: false },
-        { id: `opt-${nextIdx}-4`, teksOpsi: "Mengambil kesimpulan instan tanpa melakukan langkah pembuktian.", benar: false },
-      ],
-      kunciJawaban: `Mengidentifikasi data & variabel penting, menerapkan konsep dasar ${topicTitle}, dan memverifikasi kesimpulan secara logis.`,
-      pembahasan: `Pada pembelajaran ${mapel} materi "${topicTitle}", pemecahan masalah yang efektif memerlukan pemahaman konsep yang kokoh, identifikasi informasi relevan, dan penalaran sistematis langkah demi langkah.`,
-      hintSokratik: `Perhatikan prinsip utama materi ${topicTitle}. Pilihlah pendekatan yang mengutamakan pemahaman konsep dan penalaran terstruktur.`,
-    });
+  // 2. Ensure exactly 3 Essay (esai) for indices 7 to 9 (Nomor 8, 9, 10)
+  const defaultEssays = [
+    {
+      num: 8,
+      pertanyaan: `8. [Uraian Konsep] Jelaskan secara komprehensif prinsip utama dan keterkaitan materi "${topicTitle}" dengan topik-topik relevan lainnya dalam pembelajaran ${mapel}. Mengapa pemahaman atas konsep ini sangat krusial bagi siswa kelas ${kelas}?`,
+      kunciJawaban: `Prinsip utama materi ${topicTitle} bertumpu pada pemahaman struktur konsep dasar, kaidah ilmiah, serta integrasinya dengan pembelajaran ${mapel}. Siswa perlu menguasai konsep ini untuk membangun kerangka berpikir analitis dan bernalar kritis.`,
+      pembahasan: `Jawaban siswa harus mencakup: (1) Definisi dan hakikat konsep "${topicTitle}", (2) Keterkaitan dengan materi terkait, dan (3) Relevansi akademis serta aplikatifnya.`,
+      hintSokratik: `Uraikan konsep dasar materi ${topicTitle} dengan kata-katamu sendiri dan sebutkan mengapa materi ini penting dipelajari.`,
+    },
+    {
+      num: 9,
+      pertanyaan: `9. [Analisis Masalah Kontekstual] Berikan satu contoh studi kasus atau permasalahan nyata yang dapat dipecahkan menggunakan konsep "${topicTitle}". Uraikan langkah-langkah sistematis penyelesaiannya berdasarkan prinsip pembelajaran ${mapel}!`,
+      kunciJawaban: `Penyelesaian masalah kontekstual meliputi: (1) Identifikasi fakta dan variabel yang diketahui, (2) Pemilihan konsep/formula ${topicTitle} yang tepat, (3) Operasi penalaran atau perhitungan bertahap, dan (4) Penarikan kesimpulan yang terverifikasi.`,
+      pembahasan: `Penilaian berfokus pada alur pemikiran yang logis, keterkaitan antara masalah nyata dengan kaidah materi "${topicTitle}", serta kejelasan tahapan penyelesaian.`,
+      hintSokratik: `Pikirkan sebuah masalah nyata yang relevan dengan topik ini, lalu jelaskan tahap demi tahap cara menyelesaikannya.`,
+    },
+    {
+      num: 10,
+      pertanyaan: `10. [Refleksi & Evaluasi Kritis] Mengapa kesalahan pemahaman konsep pada materi "${topicTitle}" dapat berdampak pada kekeliruan penalaran di tahap selanjutnya? Tuliskan strategi atau evaluasi mandiri yang efektif untuk memastikan pemahamanmu sudah tepat!`,
+      kunciJawaban: `Kesalahan konsep awal bersifat akumulatif sehingga menurunkan akurasi kesimpulan. Strategi evaluasi diri efektif mencakup: memverifikasi fakta dengan konsep dasar, berlatih penalaran terstruktur, serta berdiskusi aktif untuk mengklarifikasi bagian yang ambigu.`,
+      pembahasan: `Siswa diharapkan mampu merefleksikan pentingnya ketelitian konsep "${topicTitle}" dan menyajikan solusi mandiri untuk menghindari miskonsepsi.`,
+      hintSokratik: `Jelaskan bahaya miskonsepsi pada materi ini dan bagaimana caramu memverifikasi bahwa pemahamanmu sudah benar.`,
+    },
+  ];
+
+  for (let i = 7; i < 10; i++) {
+    const item = currentList[i];
+    if (item && item.tipeSoal === "esai") {
+      result.push({
+        ...item,
+        id: `q-${i + 1}`,
+        opsiSoal: undefined,
+      });
+    } else {
+      const def = defaultEssays[i - 7];
+      result.push({
+        id: `q-${i + 1}`,
+        pertanyaan: item?.pertanyaan
+          ? `[Uraian] ${item.pertanyaan.replace(/^\d+\.\s*/, "").replace(/^\[.*?\]\s*/, "")} Uraikan langkah penalaran, analisis konsep, atau perhitungan Anda secara sistematis!`
+          : def.pertanyaan,
+        tipeSoal: "esai",
+        kunciJawaban: item?.kunciJawaban || def.kunciJawaban,
+        pembahasan: item?.pembahasan || def.pembahasan,
+        hintSokratik: item?.hintSokratik || def.hintSokratik,
+        opsiSoal: undefined,
+      });
+    }
   }
 
-  return result.slice(0, 10).map((q, idx) => ({ ...q, id: `q-${idx + 1}` }));
+  return result;
 }
 
 // =============================================================================
@@ -269,45 +330,27 @@ function getBilanganBulat10(): QuizQuestionData[] {
     },
     {
       id: "q-8",
-      pertanyaan: "Manakah di antara pernyataan perbandingan bilangan bulat berikut yang BENAR?",
-      tipeSoal: "pilihan_ganda",
-      opsiSoal: [
-        { id: "opt-1", teksOpsi: "-15 > -20", benar: true },
-        { id: "opt-2", teksOpsi: "-8 > -5", benar: false },
-        { id: "opt-3", teksOpsi: "-12 > 0", benar: false },
-        { id: "opt-4", teksOpsi: "-35 > -30", benar: false },
-      ],
-      kunciJawaban: "-15 > -20",
-      pembahasan: "Pada garis bilangan horizontal, bilangan yang terletak semakin ke kanan nilainya semakin besar. $-15$ berada di sebelah kanan $-20$, maka $-15 > -20$.",
-      hintSokratik: "Semakin mendekati nol, nilai bilangan bulat negatif semakin besar.",
+      pertanyaan: "8. [Soal Uraian] Jelaskan konsep perbandingan dua bilangan bulat negatif (misalnya membandingkan $-15$ dan $-20$). Bilangan manakah yang bernilai lebih besar? Gunakan penalaran posisi titik pada garis bilangan untuk memperkuat penjelasanmu!",
+      tipeSoal: "esai",
+      kunciJawaban: "Bilangan yang lebih besar adalah -15. Pada garis bilangan horizontal, semakin ke kanan letak suatu bilangan, semakin besar nilainya. Titik -15 terletak di sebelah kanan -20 (lebih mendekati nol), sehingga -15 > -20.",
+      pembahasan: "Siswa harus menjelaskan bahwa pada bilangan negatif, angka yang semakin mendekati nol bernilai lebih besar karena terletak lebih ke kanan pada garis bilangan. Oleh karena itu, -15 > -20.",
+      hintSokratik: "Bayangkan garis bilangan horizontal. Perhatikan posisi -15 dan -20 terhadap titik 0.",
     },
     {
       id: "q-9",
-      pertanyaan: "Hasil dari $(-3)^3 + (-2)^4$ adalah...",
-      tipeSoal: "pilihan_ganda",
-      opsiSoal: [
-        { id: "opt-1", teksOpsi: "-11", benar: true },
-        { id: "opt-2", teksOpsi: "-43", benar: false },
-        { id: "opt-3", teksOpsi: "43", benar: false },
-        { id: "opt-4", teksOpsi: "11", benar: false },
-      ],
-      kunciJawaban: "-11",
-      pembahasan: "$(-3)^3 = -27$ (pangkat ganjil bertanda negatif).\n$(-2)^4 = +16$ (pangkat genap bertanda positif).\n$-27 + 16 = -11$.",
-      hintSokratik: "Bilangan negatif berpangkat ganjil menghasilkan nilai negatif, sedangkan berpangkat genap menghasilkan positif.",
+      pertanyaan: "9. [Soal Uraian] Hitunglah hasil dari $(-3)^3 + (-2)^4$. Uraikan langkah-langkah pengerjaannya secara rinci dan jelaskan aturan tanda bilangan saat bilangan negatif dipangkatkan dengan eksponen ganjil dan eksponen genap!",
+      tipeSoal: "esai",
+      kunciJawaban: "Langkah pengerjaan: (-3)^3 = (-3) x (-3) x (-3) = -27 (pangkat ganjil menghasilkan tanda negatif). (-2)^4 = (-2) x (-2) x (-2) x (-2) = +16 (pangkat genap menghasilkan tanda positif). Hasil penjumlahan: -27 + 16 = -11. Aturannya: bilangan negatif berpangkat ganjil bernilai negatif, sedangkan berpangkat genap bernilai positif.",
+      pembahasan: "Jawaban yang benar menguraikan perhitungan $(-3)^3 = -27$ dan $(-2)^4 = 16$, menghasilkan $-11$, serta menyebutkan kaidah tanda eksponen genap/ganjil.",
+      hintSokratik: "Hitung masing-masing pemangkatan secara terpisah dengan memperhatikan tanda negatif saat dikalikan berulang.",
     },
     {
       id: "q-10",
-      pertanyaan: "Sebuah es batu bersuhu $-8^\\circ\\text{C}$ dipanaskan sehingga suhunya naik rata-rata $3^\\circ\\text{C}$ setiap 2 menit. Berapakah suhu es batu tersebut setelah 10 menit?",
-      tipeSoal: "pilihan_ganda",
-      opsiSoal: [
-        { id: "opt-1", teksOpsi: "7°C", benar: true },
-        { id: "opt-2", teksOpsi: "5°C", benar: false },
-        { id: "opt-3", teksOpsi: "15°C", benar: false },
-        { id: "opt-4", teksOpsi: "22°C", benar: false },
-      ],
-      kunciJawaban: "7°C",
-      pembahasan: "Total kenaikan suhu: $\\frac{10}{2} \\times 3^\\circ\\text{C} = 5 \\times 3 = 15^\\circ\\text{C}$.\nSuhu akhir: $-8^\\circ\\text{C} + 15^\\circ\\text{C} = 7^\\circ\\text{C}$.",
-      hintSokratik: "Hitung berapa kali kenaikan terjadi dalam 10 menit (10 / 2 = 5 kali), lalu tambahkan total kenaikan ke suhu mula-mula.",
+      pertanyaan: "10. [Soal Uraian] Sebuah es batu bersuhu $-8^\\circ\\text{C}$ dipanaskan perlahan sehingga suhunya naik rata-rata $3^\\circ\\text{C}$ setiap 2 menit. Tuliskan model matematika untuk menentukan suhu es batu setelah 10 menit dan hitung suhu akhirnya secara terstruktur!",
+      tipeSoal: "esai",
+      kunciJawaban: "Model matematika: Suhu Akhir = Suhu Awal + (Waktu / Interval) x Kenaikan Suhu = -8 + (10 / 2) x 3 = -8 + (5 x 3) = -8 + 15 = 7°C. Jadi suhu akhir es batu setelah 10 menit adalah 7°C.",
+      pembahasan: "Dalam 10 menit terjadi 10/2 = 5 kali kenaikan suhu. Total kenaikan = 5 x 3°C = 15°C. Suhu akhir = -8°C + 15°C = 7°C.",
+      hintSokratik: "Cari tahu berapa kali suhu mengalami kenaikan dalam 10 menit, kalikan dengan kenaikan per interval, lalu jumlahkan ke suhu awal.",
     },
   ];
 }
@@ -414,45 +457,27 @@ function getPythagoras10(): QuizQuestionData[] {
     },
     {
       id: "q-8",
-      pertanyaan: "Pada segitiga siku-siku dengan sudut $30^\\circ, 60^\\circ, 90^\\circ$, jika panjang sisi di depan sudut $30^\\circ$ adalah $5\\text{ cm}$, berapakah panjang sisi miringnya?",
-      tipeSoal: "pilihan_ganda",
-      opsiSoal: [
-        { id: "opt-1", teksOpsi: "10 cm", benar: true },
-        { id: "opt-2", teksOpsi: "5√3 cm", benar: false },
-        { id: "opt-3", teksOpsi: "15 cm", benar: false },
-        { id: "opt-4", teksOpsi: "5√2 cm", benar: false },
-      ],
-      kunciJawaban: "10 cm",
-      pembahasan: "Perbandingan sisi sudut $30^\\circ : 60^\\circ : 90^\\circ$ adalah $1 : \\sqrt{3} : 2$. Hipotenusa $= 2 \\times 5 = 10\\text{ cm}$.",
-      hintSokratik: "Panjang sisi miring selalu 2 kali lipat dari panjang sisi di hadapan sudut 30 derajat.",
+      pertanyaan: "8. [Soal Uraian] Pada segitiga siku-siku khusus dengan sudut $30^\\circ - 60^\\circ - 90^\\circ$, panjang sisi di hadapan sudut $30^\\circ$ diketahui $5\\text{ cm}$. Tuliskan perbandingan panjang sisi-sisinya dan hitung panjang hipotenusa serta sisi siku-siku lainnya secara terperinci!",
+      tipeSoal: "esai",
+      kunciJawaban: "Perbandingan sisi di hadapan sudut 30° : 60° : 90° adalah 1 : √3 : 2. Panjang hipotenusa (di depan sudut 90°) = 2 x 5 cm = 10 cm. Panjang sisi di depan sudut 60° = 5 x √3 = 5√3 cm.",
+      pembahasan: "Segitiga siku-siku istimewa 30°-60°-90° memiliki perbandingan sisi 1 : √3 : 2. Dengan sisi terpendek 5 cm, maka sisi miringnya adalah 10 cm dan sisi tegak lainnya 5√3 cm.",
+      hintSokratik: "Ingat perbandingan sisi pada sudut istimewa 30°, 60°, 90° adalah 1 : √3 : 2.",
     },
     {
       id: "q-9",
-      pertanyaan: "Sebuah belah ketupat memiliki panjang diagonal masing-masing $12\\text{ cm}$ dan $16\\text{ cm}$. Berapakah keliling belah ketupat tersebut?",
-      tipeSoal: "pilihan_ganda",
-      opsiSoal: [
-        { id: "opt-1", teksOpsi: "40 cm", benar: true },
-        { id: "opt-2", teksOpsi: "20 cm", benar: false },
-        { id: "opt-3", teksOpsi: "48 cm", benar: false },
-        { id: "opt-4", teksOpsi: "56 cm", benar: false },
-      ],
-      kunciJawaban: "40 cm",
-      pembahasan: "Setengah diagonal: $6\\text{ cm}$ dan $8\\text{ cm}$.\nPanjang sisi belah ketupat $s = \\sqrt{6^2 + 8^2} = 10\\text{ cm}$.\nKeliling $= 4 \\times 10 = 40\\text{ cm}$.",
-      hintSokratik: "Bagi diagonal menjadi dua, hitung sisi miring segitiga siku-sikunya, lalu kalikan 4 untuk keliling.",
+      pertanyaan: "9. [Soal Uraian] Sebuah belah ketupat memiliki panjang diagonal masing-masing $12\\text{ cm}$ dan $16\\text{ cm}$. Uraikan langkah penerapan Teorema Pythagoras untuk menentukan panjang sisi belah ketupat, lalu hitung keliling belah ketupat tersebut!",
+      tipeSoal: "esai",
+      kunciJawaban: "Kedua diagonal saling berpotongan tegak lurus dan membagi dua sama panjang, membentuk 4 segitiga siku-siku dengan sisi siku-siku 6 cm dan 8 cm. Sisi belah ketupat s = √(6² + 8²) = √(36 + 64) = √100 = 10 cm. Keliling belah ketupat = 4 x s = 4 x 10 = 40 cm.",
+      pembahasan: "Setengah diagonal adalah 6 cm dan 8 cm. Menggunakan Pythagoras didapat sisi belah ketupat 10 cm, sehingga kelilingnya 40 cm.",
+      hintSokratik: "Bagi panjang masing-masing diagonal menjadi dua, lalu gunakan Pythagoras untuk mencari sisi miring.",
     },
     {
       id: "q-10",
-      pertanyaan: "Di antara kelompok bilangan berikut, manakah yang membentuk segitiga TUMPUL?",
-      tipeSoal: "pilihan_ganda",
-      opsiSoal: [
-        { id: "opt-1", teksOpsi: "5 cm, 7 cm, 10 cm", benar: true },
-        { id: "opt-2", teksOpsi: "6 cm, 8 cm, 10 cm", benar: false },
-        { id: "opt-3", teksOpsi: "9 cm, 12 cm, 15 cm", benar: false },
-        { id: "opt-4", teksOpsi: "5 cm, 12 cm, 13 cm", benar: false },
-      ],
-      kunciJawaban: "5 cm, 7 cm, 10 cm",
-      pembahasan: "$5^2 + 7^2 = 25 + 49 = 74 < 10^2 = 100$. Karena $a^2 + b^2 < c^2$, maka segitiga tumpul.",
-      hintSokratik: "Segitiga tumpul terjadi jika $a^2 + b^2 < c^2$ di mana $c$ adalah sisi terpanjang.",
+      pertanyaan: "10. [Soal Uraian] Bagaimanakah cara mengidentifikasi jenis suatu segitiga (apakah lancip, siku-siku, atau tumpul) menggunakan kebalikan Teorema Pythagoras? Buktikan jenis segitiga yang memiliki panjang sisi $5\\text{ cm}$, $7\\text{ cm}$, dan $10\\text{ cm}$ dengan menunjukkan perhitungannya!",
+      tipeSoal: "esai",
+      kunciJawaban: "Aturan kebalikan Pythagoras untuk sisi terpanjang c: (1) Jika a² + b² = c², segitiga siku-siku. (2) Jika a² + b² > c², segitiga lancip. (3) Jika a² + b² < c², segitiga tumpul. Pengujian sisi 5, 7, 10: a² + b² = 5² + 7² = 25 + 49 = 74. c² = 10² = 100. Karena 74 < 100 (a² + b² < c²), maka segitiga tersebut adalah segitiga tumpul.",
+      pembahasan: "Jumlah kuadrat dua sisi pendek (5² + 7² = 74) lebih kecil dari kuadrat sisi terpanjang (10² = 100). Berdasarkan kebalikan Pythagoras, terbukti segitiga tersebut tumpul.",
+      hintSokratik: "Kuadratkan sisi terpanjang dan bandingkan dengan jumlah kuadrat dua sisi lainnya.",
     },
   ];
 }
@@ -559,45 +584,27 @@ function getAljabar10(): QuizQuestionData[] {
     },
     {
       id: "q-8",
-      pertanyaan: "Penyederhanaan dari pecahan aljabar $\\frac{x^2 - 9}{x^2 + 5x + 6}$ adalah...",
-      tipeSoal: "pilihan_ganda",
-      opsiSoal: [
-        { id: "opt-1", teksOpsi: "(x - 3)/(x + 2)", benar: true },
-        { id: "opt-2", teksOpsi: "(x + 3)/(x + 2)", benar: false },
-        { id: "opt-3", teksOpsi: "(x - 3)/(x - 2)", benar: false },
-        { id: "opt-4", teksOpsi: "1/(5x + 6)", benar: false },
-      ],
-      kunciJawaban: "(x - 3)/(x + 2)",
-      pembahasan: "Faktorkan pembilang: $(x-3)(x+3)$. Faktorkan penyebut: $(x+3)(x+2)$. Coret faktor sama $(x+3)$, diperoleh $\\frac{x-3}{x+2}$.",
-      hintSokratik: "Faktorkan selisih kuadrat $x^2 - 9 = (x-3)(x+3)$, lalu sederhanakan.",
+      pertanyaan: "8. [Soal Uraian] Sederhanakan pecahan bentuk aljabar $\\frac{x^2 - 9}{x^2 + 5x + 6}$. Tuliskan langkah pemfaktoran pembilang dan penyebut secara lengkap serta tunjukkan bentuk akhirnya!",
+      tipeSoal: "esai",
+      kunciJawaban: "Pembilang: x² - 9 = (x - 3)(x + 3) (selisih dua kuadrat). Penyebut: x² + 5x + 6 = (x + 3)(x + 2) (faktor dari 6 yang jika dijumlah bernilai 5). Bentuk pecahan: [(x - 3)(x + 3)] / [(x + 3)(x + 2)]. Sederhanakan faktor sekutu (x + 3), diperoleh bentuk paling sederhana: (x - 3)/(x + 2).",
+      pembahasan: "Pemfaktoran selisih kuadrat di pembilang dan bentuk kuadrat di penyebut menghasilkan faktor persekutuan (x + 3) yang saling membagi, menyisakan (x - 3)/(x + 2).",
+      hintSokratik: "Faktorkan selisih kuadrat x² - 9, kemudian faktorkan persamaan kuadrat pada penyebut.",
     },
     {
       id: "q-9",
-      pertanyaan: "Koefisien dari $x$ pada bentuk aljabar $4x^2 - 7x + 15$ adalah...",
-      tipeSoal: "pilihan_ganda",
-      opsiSoal: [
-        { id: "opt-1", teksOpsi: "-7", benar: true },
-        { id: "opt-2", teksOpsi: "7", benar: false },
-        { id: "opt-3", teksOpsi: "4", benar: false },
-        { id: "opt-4", teksOpsi: "15", benar: false },
-      ],
-      kunciJawaban: "-7",
-      pembahasan: "Koefisien adalah faktor pengali di depan variabel. Angka di depan variabel $x$ adalah $-7$.",
-      hintSokratik: "Perhatikan tanda negatif di depan angka pengali variabel $x$.",
+      pertanyaan: "9. [Soal Uraian] Pada bentuk aljabar $4x^2 - 7x + 15$, tentukan: (a) koefisien dari $x^2$, (b) koefisien dari $x$, dan (c) konstanta. Jelaskan pula perbedaan makna mendasar antara istilah variabel, koefisien, dan konstanta!",
+      tipeSoal: "esai",
+      kunciJawaban: "(a) Koefisien x² = 4. (b) Koefisien x = -7 (harus menyertakan tanda negatif). (c) Konstanta = 15. Perbedaan makna: Variabel adalah simbol/huruf yang mewakili nilai yang belum diketahui. Koefisien adalah bilangan pengali di depan variabel. Konstanta adalah bilangan tetap yang tidak memuat variabel.",
+      pembahasan: "Koefisien x² adalah 4, koefisien x adalah -7, dan konstanta adalah 15. Penjelasan mencakup definisi fungsional variabel, koefisien, dan konstanta.",
+      hintSokratik: "Perhatikan tanda negatif di depan koefisien variabel x dan bedakan antara angka pengali dengan suku angka mandiri.",
     },
     {
       id: "q-10",
-      pertanyaan: "Keliling sebuah persegi panjang dinyatakan oleh $(6x + 8)\\text{ cm}$. Jika panjangnya $(2x + 5)\\text{ cm}$, maka lebarnya adalah...",
-      tipeSoal: "pilihan_ganda",
-      opsiSoal: [
-        { id: "opt-1", teksOpsi: "(x - 1) cm", benar: true },
-        { id: "opt-2", teksOpsi: "(x + 1) cm", benar: false },
-        { id: "opt-3", teksOpsi: "(4x + 3) cm", benar: false },
-        { id: "opt-4", teksOpsi: "(2x - 1) cm", benar: false },
-      ],
-      kunciJawaban: "(x - 1) cm",
-      pembahasan: "$K = 2(p + l) \\implies 6x + 8 = 2(2x + 5 + l) \\implies 3x + 4 = 2x + 5 + l \\implies l = 3x - 2x + 4 - 5 = x - 1\\text{ cm}$.",
-      hintSokratik: "Bagi keliling dengan 2 terlebih dahulu untuk mendapatkan $p + l$, lalu kurangi dengan $p$.",
+      pertanyaan: "10. [Soal Uraian] Keliling sebuah persegi panjang dinyatakan oleh $(6x + 8)\\text{ cm}$. Jika panjang persegi panjang tersebut adalah $(2x + 5)\\text{ cm}$, uraikan langkah-langkah aljabar untuk menentukan bentuk aljabar dari lebar persegi panjang tersebut!",
+      tipeSoal: "esai",
+      kunciJawaban: "Rumus keliling: K = 2(p + l). Maka 6x + 8 = 2((2x + 5) + l). Bagi kedua ruas dengan 2: 3x + 4 = 2x + 5 + l. Pindahkan suku panjang: l = (3x + 4) - (2x + 5) = 3x - 2x + 4 - 5 = (x - 1) cm. Jadi lebar persegi panjang tersebut adalah (x - 1) cm.",
+      pembahasan: "Menggunakan K/2 = p + l, didapat 3x + 4 = 2x + 5 + l, sehingga lebar l = 3x - 2x + 4 - 5 = x - 1 cm.",
+      hintSokratik: "Bagi keliling dengan 2 terlebih dahulu untuk memperoleh jumlah panjang dan lebar (p + l).",
     },
   ];
 }
@@ -704,45 +711,27 @@ function getPolaBilangan10(): QuizQuestionData[] {
     },
     {
       id: "q-8",
-      pertanyaan: "Banyak suku pada barisan aritmatika $7, 11, 15, \\dots, 83$ adalah...",
-      tipeSoal: "pilihan_ganda",
-      opsiSoal: [
-        { id: "opt-1", teksOpsi: "20", benar: true },
-        { id: "opt-2", teksOpsi: "19", benar: false },
-        { id: "opt-3", teksOpsi: "21", benar: false },
-        { id: "opt-4", teksOpsi: "22", benar: false },
-      ],
-      kunciJawaban: "20",
-      pembahasan: "$U_n = a + (n-1)b \\implies 83 = 7 + (n-1)4 \\implies 76 = 4(n-1) \\implies n-1 = 19 \\implies n = 20$.",
-      hintSokratik: "Kurangi suku terakhir dengan suku awal, lalu bagi dengan beda dan tambahkan 1.",
+      pertanyaan: "8. [Soal Uraian] Diberikan barisan aritmatika $7, 11, 15, \\dots, 83$. Uraikan langkah-langkah menggunakan rumus suku ke-$n$ ($U_n = a + (n-1)b$) untuk menentukan banyaknya suku ($n$) pada barisan tersebut secara terstruktur!",
+      tipeSoal: "esai",
+      kunciJawaban: "Suku pertama a = 7, beda b = 11 - 7 = 4, suku terakhir Un = 83. Rumus: Un = a + (n - 1)b. Maka 83 = 7 + (n - 1)4 => 83 - 7 = 4(n - 1) => 76 = 4(n - 1) => n - 1 = 19 => n = 20. Jadi banyaknya suku pada barisan tersebut adalah 20 suku.",
+      pembahasan: "Dari a = 7 dan b = 4, persamaan 83 = 7 + 4(n-1) diselesaikan untuk mendapatkan n = 20 suku.",
+      hintSokratik: "Substitusikan a=7, b=4, dan Un=83 ke dalam rumus suku ke-n, lalu selesaikan untuk mencari nilai n.",
     },
     {
       id: "q-9",
-      pertanyaan: "Dalam ruang pertunjukan terdapat 10 baris kursi. Baris terdepan berisi 12 kursi dan baris berikutnya selalu memuat 3 kursi lebih banyak. Total seluruh kursi di gedung adalah...",
-      tipeSoal: "pilihan_ganda",
-      opsiSoal: [
-        { id: "opt-1", teksOpsi: "255 kursi", benar: true },
-        { id: "opt-2", teksOpsi: "240 kursi", benar: false },
-        { id: "opt-3", teksOpsi: "270 kursi", benar: false },
-        { id: "opt-4", teksOpsi: "300 kursi", benar: false },
-      ],
-      kunciJawaban: "255 kursi",
-      pembahasan: "$a = 12, b = 3, n = 10$.\n$S_{10} = \\frac{10}{2}[2(12) + 9(3)] = 5[24 + 27] = 5 \\times 51 = 255\\text{ kursi}$.",
-      hintSokratik: "Gunakan rumus deret aritmatika dengan $a=12$, $b=3$, dan $n=10$.",
+      pertanyaan: "9. [Soal Uraian] Dalam sebuah gedung pertunjukan terdapat 10 baris kursi. Baris terdepan memuat 12 kursi dan setiap baris di belakangnya selalu memuat 3 kursi lebih banyak dari baris di depannya. Tuliskan rumus deret aritmatika yang digunakan dan hitung total seluruh kapasitas kursi di gedung tersebut!",
+      tipeSoal: "esai",
+      kunciJawaban: "Banyak baris n = 10, kursi baris pertama a = 12, penambahan antar-baris b = 3. Rumus deret aritmatika: Sn = (n / 2) x [2a + (n - 1)b]. S10 = (10 / 2) x [2(12) + (10 - 1)3] = 5 x [24 + 27] = 5 x 51 = 255 kursi. Jadi kapasitas total gedung adalah 255 kursi.",
+      pembahasan: "Menggunakan rumus jumlah deret aritmatika S10 = 5 x (24 + 27) = 5 x 51 = 255 kursi.",
+      hintSokratik: "Gunakan rumus jumlah n suku pertama deret aritmatika dengan a=12, b=3, dan n=10.",
     },
     {
       id: "q-10",
-      pertanyaan: "Jumlah bilangan bulat kelipatan 3 antara 10 dan 100 adalah...",
-      tipeSoal: "pilihan_ganda",
-      opsiSoal: [
-        { id: "opt-1", teksOpsi: "1.665", benar: true },
-        { id: "opt-2", teksOpsi: "1.550", benar: false },
-        { id: "opt-3", teksOpsi: "1.720", benar: false },
-        { id: "opt-4", teksOpsi: "1.800", benar: false },
-      ],
-      kunciJawaban: "1.665",
-      pembahasan: "Suku pertama $a = 12$, suku terakhir $U_n = 99$, beda $b = 3$.\n$99 = 12 + (n-1)3 \\implies 87 = 3(n-1) \\implies n = 30$.\n$S_{30} = \\frac{30}{2}(12 + 99) = 15 \\times 111 = 1.665$.",
-      hintSokratik: "Cari suku pertama (12) dan suku terakhir (99), tentukan banyaknya suku, lalu hitung jumlahnya.",
+      pertanyaan: "10. [Soal Uraian] Hitunglah jumlah semua bilangan bulat kelipatan 3 yang berada di antara 10 dan 100. Jelaskan bagaimana kamu menentukan suku pertama, suku terakhir, banyaknya suku, dan hasil penjumlahan deret tersebut!",
+      tipeSoal: "esai",
+      kunciJawaban: "Suku pertama kelipatan 3 setelah 10 adalah a = 12. Suku terakhir kelipatan 3 sebelum 100 adalah Un = 99. Beda b = 3. Banyak suku: 99 = 12 + (n - 1)3 => 87 = 3(n - 1) => n - 1 = 29 => n = 30 suku. Jumlah deret: S30 = (30 / 2) x (a + Un) = 15 x (12 + 99) = 15 x 111 = 1.665. Jadi jumlah seluruh bilangan tersebut adalah 1.665.",
+      pembahasan: "Kelipatan 3 antara 10 dan 100 memiliki suku pertama 12, suku terakhir 99, dan total 30 suku. Jumlah deretnya = 15 x 111 = 1.665.",
+      hintSokratik: "Cari bilangan kelipatan 3 terkecil di atas 10 dan terbesar di bawah 100, lalu gunakan rumus jumlah deret aritmatika.",
     },
   ];
 }
@@ -849,45 +838,27 @@ function getPLSV10(): QuizQuestionData[] {
     },
     {
       id: "q-8",
-      pertanyaan: "Sebuah taman berbentuk persegi panjang berukuran panjang $(3x - 2)\\text{ m}$ dan lebar $(x + 4)\\text{ m}$. Jika keliling taman tidak lebih dari $44\\text{ m}$, nilai maksimal dari $x$ adalah...",
-      tipeSoal: "pilihan_ganda",
-      opsiSoal: [
-        { id: "opt-1", teksOpsi: "x ≤ 5", benar: true },
-        { id: "opt-2", teksOpsi: "x ≤ 6", benar: false },
-        { id: "opt-3", teksOpsi: "x ≤ 4", benar: false },
-        { id: "opt-4", teksOpsi: "x ≤ 7", benar: false },
-      ],
-      kunciJawaban: "x ≤ 5",
-      pembahasan: "$2(p + l) \\le 44 \\implies (3x - 2) + (x + 4) \\le 22 \\implies 4x + 2 \\le 22 \\implies 4x \\le 20 \\implies x \\le 5$.",
-      hintSokratik: "Gunakan rumus keliling persegi panjang dan selesaikan pertidaksamaannya.",
+      pertanyaan: "8. [Soal Uraian] Sebuah taman berbentuk persegi panjang berukuran panjang $(3x - 2)\\text{ m}$ dan lebar $(x + 4)\\text{ m}$. Jika keliling taman tidak lebih dari $44\\text{ m}$, tuliskan model pertidaksamaan linearnya dan tentukan nilai maksimal untuk $x$!",
+      tipeSoal: "esai",
+      kunciJawaban: "Keliling: 2(p + l) ≤ 44 => p + l ≤ 22. Substitusi: (3x - 2) + (x + 4) ≤ 22 => 4x + 2 ≤ 22 => 4x ≤ 20 => x ≤ 5. Jadi nilai maksimal untuk x adalah 5.",
+      pembahasan: "Dari 2((3x-2) + (x+4)) ≤ 44 diperoleh 4x + 2 ≤ 22 => 4x ≤ 20 => x ≤ 5.",
+      hintSokratik: "Gunakan rumus keliling persegi panjang 2(p+l) ≤ 44, sederhanakan, lalu cari batas nilai x.",
     },
     {
       id: "q-9",
-      pertanyaan: "Penyelesaian dari $2(3x - 4) + 5 = 4(x + 1) - 3$ adalah...",
-      tipeSoal: "pilihan_ganda",
-      opsiSoal: [
-        { id: "opt-1", teksOpsi: "x = 2", benar: true },
-        { id: "opt-2", teksOpsi: "x = 3", benar: false },
-        { id: "opt-3", teksOpsi: "x = -2", benar: false },
-        { id: "opt-4", teksOpsi: "x = 1", benar: false },
-      ],
-      kunciJawaban: "x = 2",
-      pembahasan: "$6x - 8 + 5 = 4x + 4 - 3 \\implies 6x - 3 = 4x + 1 \\implies 2x = 4 \\implies x = 2$.",
-      hintSokratik: "Buka tanda kurung di kedua ruas terlebih dahulu menggunakan sifat distributif.",
+      pertanyaan: "9. [Soal Uraian] Selesaikan persamaan linear satu variabel $2(3x - 4) + 5 = 4(x + 1) - 3$. Tuliskan setiap langkah penyederhanaan sifat distributif, pengelompokan suku sejenis, hingga menemukan nilai $x$!",
+      tipeSoal: "esai",
+      kunciJawaban: "Langkah 1 (distributif): 6x - 8 + 5 = 4x + 4 - 3. Langkah 2 (sederhanakan): 6x - 3 = 4x + 1. Langkah 3 (kelompokkan variabel & konstanta): 6x - 4x = 1 + 3 => 2x = 4. Langkah 4: x = 2. Jadi nilai x yang memenuhi adalah 2.",
+      pembahasan: "Menerapkan sifat distributif menghasilkan 6x - 3 = 4x + 1. Dengan memindahkan variabel dan konstanta, diperoleh 2x = 4 => x = 2.",
+      hintSokratik: "Buka tanda kurung dengan sifat perkalian distributif terlebih dahulu sebelum memindahkan suku-suku.",
     },
     {
       id: "q-10",
-      pertanyaan: "Jika $x$ adalah penyelesaian dari $5x - 8 = 2x + 7$, maka nilai dari $2x - 5$ adalah...",
-      tipeSoal: "pilihan_ganda",
-      opsiSoal: [
-        { id: "opt-1", teksOpsi: "5", benar: true },
-        { id: "opt-2", teksOpsi: "10", benar: false },
-        { id: "opt-3", teksOpsi: "-5", benar: false },
-        { id: "opt-4", teksOpsi: "7", benar: false },
-      ],
-      kunciJawaban: "5",
-      pembahasan: "$5x - 2x = 7 + 8 \\implies 3x = 15 \\implies x = 5$.\nNilai $2x - 5 = 2(5) - 5 = 10 - 5 = 5$.",
-      hintSokratik: "Cari nilai $x$ terlebih dahulu, kemudian masukkan ke ekspresi $2x - 5$.",
+      pertanyaan: "10. [Soal Uraian] Jika $x$ adalah penyelesaian dari persamaan $5x - 8 = 2x + 7$, carilah nilai $x$ tersebut dan kemudian tentukan nilai dari bentuk aljabar $2x - 5$!",
+      tipeSoal: "esai",
+      kunciJawaban: "Selesaikan persamaan: 5x - 2x = 7 + 8 => 3x = 15 => x = 5. Substitusi nilai x = 5 ke bentuk 2x - 5: 2(5) - 5 = 10 - 5 = 5. Jadi nilai dari 2x - 5 adalah 5.",
+      pembahasan: "Penyelesaian persamaan awal memberikan x = 5. Hasil substitusi ke dalam 2x - 5 menghasilkan 2(5) - 5 = 5.",
+      hintSokratik: "Cari nilai x dari persamaan utama, lalu substitusikan ke ekspresi 2x - 5.",
     },
   ];
 }
@@ -1028,45 +999,27 @@ function buildGeneric10(topicTitle: string, mapel: string, kelas: number): QuizQ
     },
     {
       id: "q-8",
-      pertanyaan: `8. Hubungan keterkaitan antara materi "${t}" dengan topik pembelajaran lain dalam kurikulum ${mapel} adalah...`,
-      tipeSoal: "pilihan_ganda",
-      opsiSoal: [
-        { id: "opt-8-1", teksOpsi: `Saling terintegrasi sebagai fondasi kompetensi berkelanjutan untuk jenjang pembelajaran selanjutnya.`, benar: true },
-        { id: "opt-8-2", teksOpsi: "Berdiri sendiri dan terpisah sama sekali dari materi lain.", benar: false },
-        { id: "opt-8-3", teksOpsi: "Hanya dibutuhkan saat ujian sekolah dan tidak terpakai lagi.", benar: false },
-        { id: "opt-8-4", teksOpsi: "Tidak memiliki keterkaitan dengan cabang ilmu lain.", benar: false },
-      ],
-      kunciJawaban: `Saling terintegrasi sebagai fondasi kompetensi berkelanjutan untuk jenjang pembelajaran selanjutnya.`,
-      pembahasan: `Kurikulum Merdeka dirancang secara spiral dan integratif di mana setiap bab membangun fondasi bagi bab berikutnya.`,
-      hintSokratik: `Kurikulum pendidikan bersifat berkesinambungan dan saling mendukung.`,
+      pertanyaan: `8. [Uraian Konsep] Jelaskan secara komprehensif prinsip utama dan keterkaitan materi "${t}" dengan topik-topik relevan lainnya dalam pembelajaran ${mapel}. Mengapa pemahaman atas konsep ini sangat krusial bagi siswa kelas ${kelas}?`,
+      tipeSoal: "esai",
+      kunciJawaban: `Prinsip utama materi ${t} bertumpu pada pemahaman struktur konsep dasar, kaidah ilmiah, serta integrasinya dengan pembelajaran ${mapel}. Siswa perlu menguasai konsep ini untuk membangun kerangka berpikir analitis dan bernalar kritis.`,
+      pembahasan: `Jawaban siswa harus mencakup: (1) Definisi dan hakikat konsep "${t}", (2) Keterkaitan dengan materi terkait, dan (3) Relevansi akademis serta aplikatifnya.`,
+      hintSokratik: `Uraikan konsep dasar materi ${t} dengan kata-katamu sendiri dan sebutkan mengapa materi ini penting dipelajari.`,
     },
     {
       id: "q-9",
-      pertanyaan: `9. Tantangan atau kendala umum yang sering dihadapi dalam menguasai topik "${t}" serta strategi mengatasinya yang paling efektif adalah...`,
-      tipeSoal: "pilihan_ganda",
-      opsiSoal: [
-        { id: "opt-9-1", teksOpsi: `Miskonsepsi istilah/formula; dapat diatasi melalui eksplorasi visual, latihan penalaran berkala, dan bimbingan Sokratik.`, benar: true },
-        { id: "opt-9-2", teksOpsi: "Kekurangan waktu; diatasi dengan menyalin tugas milik teman.", benar: false },
-        { id: "opt-9-3", teksOpsi: "Tingkat kesulitan tinggi; diatasi dengan menghindari materi tersebut.", benar: false },
-        { id: "opt-9-4", teksOpsi: "Banyaknya rumus; diatasi dengan menghafal tanpa latihan soal.", benar: false },
-      ],
-      kunciJawaban: `Miskonsepsi istilah/formula; dapat diatasi melalui eksplorasi visual, latihan penalaran berkala, dan bimbingan Sokratik.`,
-      pembahasan: `Belajar bermakna dicapai melalui refleksi, latihan penalaran variatif, dan diskusi konsep secara bertahap.`,
-      hintSokratik: `Strategi belajar terbaik mengutamakan pemahaman konsep dan latihan aktif, bukan penghindaran.`,
+      pertanyaan: `9. [Analisis Masalah Kontekstual] Berikan satu contoh studi kasus atau permasalahan nyata yang dapat dipecahkan menggunakan konsep "${t}". Uraikan langkah-langkah sistematis penyelesaiannya berdasarkan prinsip pembelajaran ${mapel}!`,
+      tipeSoal: "esai",
+      kunciJawaban: `Penyelesaian masalah kontekstual meliputi: (1) Identifikasi fakta dan variabel yang diketahui, (2) Pemilihan konsep/formula ${t} yang tepat, (3) Operasi penalaran atau perhitungan bertahap, dan (4) Penarikan kesimpulan yang terverifikasi.`,
+      pembahasan: `Penilaian berfokus pada alur pemikiran yang logis, keterkaitan antara masalah nyata dengan kaidah materi "${t}", serta kejelasan tahapan penyelesaian.`,
+      hintSokratik: `Pikirkan sebuah masalah nyata yang relevan dengan topik ini, lalu jelaskan tahap demi tahap cara menyelesaikannya.`,
     },
     {
       id: "q-10",
-      pertanyaan: `10. Kesimpulan komprehensif dari penguasaan materi "${t}" (${mapel} Kelas ${kelas}) adalah terbentuknya kemampuan siswa untuk...`,
-      tipeSoal: "pilihan_ganda",
-      opsiSoal: [
-        { id: "opt-10-1", teksOpsi: `Berpikir kritis, bernalar analitis, dan memiliki keterampilan memecahkan masalah kontekstual secara mandiri.`, benar: true },
-        { id: "opt-10-2", teksOpsi: "Menghafal seluruh isi buku teks kata demi kata.", benar: false },
-        { id: "opt-10-3", teksOpsi: "Mendapatkan nilai tanpa proses belajar yang jujur.", benar: false },
-        { id: "opt-10-4", teksOpsi: "Menyelesaikan soal tanpa mengerti maknanya.", benar: false },
-      ],
-      kunciJawaban: `Berpikir kritis, bernalar analitis, dan memiliki keterampilan memecahkan masalah kontekstual secara mandiri.`,
-      pembahasan: `Capaian Pembelajaran (CP) Kurikulum Merdeka menitikberatkan pada pembentukan Profil Pelajar Pancasila yang bernalar kritis dan mandiri.`,
-      hintSokratik: `Pilihlah kesimpulan yang memuat profil pelajar bernalar kritis dan mandiri.`,
+      pertanyaan: `10. [Refleksi & Evaluasi Kritis] Mengapa kesalahan pemahaman konsep pada materi "${t}" dapat berdampak pada kekeliruan penalaran di tahap selanjutnya? Tuliskan strategi atau evaluasi mandiri yang efektif untuk memastikan pemahamanmu sudah tepat!`,
+      tipeSoal: "esai",
+      kunciJawaban: `Kesalahan konsep awal bersifat akumulatif sehingga menurunkan akurasi kesimpulan. Strategi evaluasi diri efektif mencakup: memverifikasi fakta dengan konsep dasar, berlatih penalaran terstruktur, serta berdiskusi aktif untuk mengklarifikasi bagian yang ambigu.`,
+      pembahasan: `Siswa diharapkan mampu merefleksikan pentingnya ketelitian konsep "${t}" dan menyajikan solusi mandiri untuk menghindari miskonsepsi.`,
+      hintSokratik: `Jelaskan bahaya miskonsepsi pada materi ini dan bagaimana caramu memverifikasi bahwa pemahamanmu sudah benar.`,
     },
   ];
 }
