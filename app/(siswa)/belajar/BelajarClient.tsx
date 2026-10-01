@@ -297,16 +297,16 @@ export default function BelajarClient({
   const [toastNotification, setToastNotification] =
     useState<ToastNotificationData | null>(null);
 
-  // UAT Mock Time State
-  const [mockTime, setMockTime] = useState<string | null>(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("thinksy_mock_time") || null;
-    }
-    return null;
-  });
+  // UAT Mock Time State (synced with localStorage after mount to prevent hydration mismatch)
+  const [mockTime, setMockTime] = useState<string | null>(null);
   const [isDevMenuOpen, setIsDevMenuOpen] = useState(false);
 
   useEffect(() => {
+    try {
+      const saved = localStorage.getItem("thinksy_mock_time") || null;
+      if (saved) setMockTime(saved);
+    } catch {}
+
     const handleMockTimeSync = () => {
       try {
         const saved = localStorage.getItem("thinksy_mock_time") || null;
@@ -389,17 +389,19 @@ export default function BelajarClient({
   const getEffectiveCurrentTime = () => {
     if (mockTime) return mockTime;
     const now = new Date();
-    return now.toLocaleTimeString("id-ID", {
+    const formatter = new Intl.DateTimeFormat("en-GB", {
       timeZone: "Asia/Jakarta",
       hour: "2-digit",
       minute: "2-digit",
       hour12: false,
     });
+    return formatter.format(now);
   };
 
   const getEffectiveMinutes = () => {
     const timeStr = getEffectiveCurrentTime();
-    const [h, m] = timeStr.split(":").map(Number);
+    const normalized = timeStr.replace(".", ":");
+    const [h, m] = normalized.split(":").map(Number);
     return (h || 0) * 60 + (m || 0);
   };
 
@@ -1093,7 +1095,7 @@ export default function BelajarClient({
 
       {/* MODAL INTERAKTIF: AUTENTIKASI TOKEN CBT (PERSIS SESUAI SCREENSHOT 2) */}
       {selectedExamForToken && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-150">
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-150">
           <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-md p-6 sm:p-7 space-y-5 relative">
             {/* Header Modal */}
             <div className="flex items-start justify-between gap-3">

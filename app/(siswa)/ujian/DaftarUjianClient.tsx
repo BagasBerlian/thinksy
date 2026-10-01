@@ -361,17 +361,17 @@ Dr. Hendra Wijaya, M.Pd.
     });
   };
 
-  // UAT Mock Time State (synced with localStorage)
-  const [mockTime, setMockTime] = useState<string | null>(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("thinksy_mock_time") || null;
-    }
-    return null;
-  });
+  // UAT Mock Time State (synced with localStorage after mount to prevent hydration mismatch)
+  const [mockTime, setMockTime] = useState<string | null>(null);
   const [isDevMenuOpen, setIsDevMenuOpen] = useState(false);
 
-  // Listen for mock time changes
+  // Listen for mock time changes & initial load after mount
   useEffect(() => {
+    try {
+      const saved = localStorage.getItem("thinksy_mock_time") || null;
+      if (saved) setMockTime(saved);
+    } catch {}
+
     const handleMockTimeSync = () => {
       try {
         const saved = localStorage.getItem("thinksy_mock_time") || null;
@@ -464,17 +464,19 @@ Dr. Hendra Wijaya, M.Pd.
   const getEffectiveCurrentTime = () => {
     if (mockTime) return mockTime;
     const now = new Date();
-    return now.toLocaleTimeString("id-ID", {
+    const formatter = new Intl.DateTimeFormat("en-GB", {
       timeZone: "Asia/Jakarta",
       hour: "2-digit",
       minute: "2-digit",
       hour12: false,
     });
+    return formatter.format(now);
   };
 
   const getEffectiveMinutes = () => {
     const timeStr = getEffectiveCurrentTime();
-    const [h, m] = timeStr.split(":").map(Number);
+    const normalized = timeStr.replace(".", ":");
+    const [h, m] = normalized.split(":").map(Number);
     return (h || 0) * 60 + (m || 0);
   };
 
@@ -624,7 +626,7 @@ Dr. Hendra Wijaya, M.Pd.
               </div>
               <div>
                 <div className="text-xs sm:text-sm font-bold text-white flex items-center gap-2 flex-wrap sm:flex-nowrap">
-                  <span className="truncate max-w-[160px] sm:max-w-md">JADWAL_PTS_GANJIL_2026_SMP_LABSCHOOL.pdf</span>
+                  <span className="truncate max-w-40 sm:max-w-md">JADWAL_PTS_GANJIL_2026_SMP_LABSCHOOL.pdf</span>
                   <span className="text-[10px] text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-full font-semibold border border-emerald-500/30 shrink-0">
                     Resmi Terverifikasi
                   </span>
@@ -646,7 +648,7 @@ Dr. Hendra Wijaya, M.Pd.
                 >
                   <ZoomOut className="w-3.5 h-3.5" />
                 </button>
-                <span className="px-2 text-[11px] font-mono font-bold text-slate-200 min-w-[44px] text-center">
+                <span className="px-2 text-[11px] font-mono font-bold text-slate-200 min-w-11 text-center">
                   {zoomScale}%
                 </span>
                 <button
@@ -690,7 +692,7 @@ Dr. Hendra Wijaya, M.Pd.
           </div>
 
           {/* PDF Scrollable Paper Canvas */}
-          <div className="bg-slate-200/80 p-4 sm:p-8 max-h-[640px] overflow-y-auto custom-scrollbar flex flex-col items-center">
+          <div className="bg-slate-200/80 p-4 sm:p-8 max-h-160 overflow-y-auto custom-scrollbar flex flex-col items-center">
             <div
               style={{
                 transform: `scale(${zoomScale / 100})`,
