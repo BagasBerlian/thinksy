@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import GuruLayout from "@/components/guru/GuruLayout";
@@ -21,7 +21,7 @@ import {
   FileText,
 } from "lucide-react";
 
-export default function GuruBuatUjianPage() {
+function GuruBuatUjianContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -590,5 +590,19 @@ export default function GuruBuatUjianPage() {
         </div>
       </form>
     </GuruLayout>
+  );
+}
+
+export default function GuruBuatUjianPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-slate-50">
+          <Loader2 className="w-8 h-8 animate-spin text-[#0B1A2E]" />
+        </div>
+      }
+    >
+      <GuruBuatUjianContent />
+    </Suspense>
   );
 }
