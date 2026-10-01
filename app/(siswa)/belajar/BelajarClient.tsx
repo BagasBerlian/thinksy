@@ -4,10 +4,10 @@ import { useState, useEffect, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  BookOpen,
   ChevronRight,
+  BookOpen,
+  ChevronLeft,
   CheckCircle2,
-  Clock,
   Sparkles,
   Layers,
   GraduationCap,
@@ -23,6 +23,7 @@ import {
   FileText,
   AlertCircle,
   Loader2,
+  Clock,
 } from "lucide-react";
 import { useRealtimeDashboard } from "@/hooks/useRealtimeDashboard";
 import StudentNavbar from "../dashboard/components/layout/StudentNavbar";
@@ -72,26 +73,17 @@ const SUBJECTS = [
   {
     id: "Matematika",
     name: "Matematika",
-    icon: "📐",
     desc: "Aljabar, Geometri, Teorema Pythagoras, Statistika & Peluang",
-    color: "from-blue-600 to-indigo-700",
-    badgeColor: "bg-blue-50 text-blue-700 border-blue-200",
   },
   {
     id: "Bahasa Inggris",
     name: "Bahasa Inggris",
-    icon: "🇬🇧",
     desc: "Reading Comprehension, Grammar, Narrative Text, Descriptive Writing",
-    color: "from-purple-600 to-indigo-800",
-    badgeColor: "bg-purple-50 text-purple-700 border-purple-200",
   },
   {
     id: "Bahasa Indonesia",
     name: "Bahasa Indonesia",
-    icon: "🇮🇩",
     desc: "Teks Laporan Hasil Observasi, Puisi, Puisi Rakyat, Cerita Fantasi",
-    color: "from-rose-600 to-red-700",
-    badgeColor: "bg-rose-50 text-rose-700 border-rose-200",
   },
 ];
 
@@ -112,6 +104,7 @@ const getMapelBadgeStyle = (mapel: string) => {
   return "bg-slate-100 text-slate-800 border-slate-200";
 };
 
+const ITEMS_PER_PAGE = 5;
 
 export default function BelajarClient({
   userProfile,
@@ -151,6 +144,7 @@ export default function BelajarClient({
   const [selectedSubject, setSelectedSubject] = useState<string>(resolvedInitialSubject);
   const [selectedSemester, setSelectedSemester] = useState<number>(resolvedInitialSemester);
   const [highlightedBabId, setHighlightedBabId] = useState<string | null>(initialBabId || null);
+  const [currentPage, setCurrentPage] = useState<number>(1);
 
   // Local exam state with real-time sync (identical and unified with Home & Ruang Ujian)
   const [localExams, setLocalExams] = useState<any[]>(examsData || []);
@@ -202,7 +196,7 @@ export default function BelajarClient({
       const data = await res.json();
       if (res.ok && (data.valid || data.success || trimmed === "12345")) {
         if (!document.fullscreenElement) {
-          document.documentElement.requestFullscreen().catch(() => {});
+          document.documentElement.requestFullscreen().catch(() => { });
         }
         const targetId = data.ujianId || selectedExamForToken.id;
         setSelectedExamForToken(null);
@@ -210,13 +204,13 @@ export default function BelajarClient({
       } else {
         setTokenError(
           data.error ||
-            "Password / Token salah! Dapatkan password resmi dari Admin Sekolah atau Pengawas (Password sementara: 12345)."
+          "Password / Token salah! Dapatkan password resmi dari Admin Sekolah atau Pengawas (Password sementara: 12345)."
         );
       }
     } catch (err: any) {
       if (trimmed === "12345") {
         if (!document.fullscreenElement) {
-          document.documentElement.requestFullscreen().catch(() => {});
+          document.documentElement.requestFullscreen().catch(() => { });
         }
         const targetId = selectedExamForToken.id;
         setSelectedExamForToken(null);
@@ -256,6 +250,11 @@ export default function BelajarClient({
     }
   }, [searchParams, chapters]);
 
+  // Reset pagination when subject or semester changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedSubject, selectedSemester]);
+
   // Smooth scroll to target chapter when opened/highlighted
   useEffect(() => {
     if (highlightedBabId) {
@@ -279,6 +278,7 @@ export default function BelajarClient({
       window.history.replaceState({}, "", url.toString());
     }
   };
+
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
@@ -293,13 +293,11 @@ export default function BelajarClient({
     userProfile.checkInStatus || null
   );
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
-  const [learningPoints, setLearningPoints] = useState(userProfile.poin || 0);
-  const [dailyStreak, setDailyStreak] = useState(userProfile.streak || 0);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [toastNotification, setToastNotification] =
     useState<ToastNotificationData | null>(null);
 
-  // UAT Mock Time State (synced with localStorage)
+  // UAT Mock Time State
   const [mockTime, setMockTime] = useState<string | null>(() => {
     if (typeof window !== "undefined") {
       return localStorage.getItem("thinksy_mock_time") || null;
@@ -308,13 +306,12 @@ export default function BelajarClient({
   });
   const [isDevMenuOpen, setIsDevMenuOpen] = useState(false);
 
-  // Listen for mock time changes from other tabs/menu
   useEffect(() => {
     const handleMockTimeSync = () => {
       try {
         const saved = localStorage.getItem("thinksy_mock_time") || null;
         setMockTime(saved);
-      } catch {}
+      } catch { }
     };
 
     window.addEventListener("thinksy_mock_time_change", handleMockTimeSync);
@@ -325,7 +322,6 @@ export default function BelajarClient({
     };
   }, []);
 
-  // Fetch fresh attendance status & notifications on mount
   const fetchPresensiStatus = async () => {
     try {
       const res = await fetch("/api/siswa/presensi");
@@ -337,7 +333,7 @@ export default function BelajarClient({
           setCheckInStatus(data.status || "Hadir (Tepat Waktu)");
         }
       }
-    } catch {}
+    } catch { }
   };
 
   const fetchNotifications = async () => {
@@ -347,7 +343,7 @@ export default function BelajarClient({
         const data = await res.json();
         if (Array.isArray(data.notifications)) setNotifications(data.notifications);
       }
-    } catch {}
+    } catch { }
   };
 
   useEffect(() => {
@@ -355,7 +351,6 @@ export default function BelajarClient({
     fetchNotifications();
   }, []);
 
-  // Realtime Dashboard Hook
   const { broadcastEvent } = useRealtimeDashboard((event) => {
     if (event.type === "ATTENDANCE_VERIFIED" || event.type === "ATTENDANCE_CHECKIN") {
       setIsCheckedIn(true);
@@ -370,8 +365,8 @@ export default function BelajarClient({
       }
       setToastNotification({
         show: true,
-        title: "Presensi Terverifikasi 🎉",
-        message: "Kehadiran Anda telah disetujui resmi oleh Guru di dashboard!",
+        title: "Presensi Terverifikasi",
+        message: "Kehadiran Anda telah disetujui resmi oleh Guru di dashboard.",
         time: "Baru saja",
         type: "success",
       });
@@ -380,18 +375,17 @@ export default function BelajarClient({
         prev.map((e) =>
           e.id === event.payload.ujianId
             ? {
-                ...e,
-                ...(event.payload.status ? { status: event.payload.status } : {}),
-                ...(event.payload.token ? { token: event.payload.token } : {}),
-                ...(event.payload.durasi_menit ? { durasi_menit: event.payload.durasi_menit } : {}),
-              }
+              ...e,
+              ...(event.payload.status ? { status: event.payload.status } : {}),
+              ...(event.payload.token ? { token: event.payload.token } : {}),
+              ...(event.payload.durasi_menit ? { durasi_menit: event.payload.durasi_menit } : {}),
+            }
             : e
         )
       );
     }
   });
 
-  // Effective Time Calculator (incorporating Dev Mock Time)
   const getEffectiveCurrentTime = () => {
     if (mockTime) return mockTime;
     const now = new Date();
@@ -409,13 +403,12 @@ export default function BelajarClient({
     return (h || 0) * 60 + (m || 0);
   };
 
-  // Dynamic Cutoff & Late Threshold from Sekolah Data (default: Tutup 08:00 WIB, Terlambat > 07:15 WIB)
   const getCutoffMinutes = () => {
     if (sekolahData?.jam_tutup) {
       const [h, m] = sekolahData.jam_tutup.split(":").map(Number);
       if (!isNaN(h) && !isNaN(m)) return h * 60 + m;
     }
-    return 480; // Default 08.00 WIB
+    return 480;
   };
 
   const getLateMinutes = () => {
@@ -423,7 +416,7 @@ export default function BelajarClient({
       const [h, m] = sekolahData.jam_masuk.split(":").map(Number);
       if (!isNaN(h) && !isNaN(m)) return h * 60 + m;
     }
-    return 435; // Default 07.15 WIB
+    return 435;
   };
 
   const isPresensiClosed = () => getEffectiveMinutes() > getCutoffMinutes();
@@ -456,13 +449,11 @@ export default function BelajarClient({
     setIsCheckedIn(true);
     setCheckInTime(data.waktu);
     setCheckInStatus(data.status);
-    if (typeof data.streak === "number") setDailyStreak(data.streak);
-    if (typeof data.poinTotal === "number") setLearningPoints(data.poinTotal);
 
     setToastNotification({
       show: true,
-      title: `Presensi Berhasil (${data.status})!`,
-      message: `Kehadiran Anda dicatat pukul ${data.waktu} WIB. Selamat! +${data.poinReward} Poin ditambahkan.`,
+      title: `Presensi Berhasil (${data.status})`,
+      message: `Kehadiran Anda dicatat pukul ${data.waktu} WIB. +${data.poinReward} Poin ditambahkan.`,
       time: `${data.waktu} WIB`,
       type: "success",
     });
@@ -489,36 +480,24 @@ export default function BelajarClient({
     setNotifications((prev) => prev.map((n) => ({ ...n, dibaca: true })));
     try {
       await fetch("/api/siswa/notifikasi", { method: "PUT" });
-    } catch {}
+    } catch { }
   };
 
-  const completedSet = new Set(completedMateriIds);
-
   // Filter chapters by selected subject and semester
-  const filteredChapters = chapters.filter((c) => {
-    const matchSubject =
-      (c.mapel || "").toLowerCase() === selectedSubject.toLowerCase();
-    const sem = c.semester || (c.urutan <= 3 ? 1 : 2);
-    return matchSubject && sem === selectedSemester;
-  });
+  const filteredChapters = useMemo(() => {
+    return chapters.filter((c) => {
+      const matchSubject =
+        (c.mapel || "").toLowerCase() === selectedSubject.toLowerCase();
+      const sem = c.semester || (c.urutan <= 3 ? 1 : 2);
+      return matchSubject && sem === selectedSemester;
+    });
+  }, [chapters, selectedSubject, selectedSemester]);
 
-  // Calculate overall stats for active subject
-  const allSubjectChapters = chapters.filter(
-    (c) => (c.mapel || "").toLowerCase() === selectedSubject.toLowerCase()
-  );
-  const totalMaterials = allSubjectChapters.reduce(
-    (acc, curr) => acc + (curr.materi?.length || 0),
-    0
-  );
-  const completedMaterials = allSubjectChapters.reduce(
-    (acc, curr) =>
-      acc + (curr.materi?.filter((m) => completedSet.has(m.id)).length || 0),
-    0
-  );
-  const subjectProgress =
-    totalMaterials > 0
-      ? Math.round((completedMaterials / totalMaterials) * 100)
-      : 0;
+  // Pagination calculation
+  const totalPages = Math.max(1, Math.ceil(filteredChapters.length / ITEMS_PER_PAGE));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedChapters = filteredChapters.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
   const currentSubjectMeta =
     SUBJECTS.find((s) => s.id === selectedSubject) || SUBJECTS[0];
@@ -543,29 +522,31 @@ export default function BelajarClient({
         onOpenProfile={() => setIsProfileModalOpen(true)}
       />
 
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 pt-6">
+      {/* Main Container with generous top space above breadcrumb */}
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 pt-10 sm:pt-12">
         {/* Top Breadcrumb & Title */}
-        <div className="mb-6">
-          <div className="flex items-center gap-2 text-xs font-bold text-slate-400 mb-1">
-            <Link href="/" className="hover:text-slate-700 transition">
+        <div className="mb-8">
+          <div className="flex items-center gap-2 text-xs font-medium text-slate-400 mb-2">
+            <Link href="/dashboard" className="hover:text-slate-700 transition">
               Home
             </Link>
             <ChevronRight className="w-3.5 h-3.5" />
-            <span className="text-slate-800">Ruang Belajar Mandiri</span>
+            <span className="text-blue-600 font-semibold">Ruang Belajar</span>
           </div>
+
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-[#0F172A]">
-                Kurikulum Merdeka • {userProfile.nama_kelas || "Kelas 8A"}
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
+                Ruang Belajar
               </h1>
-              <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">
-                Buku modul ajar, pendalaman bab materi, latihan interaktif, dan kuis pemahaman.
+              <p className="text-xs sm:text-sm text-slate-500 mt-1 font-normal">
+                Kurikulum Merdeka • Kelas {userProfile.tingkat_kelas || 8} • {userProfile.nama_kelas || "Siswa"}
               </p>
             </div>
 
             <div className="flex items-center gap-2">
-              <div className="px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold flex items-center gap-1.5">
-                <Award className="w-4 h-4 text-amber-600" />
+              <div className="px-3.5 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs font-semibold flex items-center gap-1.5 shadow-2xs">
+                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
                 <span>{userProfile.poin} Poin Belajar</span>
               </div>
             </div>
@@ -575,16 +556,13 @@ export default function BelajarClient({
         {/* MAIN GRID LAYOUT: Left (Subjects) + Right (Semesters & Bab) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* ============================================================ */}
-          {/* LEFT SIDEBAR: 3 MATA PELAJARAN                               */}
+          {/* LEFT SIDEBAR: MATA PELAJARAN                                  */}
           {/* ============================================================ */}
           <div className="lg:col-span-4 space-y-4">
-            <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-sm space-y-3">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">
-                  Mata Pelajaran Aktif
-                </span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                  3 Mapel
+            <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-xs space-y-3">
+              <div className="pb-3 border-b border-slate-100">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Mata Pelajaran
                 </span>
               </div>
 
@@ -599,120 +577,69 @@ export default function BelajarClient({
                     <button
                       key={sub.id}
                       onClick={() => handleSubjectSelect(sub.id)}
-                      className={`w-full text-left p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
-                        isActive
-                          ? "bg-[#0F172A] text-white border-slate-900 shadow-md ring-2 ring-slate-900/20"
-                          : "bg-slate-50/70 hover:bg-slate-100/80 text-slate-800 border-slate-200/60"
-                      }`}
+                      className={`w-full text-left p-3.5 rounded-lg border transition-all cursor-pointer flex items-center justify-between gap-3 ${isActive
+                        ? "bg-blue-50/70 text-blue-950 border-blue-200 border-l-4 border-l-blue-600 shadow-2xs font-semibold"
+                        : "bg-white hover:bg-slate-50 text-slate-700 border-slate-200 hover:border-slate-300 font-medium"
+                        }`}
                     >
-                      <div className="flex items-center gap-3">
+                      <div>
                         <div
-                          className={`w-11 h-11 rounded-2xl flex items-center justify-center text-xl shadow-xs shrink-0 ${
-                            isActive
-                              ? "bg-white/10 text-white border border-white/20"
-                              : "bg-white border border-slate-200"
-                          }`}
+                          className={`text-sm font-semibold ${isActive ? "text-blue-950 font-bold" : "text-slate-900"
+                            }`}
                         >
-                          {sub.icon}
+                          {sub.name}
                         </div>
-                        <div>
-                          <div
-                            className={`text-sm font-black leading-tight ${
-                              isActive ? "text-white" : "text-slate-900"
+                        <div
+                          className={`text-xs mt-0.5 ${isActive ? "text-blue-700/80 font-medium" : "text-slate-500 font-normal"
                             }`}
-                          >
-                            {sub.name}
-                          </div>
-                          <div
-                            className={`text-[11px] font-medium line-clamp-1 mt-0.5 ${
-                              isActive ? "text-slate-300" : "text-slate-500"
-                            }`}
-                          >
-                            {count} Bab Tersedia • Kelas {userProfile.tingkat_kelas || 8}
-                          </div>
+                        >
+                          {count} Bab Pembelajaran
                         </div>
                       </div>
 
                       <ChevronRight
-                        className={`w-4 h-4 shrink-0 transition-transform ${
-                          isActive
-                            ? "text-amber-400 translate-x-0.5"
-                            : "text-slate-400"
-                        }`}
+                        className={`w-4 h-4 shrink-0 transition-colors ${isActive ? "text-blue-600" : "text-slate-400"
+                          }`}
                       />
                     </button>
                   );
                 })}
               </div>
-
-              {/* Quick Overall Subject Progress */}
-              <div className="pt-3 border-t border-slate-100">
-                <div className="flex items-center justify-between text-xs mb-1.5">
-                  <span className="font-bold text-slate-600">
-                    Progres {selectedSubject}
-                  </span>
-                  <span className="font-black text-[#0F172A]">
-                    {completedMaterials} / {totalMaterials} Materi ({subjectProgress}%)
-                  </span>
-                </div>
-                <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
-                  <div
-                    className="h-full bg-amber-400 transition-all duration-500 rounded-full"
-                    style={{ width: `${subjectProgress}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Hint Box */}
-            <div className="p-4 rounded-2xl bg-indigo-50/70 border border-indigo-100 text-indigo-900 text-xs space-y-1.5">
-              <div className="font-extrabold flex items-center gap-1.5 text-indigo-950">
-                <Sparkles className="w-4 h-4 text-indigo-600" />
-                Tips Pembelajaran
-              </div>
-              <p className="text-[11px] text-indigo-700 leading-relaxed font-medium">
-                Selesaikan pembacaan modul ajar lalu tekan tombol <strong>Tandai Selesai</strong> untuk mendapatkan <strong>+5 Poin</strong> dan membuka asesmen kuis pemahaman!
-              </p>
             </div>
           </div>
 
           {/* ============================================================ */}
-          {/* RIGHT VIEW: SEMESTER SWITCHER + BAB LIST FROM SUPABASE        */}
+          {/* RIGHT VIEW: SEMESTER SWITCHER + BAB LIST                      */}
           {/* ============================================================ */}
           <div className="lg:col-span-8 space-y-5">
             {/* Header Card with Semester Switcher */}
-            <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="bg-white rounded-xl p-5 sm:p-6 border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">{currentSubjectMeta.icon}</span>
-                  <h2 className="text-xl font-black text-[#0F172A]">
-                    {currentSubjectMeta.name}
-                  </h2>
-                </div>
-                <p className="text-xs text-slate-500 font-medium mt-1">
+                <h2 className="text-lg font-bold text-slate-900">
+                  {currentSubjectMeta.name}
+                </h2>
+                <p className="text-xs text-slate-500 font-normal mt-0.5">
                   {currentSubjectMeta.desc}
                 </p>
               </div>
 
               {/* Semester Tabs */}
-              <div className="flex items-center p-1 rounded-2xl bg-slate-100 border border-slate-200/80 shrink-0">
+              <div className="flex items-center p-1 rounded-lg bg-slate-100 border border-slate-200 shrink-0">
                 <button
                   onClick={() => setSelectedSemester(1)}
-                  className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                    selectedSemester === 1
-                      ? "bg-[#0F172A] text-white shadow-xs"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
+                  className={`px-3.5 py-1.5 rounded-md text-xs transition-colors cursor-pointer ${selectedSemester === 1
+                    ? "bg-white text-blue-700 font-bold border border-slate-200 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900 font-medium"
+                    }`}
                 >
                   Semester 1 (Ganjil)
                 </button>
                 <button
                   onClick={() => setSelectedSemester(2)}
-                  className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                    selectedSemester === 2
-                      ? "bg-[#0F172A] text-white shadow-xs"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
+                  className={`px-3.5 py-1.5 rounded-md text-xs transition-colors cursor-pointer ${selectedSemester === 2
+                    ? "bg-white text-blue-700 font-bold border border-slate-200 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900 font-medium"
+                    }`}
                 >
                   Semester 2 (Genap)
                 </button>
@@ -721,28 +648,22 @@ export default function BelajarClient({
 
             {/* List of Chapters for Selected Subject & Semester */}
             {filteredChapters.length === 0 ? (
-              <div className="bg-white rounded-3xl p-10 border border-slate-200/80 text-center space-y-3">
-                <div className="w-14 h-14 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
-                  <BookOpen className="w-7 h-7" />
+              <div className="bg-white rounded-xl p-10 border border-slate-200 text-center space-y-2 shadow-xs">
+                <div className="w-12 h-12 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center mx-auto border border-blue-100">
+                  <BookOpen className="w-6 h-6" />
                 </div>
-                <h3 className="text-base font-bold text-slate-800">
+                <h3 className="text-sm font-semibold text-slate-800">
                   Belum Ada Bab di Semester Ini
                 </h3>
                 <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                  Materi bab untuk {selectedSubject} Semester {selectedSemester} sedang dipersiapkan oleh tim guru.
+                  Materi bab untuk {selectedSubject} Semester {selectedSemester} sedang dipersiapkan.
                 </p>
               </div>
             ) : (
               <div className="space-y-4">
-                {filteredChapters.map((bab, idx) => {
+                {paginatedChapters.map((bab, idx) => {
+                  const itemNumber = startIndex + idx + 1;
                   const materiList = bab.materi || [];
-                  const completedInBab = materiList.filter((m) =>
-                    completedSet.has(m.id)
-                  ).length;
-                  const babProgress =
-                    materiList.length > 0
-                      ? Math.round((completedInBab / materiList.length) * 100)
-                      : 0;
                   const isHighlighted = highlightedBabId === bab.id;
 
                   // Find matching CBT exam for this chapter (identical & unified with Home)
@@ -784,70 +705,54 @@ export default function BelajarClient({
                     <div
                       key={bab.id}
                       id={`bab-${bab.id}`}
-                      className={`rounded-3xl p-6 border transition-all duration-300 space-y-4 ${
-                        isHighlighted
-                          ? "bg-white border-blue-500 ring-4 ring-blue-500/20 shadow-xl scale-[1.01]"
-                          : "bg-white border-slate-200/80 shadow-xs hover:shadow-md"
-                      }`}
+                      className={`rounded-xl p-5 sm:p-6 border transition-colors space-y-4 shadow-xs ${isHighlighted
+                        ? "bg-white border-blue-300 ring-2 ring-blue-100 shadow-xs"
+                        : "bg-white border-slate-200 hover:border-slate-300"
+                        }`}
                     >
                       {/* Bab Card Header */}
                       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 pb-3 border-b border-slate-100">
                         <div className="flex items-start gap-3">
-                          <div
-                            className={`w-10 h-10 rounded-2xl font-black text-sm flex items-center justify-center shrink-0 shadow-xs transition-colors ${
-                              isHighlighted
-                                ? "bg-blue-600 text-white ring-2 ring-blue-400"
-                                : "bg-[#0F172A] text-amber-400"
-                            }`}
-                          >
-                            {bab.urutan || idx + 1}
+                          {/* Sequential Number 1, 2, 3... with crisp blue accent */}
+                          <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-700 font-bold text-xs flex items-center justify-center border border-blue-200/80 shrink-0">
+                            {itemNumber}
                           </div>
+
                           <div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                                Bab {bab.urutan || idx + 1} • Semester {bab.semester || selectedSemester}
-                              </span>
-                              {isHighlighted && (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-blue-600 text-white text-[10px] font-black uppercase tracking-wider shadow-xs animate-pulse">
-                                  <Sparkles className="w-3 h-3 text-amber-300" />
-                                  Bab Terpilih
-                                </span>
-                              )}
-                              {babProgress === 100 && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-extrabold">
-                                  <CheckCircle2 className="w-3 h-3" />
-                                  Tuntas
-                                </span>
-                              )}
-                            </div>
-                            <h3
-                              className={`text-base sm:text-lg font-black mt-0.5 ${
-                                isHighlighted ? "text-blue-950" : "text-[#0F172A]"
-                              }`}
-                            >
+                            <span className="text-[11px] font-semibold uppercase tracking-wider text-blue-600 block">
+                              Bab {itemNumber} • Semester {bab.semester || selectedSemester}
+                            </span>
+                            <h3 className="text-base font-bold text-slate-900 mt-0.5">
                               {bab.judul}
                             </h3>
-                            <p className="text-xs text-slate-500 font-medium mt-1 leading-relaxed">
-                              {bab.deskripsi ||
-                                "Capaian Pembelajaran Kurikulum Merdeka Fase D."}
+                            <p className="text-xs text-slate-500 font-normal mt-1 leading-relaxed">
+                              {bab.deskripsi || "Capaian Pembelajaran Kurikulum Merdeka."}
                             </p>
                           </div>
                         </div>
 
-                        {/* Direct Action Link to Chapter & Ulangan CBT */}
-                        <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto flex-wrap">
+                        {/* Action Buttons: Buka Modul, Kuis, & Ulangan CBT */}
+                        <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto flex-wrap pt-1 sm:pt-0">
                           <Link
                             href={`/bab/${bab.id}`}
-                            className="px-4 py-2 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-extrabold flex items-center gap-1.5 transition shadow-xs cursor-pointer"
+                            className="px-3.5 py-1.5 rounded-lg bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 text-xs font-semibold border border-slate-200 hover:border-blue-200 transition-colors flex items-center gap-1.5"
                           >
-                            <BookOpen className="w-3.5 h-3.5" />
-                            <span>Buka Modul Ajar</span>
+                            <BookOpen className="w-3.5 h-3.5 text-blue-600" />
+                            <span>Buka Modul</span>
+                          </Link>
+
+                          <Link
+                            href={`/quiz/${bab.id}?mode=inclass&babId=${bab.id}`}
+                            className="px-3.5 py-1.5 rounded-lg bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 text-xs font-semibold border border-slate-200 hover:border-emerald-200 transition-colors flex items-center gap-1.5"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Kuis</span>
                           </Link>
 
                           {isCompleted ? (
                             <Link
                               href={`/ujian/${matchingExam.id}`}
-                              className="px-3.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 text-xs font-extrabold flex items-center gap-1.5 transition shadow-xs cursor-pointer"
+                              className="px-3.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
                             >
                               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                               <span>Nilai: {matchingExam.score}/100</span>
@@ -856,7 +761,7 @@ export default function BelajarClient({
                             <button
                               type="button"
                               onClick={() => handleOpenTokenModal(matchingExam)}
-                              className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-extrabold flex items-center gap-1.5 transition shadow-xs cursor-pointer animate-pulse"
+                              className="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer animate-pulse"
                             >
                               <PlayCircle className="w-3.5 h-3.5" />
                               <span>Lanjut Ulangan</span>
@@ -865,7 +770,7 @@ export default function BelajarClient({
                             <button
                               type="button"
                               onClick={() => handleOpenTokenModal(matchingExam)}
-                              className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold flex items-center gap-1.5 transition shadow-xs cursor-pointer"
+                              className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
                             >
                               <KeyRound className="w-3.5 h-3.5 text-amber-300" />
                               <span>Ulangan CBT</span>
@@ -875,51 +780,35 @@ export default function BelajarClient({
                       </div>
 
                       {/* Sub-Bab / Materi List */}
-                      <div className="space-y-2">
-                        <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                          Daftar Sub-Bab Pembelajaran ({completedInBab}/{materiList.length} Selesai)
+                      <div className="space-y-2 pt-1">
+                        <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                          Materi Pembelajaran ({materiList.length})
                         </div>
 
                         {materiList.length === 0 ? (
-                          <div className="p-3 rounded-2xl bg-slate-50 text-slate-400 text-xs font-medium">
-                            Modul ajar digital terstandar tersedia lengkap di halaman buku ajar.
+                          <div className="p-3 rounded-lg bg-slate-50 text-slate-400 text-xs font-normal">
+                            Modul materi digital tersedia di halaman buku ajar.
                           </div>
                         ) : (
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             {materiList.map((m: any, mIdx: number) => {
-                              const isRead = completedSet.has(m.id);
+                              const subNumber = mIdx + 1;
                               return (
                                 <Link
                                   key={m.id}
                                   href={`/bab/${bab.id}?materiId=${m.id}&view=pdf`}
-                                  className={`p-3 rounded-2xl border text-xs transition flex items-center justify-between gap-2 group cursor-pointer ${
-                                    isRead
-                                      ? "bg-emerald-50/50 border-emerald-200/80 hover:bg-emerald-50"
-                                      : "bg-slate-50/80 border-slate-200/70 hover:bg-slate-100"
-                                  }`}
+                                  className="p-2.5 rounded-lg bg-slate-50 hover:bg-blue-50/50 border border-slate-200/80 hover:border-blue-200 text-xs transition-colors flex items-center justify-between gap-2 cursor-pointer group"
                                 >
-                                  <div className="flex items-center gap-2.5 min-w-0">
-                                    <span
-                                      className={`w-6 h-6 rounded-lg text-[11px] font-bold flex items-center justify-center shrink-0 ${
-                                        isRead
-                                          ? "bg-emerald-600 text-white"
-                                          : "bg-slate-200 text-slate-700"
-                                      }`}
-                                    >
-                                      {isRead ? <Check className="w-3.5 h-3.5" /> : mIdx + 1}
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span className="w-5 h-5 rounded bg-blue-50 text-blue-700 text-[10px] font-bold flex items-center justify-center shrink-0 border border-blue-100">
+                                      {subNumber}
                                     </span>
-                                    <span
-                                      className={`font-bold truncate text-xs ${
-                                        isRead
-                                          ? "text-emerald-950 font-extrabold"
-                                          : "text-slate-800"
-                                      }`}
-                                    >
+                                    <span className="text-slate-800 group-hover:text-blue-900 font-medium truncate">
                                       {m.judul}
                                     </span>
                                   </div>
 
-                                  <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-700 shrink-0 transition-transform group-hover:translate-x-0.5" />
+                                  <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-600 shrink-0 transition-transform group-hover:translate-x-0.5" />
                                 </Link>
                               );
                             })}
@@ -957,11 +846,10 @@ export default function BelajarClient({
                                   </span>
                                 ) : isCompleted ? (
                                   <span
-                                    className={`px-2.5 py-0.5 rounded-full border text-[10px] font-extrabold flex items-center gap-1.5 ${
-                                      isPassed
-                                        ? "bg-emerald-50 text-emerald-800 border-emerald-300"
-                                        : "bg-rose-50 text-rose-800 border-rose-300"
-                                    }`}
+                                    className={`px-2.5 py-0.5 rounded-full border text-[10px] font-extrabold flex items-center gap-1.5 ${isPassed
+                                      ? "bg-emerald-50 text-emerald-800 border-emerald-300"
+                                      : "bg-rose-50 text-rose-800 border-rose-300"
+                                      }`}
                                   >
                                     <CheckCircle2 className="w-3.5 h-3.5" />
                                     <span>✓ Selesai • Nilai: {matchingExam.score}/100 {isPassed ? "(Lulus KKM)" : ""}</span>
@@ -1078,6 +966,55 @@ export default function BelajarClient({
                     </div>
                   );
                 })}
+
+                {/* PAGINATION CONTROLS */}
+                {totalPages > 1 && (
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-200 text-xs text-slate-500">
+                    <div>
+                      Menampilkan <span className="font-semibold text-slate-800">{startIndex + 1}</span> -{" "}
+                      <span className="font-semibold text-slate-800">
+                        {Math.min(startIndex + ITEMS_PER_PAGE, filteredChapters.length)}
+                      </span>{" "}
+                      dari <span className="font-semibold text-slate-800">{filteredChapters.length}</span> bab
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                        disabled={safeCurrentPage === 1}
+                        className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200 disabled:opacity-40 disabled:pointer-events-none text-slate-700 font-medium border border-slate-200 transition-colors flex items-center gap-1 cursor-pointer"
+                      >
+                        <ChevronLeft className="w-3.5 h-3.5" />
+                        <span>Sebelumnya</span>
+                      </button>
+
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNumber) => (
+                        <button
+                          key={pageNumber}
+                          type="button"
+                          onClick={() => setCurrentPage(pageNumber)}
+                          className={`w-8 h-8 rounded-lg text-xs transition-colors cursor-pointer ${safeCurrentPage === pageNumber
+                            ? "bg-blue-600 text-white font-bold shadow-xs"
+                            : "bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 font-medium"
+                            }`}
+                        >
+                          {pageNumber}
+                        </button>
+                      ))}
+
+                      <button
+                        type="button"
+                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                        disabled={safeCurrentPage === totalPages}
+                        className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200 disabled:opacity-40 disabled:pointer-events-none text-slate-700 font-medium border border-slate-200 transition-colors flex items-center gap-1 cursor-pointer"
+                      >
+                        <span>Selanjutnya</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1108,7 +1045,7 @@ export default function BelajarClient({
         isDarkMode={isDarkMode}
         setIsDarkMode={setIsDarkMode}
         tutorGuidanceLevel="sedang"
-        setTutorGuidanceLevel={() => {}}
+        setTutorGuidanceLevel={() => { }}
         onSave={() => setIsSettingsModalOpen(false)}
         onOpenProfileCard={() => setIsProfileModalOpen(true)}
       />

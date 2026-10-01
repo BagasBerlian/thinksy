@@ -136,25 +136,25 @@ export async function GET() {
       },
       {
         id: "b3",
-        title: "Pejuang Streak",
-        desc: "Kehadiran presensi sekolah harian berturut-turut selama 7 hari.",
+        title: "Penjelajah Materi",
+        desc: "Menyelesaikan minimal 5 kuis atau latihan materi.",
         tier: "Gold",
         tierColor: "from-amber-400 to-orange-500 border-amber-400 text-orange-950 bg-amber-50/80",
-        icon: "🔥",
-        rewardPoints: 200,
-        isUnlocked: dailyStreak >= 7,
-        currentValue: dailyStreak,
-        targetValue: 7,
-        unit: "Hari",
-        progressPercent: Math.min(100, Math.round((dailyStreak / 7) * 100)),
-        progressText: `${dailyStreak}/7 Hari`,
+        icon: "📚",
+        rewardPoints: 150,
+        isUnlocked: completedQuizCount >= 5,
+        currentValue: completedQuizCount,
+        targetValue: 5,
+        unit: "Kuis",
+        progressPercent: Math.min(100, Math.round((completedQuizCount / 5) * 100)),
+        progressText: `${completedQuizCount}/5 Kuis`,
         remainingText:
-          dailyStreak >= 7
-            ? "Streak 7 hari tercapai! Pertahankan api belajarmu 🔥"
-            : `Kurang ${Math.max(0, 7 - dailyStreak)} hari berturut-turut`,
-        tips: "Lakukan presensi selfie setiap pagi sebelum pukul 07.15 WIB.",
-        actionUrl: "#presensi",
-        actionLabel: "Cek Presensi",
+          completedQuizCount >= 5
+            ? "Target 5 kuis tercapai! Terus tingkatkan prestasimu 🌟"
+            : `Kurang ${Math.max(0, 5 - completedQuizCount)} kuis lagi`,
+        tips: "Kerjakan kuis pada setiap bab materi untuk membuka lencana ini.",
+        actionUrl: "/belajar",
+        actionLabel: "Mulai Belajar",
       },
       {
         id: "b4",
