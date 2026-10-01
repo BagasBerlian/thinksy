@@ -517,6 +517,7 @@ export default function BelajarClient({
         notifications={notifications}
         onMarkAllNotificationsAsRead={handleMarkAllNotificationsAsRead}
         studentName={userProfile.nama_lengkap}
+        studentPhoto={userProfile.foto_url}
         onOpenSettings={() => setIsSettingsModalOpen(true)}
         onOpenHelp={() => setIsHelpModalOpen(true)}
         onOpenProfile={() => setIsProfileModalOpen(true)}

@@ -141,8 +141,7 @@ export default function DaftarPage() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#F8FAFC] p-4 sm:p-6 lg:p-8">
       <div className="w-full max-w-[400px] flex flex-col items-center">
-        {/* Branding Logo Container */}
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white shadow-md border border-slate-100 overflow-hidden p-1 mb-3">
+        <div className="inline-flex items-center justify-center w-20 h-20 mb-3">
           <img src="/logo.png" alt="Thinksy Logo" className="w-full h-full object-contain" />
         </div>
 

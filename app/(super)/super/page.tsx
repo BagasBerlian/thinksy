@@ -90,7 +90,7 @@ export default function SuperAdminDashboard() {
           {/* Brand Logo */}
           <div className="flex items-center space-x-3">
             <Link href="/super" className="flex items-center space-x-3 group">
-              <div className="h-10 w-10 rounded-xl overflow-hidden shadow-lg group-hover:scale-105 transition duration-200 bg-white flex items-center justify-center border border-slate-700 p-0.5">
+              <div className="h-10 w-10 group-hover:scale-105 transition duration-200 flex items-center justify-center shrink-0">
                 <img src="/logo.png" alt="THINKSY Logo" className="w-full h-full object-contain" />
               </div>
               <span className="font-extrabold text-xl tracking-tight text-white">

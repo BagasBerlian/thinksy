@@ -109,7 +109,7 @@ export default function ScheduleClient({
               <ArrowLeft className="w-5 h-5" />
             </Link>
             <div className="flex items-center space-x-3">
-              <div className="h-10 w-10 rounded-xl overflow-hidden shadow-xs border border-slate-200 bg-white flex items-center justify-center p-0.5">
+              <div className="h-10 w-10 flex items-center justify-center shrink-0">
                 <img src="/logo.png" alt="Thinksy Logo" className="w-full h-full object-contain" />
               </div>
               <div>

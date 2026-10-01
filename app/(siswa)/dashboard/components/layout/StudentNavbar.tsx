@@ -23,7 +23,7 @@ import {
 import { logoutAction } from "@/app/(auth)/actions";
 import { NotificationItem, SekolahData } from "../../types";
 import { usePathname, useRouter } from "next/navigation";
-import { getStoredStudentPhoto } from "@/lib/student-settings";
+import { getStoredStudentPhoto, DEFAULT_STUDENT_PHOTO } from "@/lib/student-settings";
 
 interface StudentNavbarProps {
   isDarkMode: boolean;
@@ -70,15 +70,18 @@ export default function StudentNavbar({
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const mobileTabContainerRef = useRef<HTMLElement | null>(null);
 
-  // Sync photo with props or localStorage
-  const [currentPhoto, setCurrentPhoto] = useState<string>(() => {
-    return studentPhoto || getStoredStudentPhoto();
-  });
+  // Initial photo matches server render to prevent SSR hydration mismatch
+  const [currentPhoto, setCurrentPhoto] = useState<string>(
+    studentPhoto || DEFAULT_STUDENT_PHOTO
+  );
 
   useEffect(() => {
-    if (studentPhoto) {
-      setCurrentPhoto(studentPhoto);
+    // Sync with localStorage on client after mount
+    const stored = getStoredStudentPhoto(studentPhoto);
+    if (stored) {
+      setCurrentPhoto(stored);
     }
+
     const handlePhotoChange = (e: any) => {
       if (e.detail) setCurrentPhoto(e.detail);
     };
@@ -189,7 +192,7 @@ export default function StudentNavbar({
             {/* Left: Brand Vector Logo & Desktop Nav Tabs */}
             <div className="flex items-center space-x-3 sm:space-x-6">
               <Link href="/" className="flex items-center space-x-2 sm:space-x-3 group shrink-0">
-                <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-full overflow-hidden shadow-xs border border-slate-200 group-hover:scale-105 transition-transform duration-200 bg-white flex items-center justify-center p-1 shrink-0">
+                <div className="h-9 w-9 sm:h-10 sm:w-10 group-hover:scale-105 transition-transform duration-200 flex items-center justify-center shrink-0">
                   <img
                     src="/logo.png"
                     alt="THINKSY Logo"

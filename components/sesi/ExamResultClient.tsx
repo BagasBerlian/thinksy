@@ -51,7 +51,7 @@ export default function ExamResultClient({
       <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-4 sm:px-6 py-3.5">
           <div className="flex items-center space-x-3">
-            <div className="h-8 w-8 rounded-lg overflow-hidden border border-slate-200 bg-white flex items-center justify-center p-0.5">
+            <div className="h-8 w-8 flex items-center justify-center shrink-0">
               <img src="/logo.png" alt="Thinksy" className="w-full h-full object-contain" />
             </div>
             <div>

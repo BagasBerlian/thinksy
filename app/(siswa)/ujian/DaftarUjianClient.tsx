@@ -575,6 +575,7 @@ Dr. Hendra Wijaya, M.Pd.
         notifications={notifications}
         onMarkAllNotificationsAsRead={handleMarkAllNotificationsAsRead}
         studentName={userProfile.nama_lengkap}
+        studentPhoto={userProfile.foto_url}
         onOpenSettings={() => setIsSettingsModalOpen(true)}
         onOpenHelp={() => setIsHelpModalOpen(true)}
         onOpenProfile={() => setIsProfileModalOpen(true)}

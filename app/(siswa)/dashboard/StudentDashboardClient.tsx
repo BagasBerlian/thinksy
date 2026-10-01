@@ -42,6 +42,7 @@ import {
   getStoredThemeColor,
   applyTheme,
   StudentCardProfile,
+  DEFAULT_STUDENT_PHOTO,
 } from "@/lib/student-settings";
 
 export default function StudentDashboardClient({
@@ -62,18 +63,19 @@ export default function StudentDashboardClient({
     "Home" | "Belajar" | "Ruang Ujian" | "Peringkat" | "Pencapaian"
   >("Home");
 
-  // Dynamic Student Profile (synced with settings & localStorage)
-  const [profileState, setProfileState] = useState<StudentCardProfile>(() => {
-    return getStoredStudentProfile({
-      nama_lengkap: userProfile?.nama_lengkap || "SYAA PX",
-      nama_kelas: userProfile?.nama_kelas || "Kelas 8",
-      nis: userProfile?.nis || "260481",
-      nisn: userProfile?.nisn || "0089247182",
-      jurusan: userProfile?.jurusan || "Teknik Komputer & Jaringan",
-      tahun_ajaran: userProfile?.tahun_ajaran || "2026/2027",
-      foto_url: userProfile?.foto_url || undefined,
-    });
-  });
+  // Dynamic Student Profile (synced with settings & localStorage after mount)
+  const [profileState, setProfileState] = useState<StudentCardProfile>(() => ({
+    nama_lengkap: userProfile?.nama_lengkap || "SYAA PX",
+    nama_kelas: userProfile?.nama_kelas || "Kelas 8",
+    nis: userProfile?.nis || "260481",
+    nisn: userProfile?.nisn || "0089247182",
+    jurusan: userProfile?.jurusan || "Teknik Komputer & Jaringan",
+    tahun_ajaran: userProfile?.tahun_ajaran || "2026/2027",
+    foto_url: userProfile?.foto_url || DEFAULT_STUDENT_PHOTO,
+    tempat_tgl_lahir: "Gunungkidul, 12 Agustus 2010",
+    jenis_kelamin: "Laki-laki",
+    agama: "Islam",
+  }));
 
   // UI Preferences & Themes
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -287,7 +289,7 @@ export default function StudentDashboardClient({
 
   const studentName = profileState.nama_lengkap || userProfile?.nama_lengkap || "SYAA PX";
   const studentEmail = userProfile?.email || "syaa.px@sekolah.sch.id";
-  const studentPhoto = getStoredStudentPhoto(profileState.foto_url || userProfile?.foto_url);
+  const studentPhoto = profileState.foto_url || userProfile?.foto_url || DEFAULT_STUDENT_PHOTO;
 
   // Effective Time Calculator (incorporating Dev Mock Time)
   const getEffectiveCurrentTime = () => {
@@ -331,6 +333,17 @@ export default function StudentDashboardClient({
   // Mount effects: load persisted theme & remote data
   useEffect(() => {
     try {
+      const storedProfile = getStoredStudentProfile({
+        nama_lengkap: userProfile?.nama_lengkap,
+        nama_kelas: userProfile?.nama_kelas,
+        nis: userProfile?.nis || undefined,
+        nisn: userProfile?.nisn || undefined,
+        jurusan: userProfile?.jurusan || undefined,
+        tahun_ajaran: userProfile?.tahun_ajaran || undefined,
+        foto_url: userProfile?.foto_url || undefined,
+      });
+      setProfileState(storedProfile);
+
       const mode = getStoredThemeMode();
       const color = getStoredThemeColor();
       setIsDarkMode(mode === "dark" || mode === "dim");

@@ -442,7 +442,7 @@ export default function ExamPracticeClient({
       <header className="sticky top-0 z-40 saas-nav border-b border-slate-200 shadow-xs bg-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 py-3.5">
           <div className="flex items-center space-x-3">
-            <div className="h-9 w-9 rounded-xl overflow-hidden shadow-xs border border-slate-200 bg-white flex items-center justify-center p-0.5">
+            <div className="h-9 w-9 flex items-center justify-center shrink-0">
               <img src="/logo.png" alt="THINKSY Logo" className="w-full h-full object-contain" />
             </div>
             <div>

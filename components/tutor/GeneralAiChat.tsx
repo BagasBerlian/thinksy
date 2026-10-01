@@ -441,7 +441,7 @@ export default function GeneralAiChat({ studentName }: GeneralAiChatProps) {
                 {msg.role === "user" ? (
                   <span>{userInitials}</span>
                 ) : (
-                  <img src="/logo.png" alt="AI" className="w-full h-full object-cover p-0.5" />
+                  <img src="/logo.png" alt="AI" className="w-full h-full object-contain p-0.5" />
                 )}
               </div>
 
