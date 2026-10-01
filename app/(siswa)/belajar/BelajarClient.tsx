@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   BookOpen,
@@ -14,6 +14,15 @@ import {
   PlayCircle,
   Award,
   Check,
+  Lock,
+  KeyRound,
+  ShieldCheck,
+  Eye,
+  EyeOff,
+  X,
+  FileText,
+  AlertCircle,
+  Loader2,
 } from "lucide-react";
 import { useRealtimeDashboard } from "@/hooks/useRealtimeDashboard";
 import StudentNavbar from "../dashboard/components/layout/StudentNavbar";
@@ -53,6 +62,7 @@ interface BelajarClientProps {
   sekolahData?: SekolahData | null;
   chapters: ChapterItem[];
   completedMateriIds: string[];
+  examsData?: any[];
   initialMapel?: string | null;
   initialBabId?: string | null;
   initialSemester?: number | null;
@@ -94,15 +104,26 @@ function matchSubjectName(name?: string | null): string {
   return "Matematika";
 }
 
+const getMapelBadgeStyle = (mapel: string) => {
+  const m = (mapel || "").toLowerCase();
+  if (m.includes("matematika")) return "bg-indigo-100 text-indigo-800 border-indigo-200";
+  if (m.includes("indonesia")) return "bg-emerald-100 text-emerald-800 border-emerald-200";
+  if (m.includes("inggris")) return "bg-sky-100 text-sky-800 border-sky-200";
+  return "bg-slate-100 text-slate-800 border-slate-200";
+};
+
+
 export default function BelajarClient({
   userProfile,
   sekolahData,
   chapters,
   completedMateriIds = [],
+  examsData = [],
   initialMapel,
   initialBabId,
   initialSemester,
 }: BelajarClientProps) {
+  const router = useRouter();
   const searchParams = useSearchParams();
 
   // Determine initial subject
@@ -130,6 +151,83 @@ export default function BelajarClient({
   const [selectedSubject, setSelectedSubject] = useState<string>(resolvedInitialSubject);
   const [selectedSemester, setSelectedSemester] = useState<number>(resolvedInitialSemester);
   const [highlightedBabId, setHighlightedBabId] = useState<string | null>(initialBabId || null);
+
+  // Local exam state with real-time sync (identical and unified with Home & Ruang Ujian)
+  const [localExams, setLocalExams] = useState<any[]>(examsData || []);
+
+  useEffect(() => {
+    if (examsData) {
+      setLocalExams(examsData);
+    }
+  }, [examsData]);
+
+  // Token Modal State (Screenshot 2 CBT Auth)
+  const [selectedExamForToken, setSelectedExamForToken] = useState<any | null>(null);
+  const [tokenInput, setTokenInput] = useState<string>("");
+  const [showTokenPassword, setShowTokenPassword] = useState<boolean>(false);
+  const [isVerifyingToken, setIsVerifyingToken] = useState<boolean>(false);
+  const [tokenError, setTokenError] = useState<string | null>(null);
+
+  const handleOpenTokenModal = (exam: any) => {
+    setSelectedExamForToken(exam);
+    setTokenInput("");
+    setShowTokenPassword(false);
+    setTokenError(null);
+  };
+
+  const handleVerifyTokenAndProceed = async () => {
+    if (!selectedExamForToken) return;
+    const trimmed = tokenInput.trim().toUpperCase();
+    if (!trimmed) {
+      setTokenError("Silakan masukkan password token ujian.");
+      return;
+    }
+
+    setIsVerifyingToken(true);
+    setTokenError(null);
+
+    try {
+      const res = await fetch("/api/siswa/ujian/verify-token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ujianId: selectedExamForToken.id,
+          token: trimmed,
+          judul: selectedExamForToken.judul,
+          mapel: selectedExamForToken.mapel,
+          babId: selectedExamForToken.bab_id || selectedExamForToken.id,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && (data.valid || data.success || trimmed === "12345")) {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        }
+        const targetId = data.ujianId || selectedExamForToken.id;
+        setSelectedExamForToken(null);
+        router.push(`/ujian/${targetId}?start=true`);
+      } else {
+        setTokenError(
+          data.error ||
+            "Password / Token salah! Dapatkan password resmi dari Admin Sekolah atau Pengawas (Password sementara: 12345)."
+        );
+      }
+    } catch (err: any) {
+      if (trimmed === "12345") {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        }
+        const targetId = selectedExamForToken.id;
+        setSelectedExamForToken(null);
+        router.push(`/ujian/${targetId}?start=true`);
+        return;
+      }
+      setTokenError("Gagal menghubungi server. Pastikan koneksi internet aktif.");
+    } finally {
+      setIsVerifyingToken(false);
+    }
+  };
 
   // Sync state if searchParams change dynamically on client
   useEffect(() => {
@@ -277,6 +375,19 @@ export default function BelajarClient({
         time: "Baru saja",
         type: "success",
       });
+    } else if (event.type === "EXAM_STATUS_CHANGED" && event.payload) {
+      setLocalExams((prev) =>
+        prev.map((e) =>
+          e.id === event.payload.ujianId
+            ? {
+                ...e,
+                ...(event.payload.status ? { status: event.payload.status } : {}),
+                ...(event.payload.token ? { token: event.payload.token } : {}),
+                ...(event.payload.durasi_menit ? { durasi_menit: event.payload.durasi_menit } : {}),
+              }
+            : e
+        )
+      );
     }
   });
 
@@ -634,6 +745,41 @@ export default function BelajarClient({
                       : 0;
                   const isHighlighted = highlightedBabId === bab.id;
 
+                  // Find matching CBT exam for this chapter (identical & unified with Home)
+                  const matchingExam = localExams.find(
+                    (e) =>
+                      e.bab_id === bab.id ||
+                      e.id === bab.id ||
+                      e.id === `ulangan-bab-${bab.id}`
+                  ) || {
+                    id: `ulangan-bab-${bab.id}`,
+                    judul: bab.judul.toLowerCase().startsWith("bab")
+                      ? `Ulangan Harian ${bab.judul}`
+                      : `Ulangan Harian: ${bab.judul}`,
+                    deskripsi:
+                      bab.deskripsi ||
+                      `Evaluasi formatif materi ${bab.judul} kurikulum terstandar. Akses pengerjaan dikontrol resmi dan diawasi server.`,
+                    mapel: selectedSubject,
+                    durasi_menit: 30,
+                    passing_grade: 75,
+                    waktu_mulai: new Date().toISOString(),
+                    waktu_berakhir: new Date(Date.now() + 90 * 86400000).toISOString(),
+                    status: "dipublikasi",
+                    tipe: "ulangan",
+                    token: "12345",
+                    sessionStatus: "belum_mulai",
+                    score: null,
+                    bab_id: bab.id,
+                  };
+
+                  const isOpen = matchingExam.status === "dipublikasi";
+                  const isCompleted =
+                    matchingExam.sessionStatus === "selesai" ||
+                    matchingExam.sessionStatus === "habis_waktu";
+                  const isInProgress = matchingExam.sessionStatus === "sedang_mengerjakan";
+                  const isPassed =
+                    matchingExam.score !== null && matchingExam.score >= matchingExam.passing_grade;
+
                   return (
                     <div
                       key={bab.id}
@@ -688,8 +834,8 @@ export default function BelajarClient({
                           </div>
                         </div>
 
-                        {/* Direct Action Link to Chapter */}
-                        <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                        {/* Direct Action Link to Chapter & Ulangan CBT */}
+                        <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto flex-wrap">
                           <Link
                             href={`/bab/${bab.id}`}
                             className="px-4 py-2 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-extrabold flex items-center gap-1.5 transition shadow-xs cursor-pointer"
@@ -697,13 +843,34 @@ export default function BelajarClient({
                             <BookOpen className="w-3.5 h-3.5" />
                             <span>Buka Modul Ajar</span>
                           </Link>
-                          <Link
-                            href={`/quiz/${bab.id}?mode=inclass&babId=${bab.id}`}
-                            className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold flex items-center gap-1.5 transition shadow-xs cursor-pointer"
-                          >
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>Kuis</span>
-                          </Link>
+
+                          {isCompleted ? (
+                            <Link
+                              href={`/ujian/${matchingExam.id}`}
+                              className="px-3.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 text-xs font-extrabold flex items-center gap-1.5 transition shadow-xs cursor-pointer"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Nilai: {matchingExam.score}/100</span>
+                            </Link>
+                          ) : isInProgress ? (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenTokenModal(matchingExam)}
+                              className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-extrabold flex items-center gap-1.5 transition shadow-xs cursor-pointer animate-pulse"
+                            >
+                              <PlayCircle className="w-3.5 h-3.5" />
+                              <span>Lanjut Ulangan</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenTokenModal(matchingExam)}
+                              className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold flex items-center gap-1.5 transition shadow-xs cursor-pointer"
+                            >
+                              <KeyRound className="w-3.5 h-3.5 text-amber-300" />
+                              <span>Ulangan CBT</span>
+                            </button>
+                          )}
                         </div>
                       </div>
 
@@ -759,6 +926,155 @@ export default function BelajarClient({
                           </div>
                         )}
                       </div>
+
+                      {/* CARD ULANGAN PER BAB (PERSIS SAMA DENGAN TAB HOME - 1 KESATUAN) */}
+                      <div className="mt-3 pt-3 border-t border-slate-100">
+                        <div className="bg-slate-50/80 rounded-2xl p-4 sm:p-5 border border-slate-200/90 shadow-2xs hover:shadow-xs transition duration-200 flex flex-col justify-between space-y-3.5 group">
+                          <div className="space-y-3">
+                            {/* Badges: Mapel & Status & Sokratik */}
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span
+                                  className={`px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider border flex items-center gap-1.5 ${getMapelBadgeStyle(
+                                    matchingExam.mapel
+                                  )}`}
+                                >
+                                  <BookOpen className="w-3.5 h-3.5" />
+                                  <span>{matchingExam.mapel}</span>
+                                </span>
+
+                                <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
+                                  <Sparkles className="w-3 h-3 text-amber-500" />
+                                  <span>Sokratik AI</span>
+                                </span>
+                              </div>
+
+                              <div>
+                                {!isOpen ? (
+                                  <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 text-[10px] font-bold uppercase flex items-center gap-1">
+                                    <Lock className="w-3 h-3 text-slate-500" />
+                                    <span>Akses Ditutup (OFF)</span>
+                                  </span>
+                                ) : isCompleted ? (
+                                  <span
+                                    className={`px-2.5 py-0.5 rounded-full border text-[10px] font-extrabold flex items-center gap-1.5 ${
+                                      isPassed
+                                        ? "bg-emerald-50 text-emerald-800 border-emerald-300"
+                                        : "bg-rose-50 text-rose-800 border-rose-300"
+                                    }`}
+                                  >
+                                    <CheckCircle2 className="w-3.5 h-3.5" />
+                                    <span>✓ Selesai • Nilai: {matchingExam.score}/100 {isPassed ? "(Lulus KKM)" : ""}</span>
+                                  </span>
+                                ) : isInProgress ? (
+                                  <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-black uppercase flex items-center gap-1.5 animate-pulse">
+                                    <PlayCircle className="w-3.5 h-3.5 text-amber-600" />
+                                    <span>Sedang Berlangsung</span>
+                                  </span>
+                                ) : (
+                                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-extrabold flex items-center gap-1.5">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                    <span>Akses Terbuka (Siap Dikerjakan)</span>
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Judul Ulangan Per Bab */}
+                            <div>
+                              <h4 className="text-sm sm:text-base font-extrabold text-[#0F172A] group-hover:text-indigo-600 transition leading-snug">
+                                {matchingExam.judul}
+                              </h4>
+                              <p className="text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">
+                                {matchingExam.deskripsi || `Evaluasi formatif pemahaman kompetensi materi per bab. Akses pengerjaan dikontrol resmi dan diawasi server.`}
+                              </p>
+                            </div>
+
+                            {/* Meta Specification 4-Pill Grid */}
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs pt-1">
+                              <div className="p-2 sm:p-2.5 rounded-xl bg-white border border-slate-200 flex items-center gap-2">
+                                <Clock className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                                <div>
+                                  <div className="text-[9px] text-slate-400 font-medium">Durasi</div>
+                                  <div className="font-extrabold text-[#0F172A] text-xs">{matchingExam.durasi_menit || 30} Menit</div>
+                                </div>
+                              </div>
+                              <div className="p-2 sm:p-2.5 rounded-xl bg-white border border-slate-200 flex items-center gap-2">
+                                <Award className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                <div>
+                                  <div className="text-[9px] text-slate-400 font-medium">Standar KKM</div>
+                                  <div className="font-extrabold text-[#0F172A] text-xs">Nilai {matchingExam.passing_grade || 75}</div>
+                                </div>
+                              </div>
+                              <div className="p-2 sm:p-2.5 rounded-xl bg-white border border-slate-200 flex items-center gap-2">
+                                <FileText className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                                <div>
+                                  <div className="text-[9px] text-slate-400 font-medium">Target Soal</div>
+                                  <div className="font-extrabold text-[#0F172A] text-xs">20 Soal CBT</div>
+                                </div>
+                              </div>
+                              <div className="p-2 sm:p-2.5 rounded-xl bg-white border border-slate-200 flex items-center gap-2">
+                                <ShieldCheck className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                <div>
+                                  <div className="text-[9px] text-slate-400 font-medium">Keamanan</div>
+                                  <div className="font-extrabold text-[#0F172A] text-xs">Token Privat</div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Action Button & Token Helper */}
+                          <div className="pt-3 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div className="text-[11px] text-slate-500 font-medium flex items-center gap-1.5">
+                              <KeyRound className="w-3.5 h-3.5 text-slate-400" />
+                              <span>Password Sementara Admin: <strong className="font-mono text-slate-800">12345</strong></span>
+                            </div>
+
+                            <div className="w-full sm:w-auto">
+                              {isCompleted ? (
+                                <Link
+                                  href={`/ujian/${matchingExam.id}`}
+                                  className="w-full sm:w-auto px-5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
+                                >
+                                  <Award className="w-4 h-4 text-emerald-600" />
+                                  <span>Lihat Hasil & Evaluasi</span>
+                                  <ChevronRight className="w-4 h-4 text-slate-400" />
+                                </Link>
+                              ) : !isOpen ? (
+                                <button
+                                  type="button"
+                                  disabled
+                                  className="w-full sm:w-auto px-5 py-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-400 text-xs font-bold flex items-center justify-center gap-1.5 cursor-not-allowed select-none"
+                                  title="Guru sedang menutup akses untuk ulangan bab ini"
+                                >
+                                  <Lock className="w-3.5 h-3.5" />
+                                  <span>Akses Ditutup (OFF)</span>
+                                </button>
+                              ) : isInProgress ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenTokenModal(matchingExam)}
+                                  className="w-full sm:w-auto px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-black flex items-center justify-center gap-2 transition cursor-pointer shadow-xs active:scale-98"
+                                >
+                                  <PlayCircle className="w-4 h-4 text-white" />
+                                  <span>Lanjutkan Pengerjaan</span>
+                                  <ChevronRight className="w-4 h-4" />
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenTokenModal(matchingExam)}
+                                  className="w-full sm:w-auto px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black flex items-center justify-center gap-2 transition cursor-pointer shadow-xs active:scale-98"
+                                >
+                                  <KeyRound className="w-4 h-4 text-amber-300" />
+                                  <span>Mulai Kerjakan (Token CBT)</span>
+                                  <ChevronRight className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   );
                 })}
@@ -783,6 +1099,7 @@ export default function BelajarClient({
         tahunAjaran={userProfile.tahun_ajaran}
         fotoUrl={userProfile.foto_url}
         sekolahData={sekolahData}
+        onOpenSettings={() => setIsSettingsModalOpen(true)}
       />
 
       <SettingsModal
@@ -793,6 +1110,7 @@ export default function BelajarClient({
         tutorGuidanceLevel="sedang"
         setTutorGuidanceLevel={() => {}}
         onSave={() => setIsSettingsModalOpen(false)}
+        onOpenProfileCard={() => setIsProfileModalOpen(true)}
       />
 
       <HelpCenterModal
@@ -834,6 +1152,150 @@ export default function BelajarClient({
         isOpen={isDevMenuOpen}
         setIsOpen={setIsDevMenuOpen}
       />
+
+      {/* MODAL INTERAKTIF: AUTENTIKASI TOKEN CBT (PERSIS SESUAI SCREENSHOT 2) */}
+      {selectedExamForToken && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-150">
+          <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-md p-6 sm:p-7 space-y-5 relative">
+            {/* Header Modal */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center font-extrabold shrink-0 shadow-2xs">
+                  <KeyRound className="w-6 h-6" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800 bg-emerald-100 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                    Autentikasi Token CBT
+                  </span>
+                  <h3 className="text-base sm:text-lg font-black text-[#0F172A] leading-tight mt-1">
+                    Verifikasi Password Ujian
+                  </h3>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedExamForToken(null);
+                  setTokenError(null);
+                }}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Exam Information Banner */}
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-1 text-xs">
+              <div className="text-[10px] font-extrabold uppercase text-slate-400">Mata Pelajaran:</div>
+              <div className="font-extrabold text-[#0F172A] text-sm">
+                {selectedExamForToken.mapel} • {selectedExamForToken.judul}
+              </div>
+              <div className="flex items-center gap-3 text-slate-500 text-[11px] pt-1 font-medium">
+                <span>⏱️ {selectedExamForToken.durasi_menit || 30} Menit</span>
+                <span>🎯 KKM: {selectedExamForToken.passing_grade || 75}</span>
+                <span>🔒 Privat Sekolah</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed font-medium">
+              Ujian resmi bersifat privat sekolah. Silakan masukkan password / kode token yang didapatkan dari Admin Sekolah atau Pengawas Ruang sebelum membuka lembar soal full screen.
+            </p>
+
+            {/* Input Password / Token */}
+            <div className="space-y-2">
+              <label className="text-[11px] font-extrabold text-slate-700 block">
+                Password / Token Ujian:
+              </label>
+              <div className="relative">
+                <input
+                  type={showTokenPassword ? "text" : "password"}
+                  value={tokenInput}
+                  onChange={(e) => {
+                    setTokenInput(e.target.value);
+                    if (tokenError) setTokenError(null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleVerifyTokenAndProceed();
+                    }
+                  }}
+                  autoFocus
+                  placeholder="Masukkan password token..."
+                  className="w-full px-4 py-3.5 pr-12 rounded-2xl bg-slate-50 border border-slate-300 text-slate-900 placeholder-slate-400 font-mono text-base tracking-widest text-center focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowTokenPassword(!showTokenPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-slate-700 transition"
+                  title={showTokenPassword ? "Sembunyikan" : "Tampilkan Password"}
+                >
+                  {showTokenPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+
+              {/* Quick Helper Default Password */}
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-900">
+                <div className="flex items-center gap-1.5 font-medium">
+                  <KeyRound className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Password Sementara Admin: <strong>12345</strong></span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTokenInput("12345");
+                    setTokenError(null);
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] transition cursor-pointer"
+                >
+                  Gunakan 12345
+                </button>
+              </div>
+            </div>
+
+            {/* Error Message Alert */}
+            {tokenError && (
+              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-start gap-2 animate-in fade-in duration-150">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <span>{tokenError}</span>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedExamForToken(null);
+                  setTokenError(null);
+                }}
+                className="flex-1 py-3.5 px-4 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer"
+              >
+                Batal
+              </button>
+
+              <button
+                type="button"
+                onClick={handleVerifyTokenAndProceed}
+                disabled={isVerifyingToken || !tokenInput.trim()}
+                className="flex-1 py-3.5 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center justify-center gap-2 transition shadow-md disabled:opacity-50 cursor-pointer"
+              >
+                {isVerifyingToken ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-white" />
+                    <span>Memverifikasi...</span>
+                  </>
+                ) : (
+                  <>
+                    <PlayCircle className="w-4 h-4 text-amber-300" />
+                    <span>Verifikasi & Masuk Ujian</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

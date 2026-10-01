@@ -23,6 +23,7 @@ import {
 import { logoutAction } from "@/app/(auth)/actions";
 import { NotificationItem, SekolahData } from "../../types";
 import { usePathname, useRouter } from "next/navigation";
+import { getStoredStudentPhoto } from "@/lib/student-settings";
 
 interface StudentNavbarProps {
   isDarkMode: boolean;
@@ -38,6 +39,7 @@ interface StudentNavbarProps {
   notifications: NotificationItem[];
   onMarkAllNotificationsAsRead: () => void;
   studentName: string;
+  studentPhoto?: string | null;
   onOpenSettings: () => void;
   onOpenHelp: () => void;
   onOpenProfile: () => void;
@@ -57,6 +59,7 @@ export default function StudentNavbar({
   notifications,
   onMarkAllNotificationsAsRead,
   studentName,
+  studentPhoto,
   onOpenSettings,
   onOpenHelp,
   onOpenProfile,
@@ -66,6 +69,24 @@ export default function StudentNavbar({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const mobileTabContainerRef = useRef<HTMLElement | null>(null);
+
+  // Sync photo with props or localStorage
+  const [currentPhoto, setCurrentPhoto] = useState<string>(() => {
+    return studentPhoto || getStoredStudentPhoto();
+  });
+
+  useEffect(() => {
+    if (studentPhoto) {
+      setCurrentPhoto(studentPhoto);
+    }
+    const handlePhotoChange = (e: any) => {
+      if (e.detail) setCurrentPhoto(e.detail);
+    };
+    window.addEventListener("thinksy_photo_change", handlePhotoChange);
+    return () => {
+      window.removeEventListener("thinksy_photo_change", handlePhotoChange);
+    };
+  }, [studentPhoto]);
 
   const initials = studentName
     .split(" ")
@@ -376,24 +397,44 @@ export default function StudentNavbar({
                   }}
                   className="flex items-center space-x-2 focus:outline-none cursor-pointer group"
                 >
-                  <div className="w-9 h-9 rounded-full bg-[#0F172A] text-white flex items-center justify-center font-bold text-xs shadow-xs border border-slate-200 group-hover:scale-105 transition-transform duration-200 overflow-hidden">
-                    {initials}
+                  <div className="w-9 h-9 rounded-full bg-[#0F172A] text-white flex items-center justify-center font-bold text-xs shadow-xs border border-slate-200 group-hover:scale-105 transition-transform duration-200 overflow-hidden relative">
+                    {currentPhoto ? (
+                      <img
+                        src={currentPhoto}
+                        alt={studentName}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                        }}
+                      />
+                    ) : (
+                      initials
+                    )}
                   </div>
                 </button>
 
                 {/* Profile Dropdown Menu */}
                 {isDropdownOpen && (
                   <div className="absolute right-0 mt-3 w-64 max-w-[calc(100vw-24px)] rounded-2xl saas-modal border border-slate-200 p-3 z-50 shadow-2xl animate-in fade-in duration-150 bg-white text-slate-900">
-                    <div className="p-3 rounded-xl bg-slate-100 border border-slate-200 mb-2">
-                      <div className="text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">
-                        Nama Akun:
+                    <div className="p-3 rounded-xl bg-slate-100 border border-slate-200 mb-2 flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl overflow-hidden bg-slate-800 text-white shrink-0 flex items-center justify-center font-bold text-xs border border-slate-300">
+                        {currentPhoto ? (
+                          <img src={currentPhoto} alt={studentName} className="w-full h-full object-cover" />
+                        ) : (
+                          initials
+                        )}
                       </div>
-                      <div className="text-sm font-extrabold text-[#0F172A] truncate">
-                        {studentName}
-                      </div>
-                      <div className="inline-flex items-center gap-1.5 mt-1 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                        <Shield className="w-3 h-3 text-emerald-600" />
-                        <span>Siswa</span>
+                      <div className="min-w-0">
+                        <div className="text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">
+                          Nama Akun:
+                        </div>
+                        <div className="text-xs font-extrabold text-[#0F172A] truncate">
+                          {studentName}
+                        </div>
+                        <div className="inline-flex items-center gap-1 mt-0.5 px-2 py-0.2 rounded-full bg-emerald-100 text-emerald-800 text-[9px] font-bold">
+                          <Shield className="w-2.5 h-2.5 text-emerald-600" />
+                          <span>Siswa</span>
+                        </div>
                       </div>
                     </div>
 

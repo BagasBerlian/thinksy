@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   BrainCircuit,
   Search,
@@ -27,10 +27,13 @@ import {
   Menu,
   GraduationCap,
   Clock,
+  Palette,
 } from "lucide-react";
 import { logoutAction } from "@/app/(auth)/actions";
 import { useRealtimeDashboard } from "@/hooks/useRealtimeDashboard";
 import FloatingGuruSpeedDial from "@/components/guru/FloatingGuruSpeedDial";
+
+export type GuruNavView = "beranda" | "manajemen_kelas" | "pengelolaan" | "pengaturan";
 
 interface GuruLayoutProps {
   children: React.ReactNode;
@@ -39,10 +42,18 @@ interface GuruLayoutProps {
     email: string;
     peran: string;
   };
+  activeView?: GuruNavView;
+  onViewChange?: (view: GuruNavView) => void;
 }
 
-export default function GuruLayout({ children, userProfile }: GuruLayoutProps) {
+export default function GuruLayout({
+  children,
+  userProfile,
+  activeView,
+  onViewChange,
+}: GuruLayoutProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
@@ -186,63 +197,121 @@ export default function GuruLayout({ children, userProfile }: GuruLayoutProps) {
     }, 2000);
   };
 
+  // Theme state and listener for dynamic screen color palette
+  const [currentTheme, setCurrentTheme] = useState("slate");
+
+  useEffect(() => {
+    try {
+      const savedTheme = localStorage.getItem("thinksy_guru_theme");
+      if (savedTheme) setCurrentTheme(savedTheme);
+      const handleThemeChanged = (e: any) => {
+        if (e.detail?.themeId) setCurrentTheme(e.detail.themeId);
+      };
+      window.addEventListener("guru_theme_changed", handleThemeChanged);
+      return () => window.removeEventListener("guru_theme_changed", handleThemeChanged);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const THEME_STYLES: Record<string, {
+    sidebarActive: string;
+    activeIcon: string;
+    badge: string;
+    headerAccent: string;
+    pageBg: string;
+  }> = {
+    slate: {
+      sidebarActive: "bg-[#0F172A] text-white shadow-xs",
+      activeIcon: "text-amber-400",
+      badge: "text-amber-700 bg-amber-50 border-amber-200",
+      headerAccent: "border-slate-200",
+      pageBg: "bg-[#F8FAFC]",
+    },
+    blue: {
+      sidebarActive: "bg-[#0369A1] text-white shadow-xs",
+      activeIcon: "text-sky-300",
+      badge: "text-sky-700 bg-sky-50 border-sky-200",
+      headerAccent: "border-sky-200",
+      pageBg: "bg-[#F0F9FF]",
+    },
+    emerald: {
+      sidebarActive: "bg-[#047857] text-white shadow-xs",
+      activeIcon: "text-emerald-300",
+      badge: "text-emerald-700 bg-emerald-50 border-emerald-200",
+      headerAccent: "border-emerald-200",
+      pageBg: "bg-[#F0FDF4]",
+    },
+    purple: {
+      sidebarActive: "bg-[#6D28D9] text-white shadow-xs",
+      activeIcon: "text-purple-300",
+      badge: "text-purple-700 bg-purple-50 border-purple-200",
+      headerAccent: "border-purple-200",
+      pageBg: "bg-[#FAF5FF]",
+    },
+    amber: {
+      sidebarActive: "bg-[#B45309] text-white shadow-xs",
+      activeIcon: "text-amber-300",
+      badge: "text-amber-700 bg-amber-50 border-amber-200",
+      headerAccent: "border-amber-200",
+      pageBg: "bg-[#FFFBEB]",
+    },
+    dark: {
+      sidebarActive: "bg-[#020617] text-white shadow-xs border border-slate-700",
+      activeIcon: "text-cyan-400",
+      badge: "text-cyan-400 bg-slate-800 border-slate-700",
+      headerAccent: "border-slate-800",
+      pageBg: "bg-[#090D16]",
+    },
+  };
+
+  const activeThemeStyles = THEME_STYLES[currentTheme] || THEME_STYLES.slate;
+
+  // Determine current active view
+  const currentNavView: GuruNavView =
+    activeView ||
+    (pathname === "/guru"
+      ? "beranda"
+      : pathname.startsWith("/guru/siswa")
+      ? "manajemen_kelas"
+      : pathname.startsWith("/guru/ujian") || pathname.startsWith("/guru/soal") || pathname.startsWith("/guru/penilaian")
+      ? "pengelolaan"
+      : "beranda");
+
+  // FITUR NAVBAR KIRI PERSIS SESUAI PERINTAH PENGGUNA:
+  // 1. Beranda
+  // 2. Management kelas
+  // 3. Pengelolaan
+  // 4. Pengaturan
   const navItems = [
     {
-      label: "Dashboard",
-      href: "/guru",
+      id: "beranda" as GuruNavView,
+      label: "Beranda",
       icon: LayoutDashboard,
-      active: pathname === "/guru",
+      active: currentNavView === "beranda",
     },
     {
-      label: "Manajemen Kelas",
-      href: "/guru/siswa",
+      id: "manajemen_kelas" as GuruNavView,
+      label: "Management kelas",
       icon: Users,
-      active: pathname.startsWith("/guru/siswa"),
+      active: currentNavView === "manajemen_kelas",
     },
     {
-      label: "Ujian & Asesmen",
-      href: "/guru/ujian",
-      icon: Clock,
-      active: pathname.startsWith("/guru/ujian"),
+      id: "pengelolaan" as GuruNavView,
+      label: "Pengelolaan",
+      icon: Sliders,
+      active: currentNavView === "pengelolaan",
     },
     {
-      label: "Bank Soal Manual",
-      href: "/guru/soal/latihan",
-      icon: FileText,
-      active: pathname.startsWith("/guru/soal/latihan"),
-    },
-    {
-      label: "Kurasi Soal AI",
-      href: "/guru/soal/eksplorasi",
-      icon: Bot,
-      active: pathname.startsWith("/guru/soal/eksplorasi"),
-    },
-    {
-      label: "Penilaian Esai",
-      href: "/guru/penilaian",
-      icon: CheckSquare,
-      active: pathname.startsWith("/guru/penilaian"),
-    },
-    {
-      label: "Penilaian Siswa",
-      href: "/guru/penilaian-siswa",
-      icon: GraduationCap,
-      active: pathname.startsWith("/guru/penilaian-siswa"),
-    },
-    {
+      id: "pengaturan" as GuruNavView,
       label: "Pengaturan",
-      href: "#pengaturan",
-      onClick: () => {
-        setIsSettingsModalOpen(true);
-        setIsMobileMenuOpen(false);
-      },
       icon: Settings,
-      active: isSettingsModalOpen,
+      active: currentNavView === "pengaturan",
     },
   ];
 
   return (
-    <div className="flex min-h-screen bg-[#F8FAFC] text-slate-900 font-sans">
+    <div className={`flex min-h-screen ${activeThemeStyles.pageBg} text-slate-900 font-sans transition-colors duration-200`}>
       {/* MOBILE BACKDROP DRAWER OVERLAY */}
       {isMobileMenuOpen && (
         <div
@@ -269,7 +338,7 @@ export default function GuruLayout({ children, userProfile }: GuruLayoutProps) {
                   THINKSY
                 </span>
                 <div className="flex items-center gap-1.5 mt-0.5">
-                  <div className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full w-fit">
+                  <div className={`text-[10px] font-bold px-2 py-0.5 rounded-full w-fit border ${activeThemeStyles.badge}`}>
                     Panel Guru
                   </div>
                   {isConnected && (
@@ -292,36 +361,33 @@ export default function GuruLayout({ children, userProfile }: GuruLayoutProps) {
           <nav className="space-y-1.5 text-xs font-bold text-slate-600">
             {navItems.map((item) => {
               const IconComp = item.icon;
-              if (item.onClick) {
-                return (
-                  <button
-                    key={item.label}
-                    onClick={item.onClick}
-                    className={`w-full flex items-center gap-3 rounded-xl px-3.5 py-3 transition cursor-pointer text-left ${
-                      item.active
-                        ? "bg-[#0F172A] text-white shadow-xs"
-                        : "hover:bg-slate-100 hover:text-[#0F172A]"
-                    }`}
-                  >
-                    <IconComp className={`w-4 h-4 ${item.active ? "text-amber-400" : "text-slate-500"}`} />
-                    <span>{item.label}</span>
-                  </button>
-                );
-              }
               return (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className={`flex items-center gap-3 rounded-xl px-3.5 py-3 transition cursor-pointer ${
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    if (onViewChange) {
+                      onViewChange(item.id);
+                      const targetUrl = item.id === "beranda" ? "/guru" : `/guru?tab=${item.id}`;
+                      window.history.pushState(null, "", targetUrl);
+                    } else {
+                      router.push(item.id === "beranda" ? "/guru" : `/guru?tab=${item.id}`);
+                    }
+                  }}
+                  className={`w-full flex items-center gap-3 rounded-2xl px-3.5 py-3 transition cursor-pointer text-left ${
                     item.active
-                      ? "bg-[#0F172A] text-white shadow-xs"
+                      ? activeThemeStyles.sidebarActive
                       : "hover:bg-slate-100 hover:text-[#0F172A]"
                   }`}
                 >
-                  <IconComp className={`w-4 h-4 ${item.active ? "text-amber-400" : "text-slate-500"}`} />
-                  <span>{item.label}</span>
-                </Link>
+                  <IconComp
+                    className={`w-4 h-4 ${
+                      item.active ? activeThemeStyles.activeIcon : "text-slate-500"
+                    }`}
+                  />
+                  <span className="font-extrabold">{item.label}</span>
+                </button>
               );
             })}
           </nav>

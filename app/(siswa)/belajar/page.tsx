@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import BelajarClient from "./BelajarClient";
 
@@ -16,6 +17,7 @@ export default async function BelajarPage({
     : null;
 
   const supabase = await createClient();
+  const adminSupabase = createAdminClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
@@ -192,6 +194,55 @@ export default async function BelajarPage({
     };
   });
 
+  // 6. Fetch Exams & Ulangan Sessions (same unified data source as Home)
+  let examsData: any[] = [];
+  const { data: dbExams } = await adminSupabase
+    .from("ujian")
+    .select(`
+      id,
+      judul,
+      deskripsi,
+      mapel,
+      durasi_menit,
+      passing_grade,
+      waktu_mulai,
+      waktu_berakhir,
+      status,
+      tipe,
+      token,
+      bab_id
+    `)
+    .order("waktu_mulai", { ascending: false });
+
+  let userExamSessions: Record<string, any> = {};
+  if (user) {
+    const { data: sesiList } = await adminSupabase
+      .from("sesi_ujian")
+      .select("id, ujian_id, status, nilai_akhir")
+      .eq("siswa_id", user.id);
+
+    if (sesiList) {
+      sesiList.forEach((s: any) => {
+        userExamSessions[s.ujian_id] = s;
+      });
+    }
+  }
+
+  if (dbExams && dbExams.length > 0) {
+    examsData = dbExams.map((e: any) => {
+      const s = userExamSessions[e.id];
+      return {
+        ...e,
+        tipe: e.tipe || "ulangan",
+        token: e.token || "12345",
+        sessionStatus: s?.status || "belum_mulai",
+        score: s?.nilai_akhir ?? null,
+        sesiId: s?.id,
+        bab_id: e.bab_id || null,
+      };
+    });
+  }
+
   return (
     <Suspense
       fallback={
@@ -226,6 +277,7 @@ export default async function BelajarPage({
         sekolahData={sekolahData}
         chapters={chaptersWithProgress}
         completedMateriIds={Array.from(completedMateriSet)}
+        examsData={examsData}
         initialMapel={initialMapel}
         initialBabId={initialBabId}
         initialSemester={initialSemester}

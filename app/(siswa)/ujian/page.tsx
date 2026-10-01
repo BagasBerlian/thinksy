@@ -130,6 +130,20 @@ export default async function DaftarUjianPage() {
     checkInStatus = presensiToday.status || "Hadir (Tepat Waktu)";
   }
 
+  // 3b. Ambil data bab / kurikulum untuk ulangan per bab
+  const { data: listBab } = await supabase
+    .from("bab")
+    .select(`
+      id,
+      judul,
+      deskripsi,
+      urutan,
+      mapel,
+      kelas,
+      semester
+    `)
+    .order("urutan", { ascending: true });
+
   // 4. Ambil daftar ujian aktif
   let query = adminSupabase
     .from("ujian")
@@ -223,6 +237,7 @@ export default async function DaftarUjianPage() {
       }}
       sekolahData={sekolahData}
       exams={exams}
+      chapters={listBab || []}
     />
   );
 }

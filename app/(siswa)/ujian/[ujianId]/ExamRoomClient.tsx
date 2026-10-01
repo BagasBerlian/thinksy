@@ -640,16 +640,21 @@ export default function ExamRoomClient({
       return (
         <main className="min-h-screen bg-slate-50 text-slate-900 pb-24 font-sans">
           {/* Top Sticky Header */}
-          <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-2xs">
+          <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-2xs relative">
+            {/* Tombol Back di Paling Kiri */}
+            <div className="absolute left-3.5 sm:left-4 md:left-6 top-1/2 -translate-y-1/2 z-10">
+              <Link
+                href="/dashboard"
+                className="p-2 sm:px-3 sm:py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition flex items-center gap-1.5 cursor-pointer border border-slate-200 shadow-2xs"
+                title="Kembali ke Dashboard"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span className="hidden min-[1360px]:inline">Kembali</span>
+              </Link>
+            </div>
+
             <div className="max-w-4xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <Link
-                  href="/dashboard"
-                  className="p-2 -ml-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition cursor-pointer"
-                  title="Kembali ke Dashboard"
-                >
-                  <ArrowLeft className="w-5 h-5" />
-                </Link>
+              <div className="flex items-center gap-3 pl-11 sm:pl-12 min-[1150px]:pl-0">
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-200">
@@ -823,16 +828,21 @@ export default function ExamRoomClient({
     return (
       <main className="min-h-screen bg-slate-50 text-slate-900 pb-24 font-sans">
         {/* Top Sticky Header */}
-        <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-2xs">
+        <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-2xs relative">
+          {/* Tombol Back di Paling Kiri */}
+          <div className="absolute left-3.5 sm:left-4 md:left-6 top-1/2 -translate-y-1/2 z-10">
+            <Link
+              href="/dashboard"
+              className="p-2 sm:px-3 sm:py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition flex items-center gap-1.5 cursor-pointer border border-slate-200 shadow-2xs"
+              title="Kembali ke Dashboard"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="hidden min-[1360px]:inline">Kembali</span>
+            </Link>
+          </div>
+
           <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <Link
-                href="/dashboard"
-                className="p-2 -ml-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition cursor-pointer"
-                title="Kembali ke Dashboard"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </Link>
+            <div className="flex items-center gap-3 pl-11 sm:pl-12 min-[1280px]:pl-0">
               <div>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">

@@ -1,13 +1,20 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import GuruLayout from "@/components/guru/GuruLayout";
+import GuruLayout, { GuruNavView } from "@/components/guru/GuruLayout";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRealtimeDashboard } from "@/hooks/useRealtimeDashboard";
 import AttendanceLimitConfigModal from "@/components/guru/AttendanceLimitConfigModal";
 import AkuLulusControlWidget from "@/components/guru/AkuLulusControlWidget";
 import StudentLeaderboardWidget from "@/components/guru/StudentLeaderboardWidget";
+import GuruNotificationModal from "@/components/guru/GuruNotificationModal";
+import GuruAttendanceDeadlineModal from "@/components/guru/GuruAttendanceDeadlineModal";
+import RealtimeAttendanceNormalScreen from "@/components/guru/RealtimeAttendanceNormalScreen";
+import ManajemenKelasNormalScreen from "@/components/guru/ManajemenKelasNormalScreen";
+import CardGuruProfile from "@/components/guru/CardGuruProfile";
+import PengelolaanNormalScreen from "@/components/guru/PengelolaanNormalScreen";
+import PengaturanNormalScreen, { DEFAULT_LAYOUT_CONFIG, GuruLayoutConfig } from "@/components/guru/PengaturanNormalScreen";
 import {
   TrendingUp,
   Users,
@@ -22,6 +29,7 @@ import {
   Sparkles,
   BarChart3,
   GraduationCap,
+  Bell,
   Target,
   Zap,
   Calendar,
@@ -142,6 +150,59 @@ export default function GuruDashboardPage() {
   const [isViewAllModalOpen, setIsViewAllModalOpen] = useState(false);
   const [isPresenceModalOpen, setIsPresenceModalOpen] = useState(false);
   const [isAttendanceConfigOpen, setIsAttendanceConfigOpen] = useState(false);
+
+  // Active View State (Beranda | Management kelas | Pengelolaan | Pengaturan)
+  const [activeView, setActiveView] = useState<GuruNavView>("beranda");
+  const [layoutConfig, setLayoutConfig] = useState<GuruLayoutConfig>(DEFAULT_LAYOUT_CONFIG);
+
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get("tab") as GuruNavView;
+      if (tab && ["beranda", "manajemen_kelas", "pengelolaan", "pengaturan"].includes(tab)) {
+        setActiveView(tab);
+      }
+    } catch {
+      // ignore
+    }
+
+    const handlePopState = () => {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const tab = params.get("tab") as GuruNavView;
+        if (tab && ["beranda", "manajemen_kelas", "pengelolaan", "pengaturan"].includes(tab)) {
+          setActiveView(tab);
+        } else {
+          setActiveView("beranda");
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("thinksy_guru_layout");
+      if (saved) setLayoutConfig(JSON.parse(saved));
+      const handleLayoutChanged = (e: any) => {
+        if (e.detail) setLayoutConfig(e.detail);
+      };
+      window.addEventListener("guru_layout_changed", handleLayoutChanged);
+      return () => window.removeEventListener("guru_layout_changed", handleLayoutChanged);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // New Features States: Notifikasi, Batas Absensi, Realtime Screen, Manajemen Kelas Screen
+  const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
+  const [isAttendanceDeadlineModalOpen, setIsAttendanceDeadlineModalOpen] = useState(false);
+  const [isRealtimeAttendanceOpen, setIsRealtimeAttendanceOpen] = useState(false);
+  const [isManajemenKelasOpen, setIsManajemenKelasOpen] = useState(false);
 
   // New Stat Modals States
   const [isScoreAvgModalOpen, setIsScoreAvgModalOpen] = useState(false);
@@ -673,9 +734,16 @@ export default function GuruDashboardPage() {
     { id: "st-5", name: "Tania Safitri", class: "Kelas 8A", score: 61, topic: "Pemfaktoran Persamaan Kuadrat", status: "Butuh Review AI" },
   ];
 
+  // Kosongkan sementara fitur di dashboard guru selain settingan ujian dan ulangan
+  const SHOW_EXTRA_FEATURES = false;
+
   return (
-    <GuruLayout userProfile={userProfile}>
-      <div className="space-y-8">
+    <GuruLayout
+      userProfile={userProfile}
+      activeView={activeView}
+      onViewChange={setActiveView}
+    >
+      <div className="space-y-6">
         {/* Notification Toast */}
         {notification && (
           <div className="fixed top-5 right-5 z-50 flex items-center gap-3 bg-[#0F172A] text-white px-5 py-3.5 rounded-2xl shadow-2xl border border-amber-500/40 animate-in fade-in slide-in-from-top duration-200">
@@ -687,7 +755,60 @@ export default function GuruDashboardPage() {
           </div>
         )}
 
-        {/* 1. WELCOME HERO BANNER */}
+        {/* 1. VIEW BERANDA: CARD GURU (JABATAN, UMUR, NAMA, FOTO, DLL) & SETTINGAN UJIAN */}
+        {activeView === "beranda" && (
+          <div className="space-y-6 animate-in fade-in duration-150">
+            {/* CARD GURU SESUAI PERINTAH: JABARAN, UMUR, NAMA, FOTO DARI GURU */}
+            {layoutConfig.showCardGuru && (
+              <CardGuruProfile
+                onOpenSettings={() => {
+                  setActiveView("pengaturan");
+                  window.history.pushState(null, "", "/guru?tab=pengaturan");
+                }}
+              />
+            )}
+
+            {/* SETTINGAN UJIAN DAN ULANGAN (AKU LULUS CONTROL WIDGET) */}
+            {layoutConfig.showAkuLulusControl && <AkuLulusControlWidget />}
+          </div>
+        )}
+
+        {/* 2. VIEW MANAGEMENT KELAS: NORMAL SCREEN DI SEBELAH KANAN NAVBAR */}
+        {activeView === "manajemen_kelas" && (
+          <div className="animate-in fade-in duration-150">
+            <ManajemenKelasNormalScreen
+              isEmbedded={true}
+              onClose={() => {
+                setActiveView("beranda");
+                window.history.pushState(null, "", "/guru");
+              }}
+            />
+          </div>
+        )}
+
+        {/* 3. VIEW PENGELOLAAN: NORMAL SCREEN (KELOLA KUIS, KELOLA SIMULASI, KELOLA RUANG UJIAN -> ULANGAN, UJIAN) */}
+        {activeView === "pengelolaan" && (
+          <div className="animate-in fade-in duration-150">
+            <PengelolaanNormalScreen
+              onNavigateHome={() => {
+                setActiveView("beranda");
+                window.history.pushState(null, "", "/guru");
+              }}
+            />
+          </div>
+        )}
+
+        {/* 4. VIEW PENGATURAN: NORMAL SCREEN (SETTING TATA LETAK HOMESCREEN & WARNA TEMA GURU) */}
+        {activeView === "pengaturan" && (
+          <div className="animate-in fade-in duration-150">
+            <PengaturanNormalScreen />
+          </div>
+        )}
+
+        {/* FITUR LAINNYA DIKOSONGKAN SEMENTARA SESUAI PERINTAH */}
+        {SHOW_EXTRA_FEATURES && (
+          <>
+            {/* 1. WELCOME HERO BANNER */}
         <div className="relative rounded-3xl bg-gradient-to-br from-[#0F172A] via-[#1E293B] to-[#0F172A] p-6 sm:p-8 overflow-hidden border border-slate-700/50">
           <div className="absolute top-0 right-0 w-72 h-72 bg-amber-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
           <div className="absolute bottom-0 left-0 w-48 h-48 bg-blue-500/5 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
@@ -713,39 +834,20 @@ export default function GuruDashboardPage() {
                 <span className="text-blue-400 font-bold">{dbPendingGrading ?? 45} esai siswa</span> yang menunggu ditinjau hari ini.
               </p>
 
-              {/* Quick Action Buttons */}
-              <div className="flex flex-wrap gap-3 pt-1">
-                <button
-                  type="button"
-                  onClick={() => setIsBroadcastModalOpen(true)}
-                  className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold flex items-center gap-2 shadow-md transition cursor-pointer"
-                >
-                  <Plus className="w-4 h-4" />
-                  Siarkan Tugas / Pengumuman
-                </button>
-                <Link
-                  href="/guru/soal/eksplorasi"
-                  className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-extrabold flex items-center gap-2 border border-white/10 backdrop-blur-sm transition"
-                >
-                  <Bot className="w-4 h-4 text-amber-400" />
-                  Review Soal AI
-                  <span className="ml-1 px-2 py-0.5 rounded-full bg-slate-950/20 text-[10px]">{dbTotalSoal ?? 12}</span>
-                </Link>
-                <Link
-                  href="/guru/penilaian"
-                  className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-extrabold flex items-center gap-2 border border-white/10 backdrop-blur-sm transition"
-                >
-                  <FileCheck className="w-4 h-4 text-emerald-400" />
-                  Penilaian Esai
-                  <span className="ml-1 px-2 py-0.5 rounded-full bg-white/10 text-[10px]">{dbPendingGrading ?? 45}</span>
-                </Link>
-                <Link
-                  href="/guru/penilaian-siswa"
-                  className="px-4 py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs font-extrabold flex items-center gap-2 border border-amber-500/30 backdrop-blur-sm transition shadow-xs"
-                >
-                  <GraduationCap className="w-4 h-4 text-amber-400" />
-                  Rapor & Penilaian Siswa
-                </Link>
+              {/* Informational Status Strip (Clean, without buttons) */}
+              <div className="flex flex-wrap items-center gap-3 pt-2">
+                <div className="px-3.5 py-1.5 rounded-xl bg-white/10 border border-white/10 text-white text-xs font-semibold flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-amber-400" />
+                  <span><strong>{dbTotalSoal ?? 2050}</strong> Soal AI Siap Digunakan</span>
+                </div>
+                <div className="px-3.5 py-1.5 rounded-xl bg-white/10 border border-white/10 text-white text-xs font-semibold flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-blue-400" />
+                  <span><strong>{dbPendingGrading ?? 14}</strong> Esai Perlu Validasi</span>
+                </div>
+                <div className="px-3.5 py-1.5 rounded-xl bg-white/10 border border-white/10 text-white text-xs font-semibold flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                  <span><strong>{dbTotalSiswa ?? totalSiswaAktif}</strong> Siswa Terdaftar (3 Rombel)</span>
+                </div>
               </div>
             </div>
 
@@ -770,6 +872,79 @@ export default function GuruDashboardPage() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* ======================================================== */}
+        {/* 2. BILAH PINTASAN & KONTROL CEPAT GURU                   */}
+        {/* ======================================================== */}
+        <div className="bg-white rounded-2xl p-3 border border-slate-200/90 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 px-1">
+            <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 flex items-center justify-center shrink-0">
+              <Sparkles className="w-4 h-4 text-amber-500" />
+            </div>
+            <div>
+              <span className="text-xs font-black text-[#0F172A] block leading-tight">Kontrol & Administrasi Guru</span>
+              <span className="text-[10px] text-slate-400 font-semibold">Pintasan siaran notifikasi, batas absensi, presensi live, dan rombel kelas</span>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {/* AKSI 1: NOTIFIKASI SISWA & PENJADWALAN */}
+            <button
+              type="button"
+              onClick={() => setIsNotificationModalOpen(true)}
+              className="px-3.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-extrabold flex items-center gap-2 transition cursor-pointer shadow-2xs group"
+            >
+              <Bell className="w-3.5 h-3.5 text-amber-600 group-hover:rotate-12 transition-transform" />
+              <span>Notifikasi Siswa</span>
+              <span className="px-1.5 py-0.5 rounded-md bg-amber-200/80 text-[10px] font-black text-amber-900">
+                7 Template
+              </span>
+            </button>
+
+            {/* AKSI 2: BATAS WAKTU & TENGGAT ABSENSI */}
+            <button
+              type="button"
+              onClick={() => setIsAttendanceDeadlineModalOpen(true)}
+              className="px-3.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 text-xs font-extrabold flex items-center gap-2 transition cursor-pointer shadow-2xs group"
+            >
+              <Clock className="w-3.5 h-3.5 text-emerald-600 group-hover:scale-110 transition-transform" />
+              <span>Batas Waktu Absen</span>
+              <span className="px-1.5 py-0.5 rounded-md bg-emerald-200/80 text-[10px] font-black text-emerald-900">
+                Senin–Jumat
+              </span>
+            </button>
+
+            {/* AKSI 3: MONITORING REALTIME ABSENSI (NORMAL SCREEN) */}
+            <button
+              type="button"
+              onClick={() => setIsRealtimeAttendanceOpen(true)}
+              className="px-3.5 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 text-xs font-extrabold flex items-center gap-2 transition cursor-pointer shadow-2xs group"
+            >
+              <div className="relative">
+                <Camera className="w-3.5 h-3.5 text-blue-600 group-hover:scale-110 transition-transform" />
+                <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              </div>
+              <span>Monitoring Absensi</span>
+              <span className="px-1.5 py-0.5 rounded-md bg-blue-200/80 text-[10px] font-black text-blue-900 flex items-center gap-1">
+                <Maximize2 className="w-2.5 h-2.5" />
+                Layar Penuh
+              </span>
+            </button>
+
+            {/* AKSI 4: MANAJEMEN KELAS 8A, 8B, 8C (NORMAL SCREEN) */}
+            <button
+              type="button"
+              onClick={() => setIsManajemenKelasOpen(true)}
+              className="px-3.5 py-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200 text-xs font-extrabold flex items-center gap-2 transition cursor-pointer shadow-2xs group"
+            >
+              <GraduationCap className="w-3.5 h-3.5 text-purple-600 group-hover:scale-110 transition-transform" />
+              <span>Manajemen Kelas</span>
+              <span className="px-1.5 py-0.5 rounded-md bg-purple-200/80 text-[10px] font-black text-purple-900">
+                8A • 8B • 8C
+              </span>
+            </button>
           </div>
         </div>
 
@@ -799,9 +974,9 @@ export default function GuruDashboardPage() {
             </div>
           </div>
 
-          {/* STAT 2: TOTAL SISWA AKTIF (CLICKABLE) */}
+          {/* STAT 2: TOTAL SISWA AKTIF (CLICKABLE TO OPEN REALTIME NORMAL SCREEN) */}
           <div
-            onClick={() => setIsPresenceModalOpen(true)}
+            onClick={() => setIsRealtimeAttendanceOpen(true)}
             className="group bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-amber-400 transition-all duration-300 cursor-pointer relative overflow-hidden ring-2 ring-transparent hover:ring-amber-400/30"
           >
             <div className="flex items-center justify-between">
@@ -875,8 +1050,6 @@ export default function GuruDashboardPage() {
           </div>
         </div>
 
-        {/* 2.5. KONTROL ASESMEN SISWA (AKU LULUS) */}
-        <AkuLulusControlWidget />
 
         {/* 2.6. PAPAN PERINGKAT & KEAKTIFAN SISWA */}
         <StudentLeaderboardWidget />
@@ -896,15 +1069,25 @@ export default function GuruDashboardPage() {
                 </p>
               </div>
 
-              {/* PERBAIKAN TOMBOL LIHAT SEMUA */}
-              <button
-                type="button"
-                onClick={() => setIsViewAllModalOpen(true)}
-                className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-extrabold text-[#0F172A] flex items-center gap-1.5 transition cursor-pointer border border-slate-200"
-              >
-                <span>Lihat Semua ({classList.length})</span>
-                <ArrowRight className="w-3.5 h-3.5 text-blue-600" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsManajemenKelasOpen(true)}
+                  className="px-3.5 py-1.5 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-xs font-black text-amber-400 flex items-center gap-1.5 transition cursor-pointer shadow-xs"
+                >
+                  <GraduationCap className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Manajemen Kelas (8A, 8B, 8C)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsViewAllModalOpen(true)}
+                  className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-extrabold text-[#0F172A] flex items-center gap-1.5 transition cursor-pointer border border-slate-200"
+                >
+                  <span>Lihat Semua ({classList.length})</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-blue-600" />
+                </button>
+              </div>
             </div>
 
             {/* CLASS CARDS GRID (CLICKABLE & EDITABLE) */}
@@ -1105,7 +1288,9 @@ export default function GuruDashboardPage() {
             </div>
           </div>
         </div>
-      </div>
+      </>
+    )}
+  </div>
 
       {/* ======================================================== */}
       {/* 4. MODAL STAT 1: ANALISIS RATA-RATA SKOR KELAS (78%)      */}
@@ -2396,6 +2581,45 @@ export default function GuruDashboardPage() {
       <AttendanceLimitConfigModal
         isOpen={isAttendanceConfigOpen}
         onClose={() => setIsAttendanceConfigOpen(false)}
+      />
+
+      {/* ======================================================== */}
+      {/* 10. FITUR BARU GURU (NOTIFIKASI, ABSENSI, NORMAL SCREENS) */}
+      {/* ======================================================== */}
+      {/* FITUR 1: PENGATURAN NOTIFIKASI SISWA & PENJADWALAN */}
+      <GuruNotificationModal
+        isOpen={isNotificationModalOpen}
+        onClose={() => setIsNotificationModalOpen(false)}
+        onSuccess={() => {
+          setNotification("Notifikasi berhasil disiarkan / dijadwalkan!");
+          setTimeout(() => setNotification(null), 4000);
+        }}
+      />
+
+      {/* FITUR 2: PENGATURAN BATAS WAKTU & TENGGAT ABSENSI */}
+      <GuruAttendanceDeadlineModal
+        isOpen={isAttendanceDeadlineModalOpen}
+        onClose={() => setIsAttendanceDeadlineModalOpen(false)}
+        onSaved={() => {
+          setNotification("Batas waktu absensi berhasil diatur & notifikasi tenggat disiarkan!");
+          setTimeout(() => setNotification(null), 4000);
+        }}
+      />
+
+      {/* FITUR 3: NORMAL SCREEN: MONITORING REALTIME ABSENSI SISWA */}
+      <RealtimeAttendanceNormalScreen
+        isOpen={isRealtimeAttendanceOpen}
+        onClose={() => setIsRealtimeAttendanceOpen(false)}
+        onOpenSettings={() => {
+          setIsRealtimeAttendanceOpen(false);
+          setIsAttendanceDeadlineModalOpen(true);
+        }}
+      />
+
+      {/* FITUR 4: NORMAL SCREEN: MANAJEMEN KELAS (8A, 8B, 8C) */}
+      <ManajemenKelasNormalScreen
+        isOpen={isManajemenKelasOpen}
+        onClose={() => setIsManajemenKelasOpen(false)}
       />
     </GuruLayout>
   );

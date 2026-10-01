@@ -47,6 +47,7 @@ import HelpCenterModal from "../dashboard/components/modals/HelpCenterModal";
 import AttendanceModal from "../dashboard/components/attendance/AttendanceModal";
 import UatDevMenu from "../dashboard/components/attendance/UatDevMenu";
 import ToastNotification from "../dashboard/components/modals/ToastNotification";
+import AsesmenOverlayModal from "../dashboard/components/modals/AsesmenOverlayModal";
 import {
   SekolahData,
   ToastNotificationData,
@@ -74,6 +75,7 @@ interface DaftarUjianClientProps {
     foto_url?: string | null;
   };
   sekolahData?: SekolahData | null;
+  chapters?: any[];
   exams: Array<{
     id: string;
     judul: string;
@@ -135,6 +137,7 @@ export default function DaftarUjianClient({
   userProfile,
   sekolahData,
   exams,
+  chapters = [],
 }: DaftarUjianClientProps) {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
@@ -194,18 +197,15 @@ export default function DaftarUjianClient({
   };
 
   const handleOpenUlanganModal = () => {
-    setActiveModalTab("ulangan");
-    setIsFullScreenModalOpen(true);
+    setSelectedCategoryModal("ulangan");
   };
 
   const handleOpenUjianModal = () => {
-    setActiveModalTab("ujian");
-    setIsFullScreenModalOpen(true);
+    setSelectedCategoryModal("ujian");
   };
 
   const handleOpenSimulasiModal = () => {
-    setActiveModalTab("simulasi");
-    setIsFullScreenModalOpen(true);
+    setSelectedCategoryModal("simulasi");
   };
 
   const handleSelectMapelForExam = (exam: any) => {
@@ -689,13 +689,13 @@ Dr. Hendra Wijaya, M.Pd.
           </div>
 
           {/* PDF Scrollable Paper Canvas */}
-          <div className="bg-slate-100 p-3 sm:p-5 max-h-[380px] overflow-y-auto custom-scrollbar flex justify-center">
+          <div className="bg-slate-200/80 p-4 sm:p-8 max-h-[640px] overflow-y-auto custom-scrollbar flex flex-col items-center">
             <div
               style={{
                 transform: `scale(${zoomScale / 100})`,
                 transformOrigin: "top center",
               }}
-              className="bg-white text-slate-800 shadow-lg rounded-xl border border-slate-200/90 w-full max-w-4xl p-5 sm:p-7 space-y-5 transition-transform duration-150"
+              className="bg-white text-slate-800 shadow-2xl rounded-2xl border border-slate-300 w-full max-w-4xl p-6 sm:p-10 space-y-6 shrink-0 h-auto min-h-fit mb-8 transition-transform duration-150"
             >
               {/* KOP SURAT */}
               <div className="border-b-2 border-slate-900 pb-3">
@@ -739,95 +739,95 @@ Dr. Hendra Wijaya, M.Pd.
               </div>
 
               {/* TABEL JADWAL LENGKAP */}
-              <div className="overflow-x-auto border border-slate-200 rounded-lg">
-                <table className="w-full text-left text-[11px] border-collapse">
+              <div className="overflow-x-auto border border-slate-200 rounded-xl bg-white shadow-xs">
+                <table className="w-full text-left text-[11px] border-collapse bg-white">
                   <thead>
                     <tr className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
-                      <th className="py-2 px-2.5 text-center w-8">No</th>
-                      <th className="py-2 px-2.5">Hari, Tanggal</th>
-                      <th className="py-2 px-2.5">Waktu (WIB)</th>
-                      <th className="py-2 px-2.5">Mata Pelajaran</th>
-                      <th className="py-2 px-2.5">Jenis Asesmen</th>
-                      <th className="py-2 px-2.5">Media / Ruang</th>
-                      <th className="py-2 px-2.5 text-center">KKM</th>
+                      <th className="py-2.5 px-3 text-center w-8 bg-slate-100">No</th>
+                      <th className="py-2.5 px-3 bg-slate-100">Hari, Tanggal</th>
+                      <th className="py-2.5 px-3 bg-slate-100">Waktu (WIB)</th>
+                      <th className="py-2.5 px-3 bg-slate-100">Mata Pelajaran</th>
+                      <th className="py-2.5 px-3 bg-slate-100">Jenis Asesmen</th>
+                      <th className="py-2.5 px-3 bg-slate-100">Media / Ruang</th>
+                      <th className="py-2.5 px-3 text-center bg-slate-100">KKM</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 text-slate-700">
-                    <tr className="hover:bg-slate-50/70">
-                      <td className="py-2 px-2.5 text-center font-bold">1</td>
-                      <td className="py-2 px-2.5 font-semibold">Senin, 22 Sep 2026</td>
-                      <td className="py-2 px-2.5 font-mono text-[10px]">07.30 - 09.00</td>
-                      <td className="py-2 px-2.5 font-bold text-slate-900">Matematika Terpadu</td>
-                      <td className="py-2 px-2.5"><span className="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 font-bold border border-indigo-200 text-[10px]">Ujian (PTS)</span></td>
-                      <td className="py-2 px-2.5">Lab CBT 1 / Thinksy</td>
-                      <td className="py-2 px-2.5 text-center font-bold">75</td>
+                  <tbody className="divide-y divide-slate-100 text-slate-700 bg-white">
+                    <tr className="bg-white hover:bg-slate-50/80">
+                      <td className="py-2.5 px-3 text-center font-bold">1</td>
+                      <td className="py-2.5 px-3 font-semibold">Senin, 22 Sep 2026</td>
+                      <td className="py-2.5 px-3 font-mono text-[10px]">07.30 - 09.00</td>
+                      <td className="py-2.5 px-3 font-bold text-slate-900">Matematika Terpadu</td>
+                      <td className="py-2.5 px-3"><span className="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 font-bold border border-indigo-200 text-[10px]">Ujian (PTS)</span></td>
+                      <td className="py-2.5 px-3">Lab CBT 1 / Thinksy</td>
+                      <td className="py-2.5 px-3 text-center font-bold">75</td>
                     </tr>
-                    <tr className="hover:bg-slate-50/70">
-                      <td className="py-2 px-2.5 text-center font-bold">2</td>
-                      <td className="py-2 px-2.5 font-semibold">Senin, 22 Sep 2026</td>
-                      <td className="py-2 px-2.5 font-mono text-[10px]">09.30 - 10.30</td>
-                      <td className="py-2 px-2.5 font-bold text-slate-900">Ulangan Harian 1: Aljabar</td>
-                      <td className="py-2 px-2.5"><span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold border border-emerald-200 text-[10px]">Ulangan Harian</span></td>
-                      <td className="py-2 px-2.5">CBT Kelas Mandiri</td>
-                      <td className="py-2 px-2.5 text-center font-bold">75</td>
+                    <tr className="bg-white hover:bg-slate-50/80">
+                      <td className="py-2.5 px-3 text-center font-bold">2</td>
+                      <td className="py-2.5 px-3 font-semibold">Senin, 22 Sep 2026</td>
+                      <td className="py-2.5 px-3 font-mono text-[10px]">09.30 - 10.30</td>
+                      <td className="py-2.5 px-3 font-bold text-slate-900">Ulangan Harian 1: Aljabar</td>
+                      <td className="py-2.5 px-3"><span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold border border-emerald-200 text-[10px]">Ulangan Harian</span></td>
+                      <td className="py-2.5 px-3">CBT Kelas Mandiri</td>
+                      <td className="py-2.5 px-3 text-center font-bold">75</td>
                     </tr>
-                    <tr className="hover:bg-slate-50/70">
-                      <td className="py-2 px-2.5 text-center font-bold">3</td>
-                      <td className="py-2 px-2.5 font-semibold">Selasa, 23 Sep 2026</td>
-                      <td className="py-2 px-2.5 font-mono text-[10px]">07.30 - 09.00</td>
-                      <td className="py-2 px-2.5 font-bold text-slate-900">Bahasa Indonesia</td>
-                      <td className="py-2 px-2.5"><span className="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 font-bold border border-indigo-200 text-[10px]">Ujian (PTS)</span></td>
-                      <td className="py-2 px-2.5">Lab CBT 1 / Thinksy</td>
-                      <td className="py-2 px-2.5 text-center font-bold">75</td>
+                    <tr className="bg-white hover:bg-slate-50/80">
+                      <td className="py-2.5 px-3 text-center font-bold">3</td>
+                      <td className="py-2.5 px-3 font-semibold">Selasa, 23 Sep 2026</td>
+                      <td className="py-2.5 px-3 font-mono text-[10px]">07.30 - 09.00</td>
+                      <td className="py-2.5 px-3 font-bold text-slate-900">Bahasa Indonesia</td>
+                      <td className="py-2.5 px-3"><span className="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 font-bold border border-indigo-200 text-[10px]">Ujian (PTS)</span></td>
+                      <td className="py-2.5 px-3">Lab CBT 1 / Thinksy</td>
+                      <td className="py-2.5 px-3 text-center font-bold">75</td>
                     </tr>
-                    <tr className="hover:bg-slate-50/70">
-                      <td className="py-2 px-2.5 text-center font-bold">4</td>
-                      <td className="py-2 px-2.5 font-semibold">Selasa, 23 Sep 2026</td>
-                      <td className="py-2 px-2.5 font-mono text-[10px]">09.30 - 10.30</td>
-                      <td className="py-2 px-2.5 font-bold text-slate-900">Ulangan Harian: Teks LHO</td>
-                      <td className="py-2 px-2.5"><span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold border border-emerald-200 text-[10px]">Ulangan Harian</span></td>
-                      <td className="py-2 px-2.5">CBT Kelas Mandiri</td>
-                      <td className="py-2 px-2.5 text-center font-bold">75</td>
+                    <tr className="bg-white hover:bg-slate-50/80">
+                      <td className="py-2.5 px-3 text-center font-bold">4</td>
+                      <td className="py-2.5 px-3 font-semibold">Selasa, 23 Sep 2026</td>
+                      <td className="py-2.5 px-3 font-mono text-[10px]">09.30 - 10.30</td>
+                      <td className="py-2.5 px-3 font-bold text-slate-900">Ulangan Harian: Teks LHO</td>
+                      <td className="py-2.5 px-3"><span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold border border-emerald-200 text-[10px]">Ulangan Harian</span></td>
+                      <td className="py-2.5 px-3">CBT Kelas Mandiri</td>
+                      <td className="py-2.5 px-3 text-center font-bold">75</td>
                     </tr>
-                    <tr className="hover:bg-slate-50/70">
-                      <td className="py-2 px-2.5 text-center font-bold">5</td>
-                      <td className="py-2 px-2.5 font-semibold">Rabu, 24 Sep 2026</td>
-                      <td className="py-2 px-2.5 font-mono text-[10px]">07.30 - 09.00</td>
-                      <td className="py-2 px-2.5 font-bold text-slate-900">Bahasa Inggris</td>
-                      <td className="py-2 px-2.5"><span className="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 font-bold border border-indigo-200 text-[10px]">Ujian (PTS)</span></td>
-                      <td className="py-2 px-2.5">Lab CBT 2 / Thinksy</td>
-                      <td className="py-2 px-2.5 text-center font-bold">75</td>
+                    <tr className="bg-white hover:bg-slate-50/80">
+                      <td className="py-2.5 px-3 text-center font-bold">5</td>
+                      <td className="py-2.5 px-3 font-semibold">Rabu, 24 Sep 2026</td>
+                      <td className="py-2.5 px-3 font-mono text-[10px]">07.30 - 09.00</td>
+                      <td className="py-2.5 px-3 font-bold text-slate-900">Bahasa Inggris</td>
+                      <td className="py-2.5 px-3"><span className="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 font-bold border border-indigo-200 text-[10px]">Ujian (PTS)</span></td>
+                      <td className="py-2.5 px-3">Lab CBT 2 / Thinksy</td>
+                      <td className="py-2.5 px-3 text-center font-bold">75</td>
                     </tr>
-                    <tr className="hover:bg-slate-50/70">
-                      <td className="py-2 px-2.5 text-center font-bold">6</td>
-                      <td className="py-2 px-2.5 font-semibold">Rabu, 24 Sep 2026</td>
-                      <td className="py-2 px-2.5 font-mono text-[10px]">09.30 - 10.30</td>
-                      <td className="py-2 px-2.5 font-bold text-slate-900">Ulangan Harian: Descriptive Text</td>
-                      <td className="py-2 px-2.5"><span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold border border-emerald-200 text-[10px]">Ulangan Harian</span></td>
-                      <td className="py-2 px-2.5">CBT Kelas Mandiri</td>
-                      <td className="py-2 px-2.5 text-center font-bold">75</td>
+                    <tr className="bg-white hover:bg-slate-50/80">
+                      <td className="py-2.5 px-3 text-center font-bold">6</td>
+                      <td className="py-2.5 px-3 font-semibold">Rabu, 24 Sep 2026</td>
+                      <td className="py-2.5 px-3 font-mono text-[10px]">09.30 - 10.30</td>
+                      <td className="py-2.5 px-3 font-bold text-slate-900">Ulangan Harian: Descriptive Text</td>
+                      <td className="py-2.5 px-3"><span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold border border-emerald-200 text-[10px]">Ulangan Harian</span></td>
+                      <td className="py-2.5 px-3">CBT Kelas Mandiri</td>
+                      <td className="py-2.5 px-3 text-center font-bold">75</td>
                     </tr>
-                    <tr className="hover:bg-slate-50/70">
-                      <td className="py-2 px-2.5 text-center font-bold">7</td>
-                      <td className="py-2 px-2.5 font-semibold">Kamis, 25 Sep 2026</td>
-                      <td className="py-2 px-2.5 font-mono text-[10px]">08.00 - 09.30</td>
-                      <td className="py-2 px-2.5 font-bold text-slate-900">Simulasi Asesmen Nasional (ANBK)</td>
-                      <td className="py-2 px-2.5"><span className="px-2 py-0.5 rounded bg-amber-50 text-amber-700 font-bold border border-amber-200 text-[10px]">Simulasi Mandiri</span></td>
-                      <td className="py-2 px-2.5">Aplikasi Thinksy AI</td>
-                      <td className="py-2 px-2.5 text-center font-bold">70</td>
+                    <tr className="bg-white hover:bg-slate-50/80">
+                      <td className="py-2.5 px-3 text-center font-bold">7</td>
+                      <td className="py-2.5 px-3 font-semibold">Kamis, 25 Sep 2026</td>
+                      <td className="py-2.5 px-3 font-mono text-[10px]">08.00 - 09.30</td>
+                      <td className="py-2.5 px-3 font-bold text-slate-900">Simulasi Asesmen Nasional (ANBK)</td>
+                      <td className="py-2.5 px-3"><span className="px-2 py-0.5 rounded bg-amber-50 text-amber-700 font-bold border border-amber-200 text-[10px]">Simulasi Mandiri</span></td>
+                      <td className="py-2.5 px-3">Aplikasi Thinksy AI</td>
+                      <td className="py-2.5 px-3 text-center font-bold">70</td>
                     </tr>
                   </tbody>
                 </table>
               </div>
 
               {/* TATA TERTIB CBT & PENGESAHAN */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 text-[11px] text-slate-600">
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 pb-2 text-[11px] text-slate-600 bg-white">
+                <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-1.5">
                   <div className="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
-                    <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+                    <ShieldCheck className="w-4 h-4 text-blue-600" />
                     <span>Tata Tertib & Ketentuan CBT:</span>
                   </div>
-                  <ol className="list-decimal list-inside space-y-0.5 text-[10px] text-slate-600 leading-normal">
+                  <ol className="list-decimal list-inside space-y-1 text-[10px] text-slate-600 leading-normal">
                     <li>Siswa wajib login di aplikasi Thinksy 15 menit sebelum waktu asesmen.</li>
                     <li>Gunakan nomor identitas resmi NISN: <span className="font-mono font-bold text-slate-800">{userProfile.nisn || "0089218291"}</span>.</li>
                     <li>Ujian & Ulangan bersifat privat — akses pengerjaan dikontrol resmi (ON/OFF) oleh Admin Sekolah.</li>
@@ -836,13 +836,13 @@ Dr. Hendra Wijaya, M.Pd.
                   </ol>
                 </div>
 
-                <div className="flex flex-col justify-between items-end text-right px-2">
+                <div className="flex flex-col justify-between items-end text-right px-2 py-1">
                   <div className="space-y-0.5">
                     <p className="text-[10px] text-slate-500">Ditetapkan di Jakarta, 21 September 2026</p>
                     <p className="font-bold text-slate-800 text-xs">Kepala Sekolah & Panitia Asesmen,</p>
                   </div>
-                  <div className="my-1 flex items-center justify-end gap-2">
-                    <div className="px-2.5 py-1 rounded border border-emerald-500/40 bg-emerald-50 text-emerald-800 font-mono text-[9px] font-bold uppercase tracking-wider text-center">
+                  <div className="my-2 flex items-center justify-end gap-2">
+                    <div className="px-3 py-1 rounded-md border border-emerald-500/40 bg-emerald-50 text-emerald-800 font-mono text-[9px] font-bold uppercase tracking-wider text-center">
                       ✓ TERVERIFIKASI SISTEM PUSAT CBT
                     </div>
                   </div>
@@ -941,12 +941,12 @@ Dr. Hendra Wijaya, M.Pd.
             {/* CARD 1: ULANGAN HARIAN */}
             <div
               onClick={handleOpenUlanganModal}
-              className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-sm flex flex-col justify-between space-y-6 hover:shadow-md hover:border-emerald-300 transition duration-200 cursor-pointer group h-full"
+              className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-sm flex flex-col justify-between space-y-6 hover:shadow-md hover:border-indigo-300 transition duration-200 cursor-pointer group h-full"
             >
               <div className="space-y-4">
                 <div className="flex items-start justify-between gap-3">
-                  <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-extrabold border border-emerald-100 group-hover:scale-105 transition shrink-0">
-                    <BookOpenCheck className="w-7 h-7" />
+                  <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-extrabold border border-indigo-100 group-hover:scale-105 transition shrink-0">
+                    <BookOpen className="w-7 h-7" />
                   </div>
 
                   <div className="flex flex-col items-end gap-1.5 shrink-0">
@@ -973,7 +973,7 @@ Dr. Hendra Wijaya, M.Pd.
                 </div>
 
                 <div>
-                  <h3 className="text-xl font-extrabold text-[#0F172A] group-hover:text-emerald-700 transition">
+                  <h3 className="text-xl font-extrabold text-[#0F172A] group-hover:text-indigo-600 transition">
                     Ulangan Harian
                   </h3>
                   <p className="text-xs text-slate-500 font-medium mt-0.5">
@@ -988,14 +988,14 @@ Dr. Hendra Wijaya, M.Pd.
                 {/* Info Chips */}
                 <div className="pt-2 grid grid-cols-2 gap-3 text-xs text-slate-600">
                   <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 flex items-center gap-2.5">
-                    <Clock className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <Clock className="w-4 h-4 text-indigo-600 shrink-0" />
                     <div>
                       <div className="text-[10px] text-slate-400 font-medium">Durasi Pengerjaan</div>
                       <div className="font-extrabold text-[#0F172A] text-xs">60 Menit</div>
                     </div>
                   </div>
                   <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 flex items-center gap-2.5">
-                    <Award className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <Award className="w-4 h-4 text-indigo-600 shrink-0" />
                     <div>
                       <div className="text-[10px] text-slate-400 font-medium">Standar KKM</div>
                       <div className="font-extrabold text-[#0F172A] text-xs">Nilai 75</div>
@@ -1018,9 +1018,9 @@ Dr. Hendra Wijaya, M.Pd.
                     e.stopPropagation();
                     handleOpenUlanganModal();
                   }}
-                  className="w-full py-3.5 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold flex items-center justify-center gap-2 transition shadow-xs group-hover:shadow-md"
+                  className="w-full py-3.5 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold flex items-center justify-center gap-2 transition shadow-xs group-hover:shadow-md cursor-pointer"
                 >
-                  <PlayCircle className="w-4 h-4" />
+                  <PlayCircle className="w-4 h-4 text-amber-300 shrink-0" />
                   <span>Buka Daftar Ulangan ({ulanganExams.length} Mapel)</span>
                   <ChevronRight className="w-4 h-4 ml-auto" />
                 </button>
@@ -1119,586 +1119,17 @@ Dr. Hendra Wijaya, M.Pd.
       </div>
     </div>
 
-      {/* 5. FULL SCREEN MODAL: DAFTAR MAPEL SESUAI CARD (TEMA PUTIH & ELEGAN) */}
-      {isFullScreenModalOpen && (
-        <div className="fixed inset-0 z-50 bg-[#F8FAFC] flex flex-col text-slate-900 overflow-y-auto custom-scrollbar animate-in fade-in duration-200">
-          {/* Sticky Top Bar Navigation */}
-          <header className="bg-white border-b border-slate-200/90 px-4 sm:px-8 py-3.5 flex items-center justify-between shadow-2xs sticky top-0 z-20">
-            <div className="flex items-center gap-3">
-              <div
-                className={`w-10 h-10 rounded-2xl flex items-center justify-center font-extrabold shrink-0 border ${
-                  activeModalTab === "simulasi"
-                    ? "bg-amber-50 text-amber-600 border-amber-200"
-                    : activeModalTab === "ulangan"
-                    ? "bg-emerald-50 text-emerald-600 border-emerald-200"
-                    : "bg-indigo-50 text-indigo-600 border-indigo-200"
-                }`}
-              >
-                {activeModalTab === "simulasi" ? (
-                  <Sparkles className="w-5 h-5" />
-                ) : activeModalTab === "ulangan" ? (
-                  <BookOpenCheck className="w-5 h-5" />
-                ) : (
-                  <Award className="w-5 h-5" />
-                )}
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 truncate max-w-[150px] sm:max-w-none">
-                    {sekolahData?.nama || "SMP LABSCHOOL JAKARTA"}
-                  </span>
-                  <span className="text-[10px] text-slate-500 font-medium hidden sm:inline">
-                    • {activeModalTab === "simulasi" ? "Simulasi Terbuka AKM" : `TA ${userProfile.tahun_ajaran || "2026/2027"}`}
-                  </span>
-                </div>
-                <h2 className="text-xs sm:text-base font-extrabold text-[#0F172A] tracking-tight truncate">
-                  {activeModalTab === "simulasi"
-                    ? "Modul Simulasi Mandiri (AKM / ANBK)"
-                    : activeModalTab === "ulangan"
-                    ? "Daftar Ulangan Harian"
-                    : "Daftar Ujian Semester (PTS/PAS)"}
-                </h2>
-              </div>
-            </div>
-
-            {/* Controls: Fullscreen Toggle & Close Button */}
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={toggleBrowserFullscreen}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-xs font-bold transition cursor-pointer"
-                title={isBrowserFullscreen ? "Keluar Fullscreen" : "Mode Layar Penuh (Fullscreen)"}
-              >
-                {isBrowserFullscreen ? (
-                  <>
-                    <Minimize2 className="w-4 h-4 text-amber-600" />
-                    <span className="hidden sm:inline">Normal</span>
-                  </>
-                ) : (
-                  <>
-                    <Maximize2 className="w-4 h-4 text-slate-600" />
-                    <span className="hidden sm:inline">Layar Penuh</span>
-                  </>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setIsFullScreenModalOpen(false)}
-                className="p-2 rounded-xl bg-slate-100 hover:bg-rose-50 text-slate-500 hover:text-rose-600 border border-slate-200 transition cursor-pointer"
-                title="Tutup Halaman"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-          </header>
-
-          {/* Main Content Area: Generous top margin */}
-          <div className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-8 pt-10 sm:pt-14 md:pt-16 pb-24 space-y-6 sm:space-y-8">
-            {/* Header Title Section with breathing room */}
-            <div className="saas-card rounded-3xl p-6 sm:p-8 bg-white border border-slate-200/90 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
-              <div className="space-y-2 max-w-2xl">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span
-                    className={`text-[10px] font-extrabold px-3 py-1 rounded-full border ${
-                      activeModalTab === "simulasi"
-                        ? "bg-amber-50 text-amber-800 border-amber-200"
-                        : activeModalTab === "ulangan"
-                        ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                        : "bg-indigo-50 text-indigo-800 border-indigo-200"
-                    }`}
-                  >
-                    {activeModalTab === "simulasi"
-                      ? "AKM & Asesmen Nasional"
-                      : activeModalTab === "ulangan"
-                      ? "Asesmen Formatif"
-                      : "Evaluasi Sumatif Rapor"}
-                  </span>
-                  <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1">
-                    {activeModalTab === "simulasi" ? (
-                      <>
-                        <Sparkles className="w-2.5 h-2.5 text-amber-500" />
-                        <span>Bebas Akses Terbuka</span>
-                      </>
-                    ) : (
-                      <>
-                        <Lock className="w-2.5 h-2.5 text-slate-500" />
-                        <span>Privat Sekolah</span>
-                      </>
-                    )}
-                  </span>
-                </div>
-
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0F172A] tracking-tight">
-                  {activeModalTab === "simulasi"
-                    ? "Modul Simulasi Mandiri (AKM / ANBK)"
-                    : activeModalTab === "ulangan"
-                    ? "Daftar Ulangan Harian"
-                    : "Daftar Ujian Semester (PTS/PAS)"}
-                </h1>
-                <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                  {activeModalTab === "simulasi"
-                    ? "Pilih modul latihan adaptif nasional mandiri terbuka. Mengasah nalar membaca kritis (literasi), pemecahan masalah konteks saintifik (numerasi), dan survei karakter profil pelajar Pancasila."
-                    : activeModalTab === "ulangan"
-                    ? "Pilih mata pelajaran ulangan yang akan dikerjakan. Masukkan password resmi dari Admin/Guru untuk memulai lembar soal."
-                    : "Pilih mata pelajaran ujian semester yang akan dikerjakan. Masukkan password resmi dari Admin/Guru untuk memulai lembar soal."}
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3 shrink-0">
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center gap-3">
-                  <div
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center font-extrabold text-sm ${
-                      activeModalTab === "simulasi"
-                        ? "bg-amber-100 text-amber-700"
-                        : activeModalTab === "ulangan"
-                        ? "bg-emerald-100 text-emerald-700"
-                        : "bg-indigo-100 text-indigo-700"
-                    }`}
-                  >
-                    {activeModalTab === "simulasi" ? (
-                      <Sparkles className="w-5 h-5" />
-                    ) : activeModalTab === "ulangan" ? (
-                      <BookOpenCheck className="w-5 h-5" />
-                    ) : (
-                      <Award className="w-5 h-5" />
-                    )}
-                  </div>
-                  <div>
-                    <div className="text-xs font-extrabold text-[#0F172A]">
-                      {activeModalTab === "simulasi"
-                        ? `${SIMULASI_MODULES.length} Modul Latihan`
-                        : `${(activeModalTab === "ulangan" ? ulanganExams : ujianExams).length} Mata Pelajaran`}
-                    </div>
-                    <div className="text-[10px] text-slate-500 font-medium">
-                      {activeModalTab === "simulasi" ? "Latihan Mandiri Terbuka" : `Tingkat ${userProfile.nama_kelas || "Kelas 8"}`}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Instruction Notice Banner */}
-            {activeModalTab === "simulasi" ? (
-              <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200 text-xs text-amber-950 flex items-center justify-between gap-3 shadow-2xs">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
-                  <span>
-                    <strong>Simulasi Terbuka Adaptif:</strong> Soal disusun secara acak terkait materi ulangan & ujian untuk menguji kesiapan asesmen mandiri. Bebas akses tanpa batasan token.
-                  </span>
-                </div>
-                <div className="hidden sm:flex items-center gap-1.5 text-[11px] font-bold text-amber-800 shrink-0">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                  <span>Didampingi Tutor AI Sokratik</span>
-                </div>
-              </div>
-            ) : (
-              <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200 text-xs text-amber-950 flex items-center justify-between gap-3 shadow-2xs">
-                <div className="flex items-center gap-2">
-                  <Lock className="w-4 h-4 text-amber-600 shrink-0" />
-                  <span>
-                    <strong>Asesmen Terproteksi Password:</strong> Klik pada kartu mapel untuk memasukkan password ujian resmi dari Admin Sekolah (Password sementara: <strong>12345</strong>).
-                  </span>
-                </div>
-                <div className="hidden sm:flex items-center gap-1.5 text-[11px] font-bold text-amber-800 shrink-0">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                  <span>Didampingi Tutor AI Sokratik</span>
-                </div>
-              </div>
-            )}
-
-            {/* Grid of Subject Cards */}
-            {activeModalTab === "simulasi" ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
-                {SIMULASI_MODULES.map((sim) => (
-                  <div
-                    key={sim.id}
-                    onClick={() => {
-                      setIsFullScreenModalOpen(false);
-                      router.push(`/ujian/${sim.id}?start=true`);
-                    }}
-                    className="bg-white rounded-3xl p-6 sm:p-7 border border-amber-200/80 hover:border-amber-400 transition duration-200 flex flex-col justify-between space-y-5 cursor-pointer shadow-sm hover:shadow-md hover:-translate-y-0.5 group h-full"
-                  >
-                    <div className="space-y-3.5">
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <span className="text-[11px] font-extrabold px-3 py-1 rounded-xl bg-slate-100 text-slate-800 border border-slate-200 flex items-center gap-1.5">
-                          <BookOpen className="w-3.5 h-3.5 text-slate-500" />
-                          <span>{sim.mapel}</span>
-                        </span>
-                        <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border ${sim.badgeColor}`}>
-                          {sim.kategori}
-                        </span>
-                      </div>
-
-                      <div>
-                        <h3 className="text-base sm:text-lg font-extrabold text-[#0F172A] group-hover:text-amber-700 transition leading-snug">
-                          {sim.judul}
-                        </h3>
-                        <p className="text-xs text-slate-500 line-clamp-3 mt-1.5 leading-relaxed">
-                          {sim.deskripsi}
-                        </p>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2.5 text-xs text-slate-600 pt-1">
-                        <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center gap-2">
-                          <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                          <div>
-                            <div className="text-[9px] text-slate-400 font-medium">Durasi</div>
-                            <div className="font-extrabold text-[#0F172A] text-xs">{sim.durasi_menit} Menit</div>
-                          </div>
-                        </div>
-                        <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center gap-2">
-                          <Award className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                          <div>
-                            <div className="text-[9px] text-slate-400 font-medium">Target Soal</div>
-                            <div className="font-extrabold text-[#0F172A] text-xs">{sim.total_soal} Soal AKM</div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 text-[11px] text-slate-500">
-                        <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                        <span>Soal acak terstandar dengan <strong>Tutor AI Sokratik</strong></span>
-                      </div>
-                    </div>
-
-                    <div className="pt-3 border-t border-slate-100">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setIsFullScreenModalOpen(false);
-                          router.push(`/ujian/${sim.id}?start=true`);
-                        }}
-                        className="w-full py-3.5 px-4 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-xs transition flex items-center justify-center gap-2 shadow-xs group-hover:shadow-md cursor-pointer"
-                      >
-                        <PlayCircle className="w-4 h-4" />
-                        <span>Mulai Latihan Simulasi</span>
-                        <ChevronRight className="w-4 h-4 ml-auto" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
-                {(activeModalTab === "ulangan" ? ulanganExams : ujianExams).map((u, idx, arr) => {
-                const isCompleted = u.sessionStatus === "selesai" || u.sessionStatus === "habis_waktu";
-                const isInProgress = u.sessionStatus === "sedang_mengerjakan";
-                const isPassed = u.score !== null && u.score >= u.passing_grade;
-                const isClosed = u.status === "ditutup";
-                const isThirdOnTablet = idx === 2 && arr.length === 3;
-
-                return (
-                  <div
-                    key={u.id}
-                    onClick={() => handleSelectMapelForExam(u)}
-                    className={`bg-white rounded-3xl p-6 sm:p-7 border transition duration-200 flex flex-col justify-between space-y-5 cursor-pointer shadow-sm group h-full ${
-                      isThirdOnTablet ? "md:col-span-2 lg:col-span-1 max-w-xl md:mx-auto w-full" : ""
-                    } ${
-                      isClosed
-                        ? "border-slate-200 opacity-80 hover:border-slate-300"
-                        : isCompleted
-                        ? "border-slate-200 hover:border-emerald-300 hover:shadow-md"
-                        : activeModalTab === "ulangan"
-                        ? "border-slate-200/90 hover:border-emerald-300 hover:shadow-md hover:-translate-y-0.5"
-                        : "border-slate-200/90 hover:border-indigo-300 hover:shadow-md hover:-translate-y-0.5"
-                    }`}
-                  >
-                    <div className="space-y-3.5">
-                      {/* Top Badges */}
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <span className="text-[11px] font-extrabold px-3 py-1 rounded-xl bg-slate-100 text-slate-800 border border-slate-200 flex items-center gap-1.5">
-                          <BookOpen className="w-3.5 h-3.5 text-slate-500" />
-                          <span>{u.mapel || "Matematika"}</span>
-                        </span>
-
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          {isClosed ? (
-                            <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1">
-                              <Lock className="w-2.5 h-2.5 text-rose-500" />
-                              <span>Ditutup (OFF)</span>
-                            </span>
-                          ) : isCompleted ? (
-                            <span
-                              className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1 ${
-                                isPassed
-                                  ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                                  : "bg-rose-50 text-rose-800 border-rose-200"
-                              }`}
-                            >
-                              <CheckCircle2 className="w-3 h-3" />
-                              <span>Nilai: {u.score ?? 0}</span>
-                            </span>
-                          ) : isInProgress ? (
-                            <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1 animate-pulse">
-                              <PlayCircle className="w-2.5 h-2.5" />
-                              <span>Sedang Berlangsung</span>
-                            </span>
-                          ) : (
-                            <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                              <span>Akses Terbuka (ON)</span>
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Title & Description */}
-                      <div>
-                        <h3 className="text-base sm:text-lg font-extrabold text-[#0F172A] group-hover:text-emerald-700 transition leading-snug">
-                          {u.judul}
-                        </h3>
-                        <p className="text-xs text-slate-600 line-clamp-2 mt-1 leading-relaxed">
-                          {u.deskripsi || "Asesmen kompetensi terstandar Kurikulum Merdeka Fase D."}
-                        </p>
-                      </div>
-
-                      {/* Meta Chips */}
-                      <div className="pt-1 grid grid-cols-2 gap-2 text-xs">
-                        <div className="p-2.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center gap-2">
-                          <Clock className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                          <div>
-                            <div className="text-[9px] text-slate-400 font-medium">Durasi</div>
-                            <div className="font-extrabold text-[#0F172A] text-xs">{u.durasi_menit} Menit</div>
-                          </div>
-                        </div>
-                        <div className="p-2.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center gap-2">
-                          <Award className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                          <div>
-                            <div className="text-[9px] text-slate-400 font-medium">Standar KKM</div>
-                            <div className="font-extrabold text-[#0F172A] text-xs">Nilai {u.passing_grade}</div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 text-[11px] text-slate-600 bg-amber-50/60 p-2.5 rounded-2xl border border-amber-200/70">
-                        <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                        <span>Didampingi penalaran <strong>Tutor AI Sokratik</strong></span>
-                      </div>
-                    </div>
-
-                    {/* Action Button */}
-                    <div className="pt-3 border-t border-slate-100">
-                      {isCompleted ? (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            router.push(`/ujian/${u.id}`);
-                          }}
-                          className="w-full py-3 px-4 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition flex items-center justify-center gap-2 border border-slate-200"
-                        >
-                          <Award className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>Lihat Nilai & Evaluasi</span>
-                        </button>
-                      ) : isClosed ? (
-                        <button
-                          disabled
-                          type="button"
-                          className="w-full py-3 px-4 rounded-2xl bg-slate-100 text-slate-400 text-xs font-bold cursor-not-allowed flex items-center justify-center gap-2 border border-slate-200"
-                        >
-                          <Lock className="w-3.5 h-3.5 text-slate-400" />
-                          <span>Akses Ditutup Admin (OFF)</span>
-                        </button>
-                      ) : isInProgress ? (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSelectMapelForExam(u);
-                          }}
-                          className="w-full py-3 px-4 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-xs transition flex items-center justify-center gap-2 shadow-xs"
-                        >
-                          <PlayCircle className="w-4 h-4" />
-                          <span>Lanjutkan Pengerjaan (Input Token)</span>
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSelectMapelForExam(u);
-                          }}
-                          className={`w-full py-3 px-4 rounded-2xl text-white font-extrabold text-xs transition flex items-center justify-center gap-2 shadow-xs ${
-                            activeModalTab === "ulangan"
-                              ? "bg-emerald-600 hover:bg-emerald-700"
-                              : "bg-[#0F172A] hover:bg-[#1E293B]"
-                          }`}
-                        >
-                          <KeyRound className="w-4 h-4 text-amber-300" />
-                          <span>Mulai Kerjakan (Masukkan Token)</span>
-                          <ChevronRight className="w-4 h-4 ml-auto" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* 6. MODAL AUTENTIKASI TOKEN / PASSWORD UJIAN (TEMA PUTIH) */}
-      {selectedExamForToken && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150"
-          onClick={() => {
-            setSelectedExamForToken(null);
-            setTokenError(null);
-          }}
-        >
-          <div
-            className="bg-white border border-slate-200 rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl space-y-5 text-slate-900 relative animate-in zoom-in-95 duration-150"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header Icon & Title */}
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center font-extrabold shrink-0 shadow-2xs">
-                  <KeyRound className="w-6 h-6" />
-                </div>
-                <div>
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800 bg-emerald-100 border border-emerald-200 px-2.5 py-0.5 rounded-full">
-                    Autentikasi Token CBT
-                  </span>
-                  <h3 className="text-base sm:text-lg font-black text-[#0F172A] leading-tight mt-1">
-                    Verifikasi Password Ujian
-                  </h3>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedExamForToken(null);
-                  setTokenError(null);
-                }}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Exam Information Banner */}
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-1 text-xs">
-              <div className="text-[10px] font-extrabold uppercase text-slate-400">Mata Pelajaran:</div>
-              <div className="font-extrabold text-[#0F172A] text-sm">
-                {selectedExamForToken.mapel} • {selectedExamForToken.judul}
-              </div>
-              <div className="flex items-center gap-3 text-slate-500 text-[11px] pt-1">
-                <span>⏱️ {selectedExamForToken.durasi_menit} Menit</span>
-                <span>🎯 KKM: {selectedExamForToken.passing_grade}</span>
-                <span>🔒 Privat Sekolah</span>
-              </div>
-            </div>
-
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Ujian resmi bersifat privat sekolah. Silakan masukkan password / kode token yang didapatkan dari Admin Sekolah atau Pengawas Ruang sebelum membuka lembar soal full screen.
-            </p>
-
-            {/* Input Password / Token */}
-            <div className="space-y-2">
-              <label className="text-[11px] font-extrabold text-slate-700 block">
-                Password / Token Ujian:
-              </label>
-              <div className="relative">
-                <input
-                  type={showTokenPassword ? "text" : "password"}
-                  value={tokenInput}
-                  onChange={(e) => {
-                    setTokenInput(e.target.value);
-                    if (tokenError) setTokenError(null);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      handleVerifyTokenAndProceed();
-                    }
-                  }}
-                  autoFocus
-                  placeholder="Masukkan password token..."
-                  className="w-full px-4 py-3.5 pr-12 rounded-2xl bg-slate-50 border border-slate-300 text-slate-900 placeholder-slate-400 font-mono text-base tracking-widest text-center focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowTokenPassword(!showTokenPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-slate-700 transition"
-                  title={showTokenPassword ? "Sembunyikan" : "Tampilkan Password"}
-                >
-                  {showTokenPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-
-              {/* Quick Helper Default Password */}
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-900">
-                <div className="flex items-center gap-1.5">
-                  <KeyRound className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Password Sementara Admin: <strong>12345</strong></span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTokenInput("12345");
-                    setTokenError(null);
-                  }}
-                  className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] transition"
-                >
-                  Gunakan 12345
-                </button>
-              </div>
-            </div>
-
-            {/* Error Message Alert */}
-            {tokenError && (
-              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-start gap-2 animate-in fade-in duration-150">
-                <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                <span>{tokenError}</span>
-              </div>
-            )}
-
-            {/* Actions */}
-            <div className="flex items-center gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedExamForToken(null);
-                  setTokenError(null);
-                }}
-                className="flex-1 py-3.5 px-4 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition"
-              >
-                Batal
-              </button>
-
-              <button
-                type="button"
-                onClick={handleVerifyTokenAndProceed}
-                disabled={isVerifyingToken || !tokenInput.trim()}
-                className={`flex-1 py-3.5 px-4 rounded-2xl text-white font-extrabold text-xs flex items-center justify-center gap-2 transition shadow-md disabled:opacity-50 cursor-pointer ${
-                  activeModalTab === "ulangan"
-                    ? "bg-emerald-600 hover:bg-emerald-700"
-                    : "bg-[#0F172A] hover:bg-[#1E293B]"
-                }`}
-              >
-                {isVerifyingToken ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin text-white" />
-                    <span>Memverifikasi...</span>
-                  </>
-                ) : (
-                  <>
-                    <PlayCircle className="w-4 h-4 text-amber-300" />
-                    <span>Verifikasi & Masuk Ujian</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-
+      {/* 5. MODAL OVERLAY ASESMEN (ULANGAN, UJIAN, SIMULASI) - REUSABLE COMPONENT */}
+      <AsesmenOverlayModal
+        isOpen={Boolean(selectedCategoryModal)}
+        category={selectedCategoryModal}
+        onClose={() => setSelectedCategoryModal(null)}
+        examsData={examList}
+        allChapters={chapters}
+        sekolahNama={sekolahData?.nama}
+        tingkatKelas={userProfile.nama_kelas || `Kelas ${userProfile.tingkat_kelas || 8}`}
+        onCategoryChange={(cat) => setSelectedCategoryModal(cat)}
+      />
 
       {/* Modals & Controls */}
       <StudentProfileModal
@@ -1715,6 +1146,7 @@ Dr. Hendra Wijaya, M.Pd.
         tahunAjaran={userProfile.tahun_ajaran}
         fotoUrl={userProfile.foto_url}
         sekolahData={sekolahData}
+        onOpenSettings={() => setIsSettingsModalOpen(true)}
       />
 
       <SettingsModal
@@ -1725,6 +1157,7 @@ Dr. Hendra Wijaya, M.Pd.
         tutorGuidanceLevel="sedang"
         setTutorGuidanceLevel={() => {}}
         onSave={() => setIsSettingsModalOpen(false)}
+        onOpenProfileCard={() => setIsProfileModalOpen(true)}
       />
 
       <HelpCenterModal

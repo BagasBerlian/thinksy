@@ -35,6 +35,14 @@ import HelpCenterModal from "./components/modals/HelpCenterModal";
 import ToastNotification from "./components/modals/ToastNotification";
 import GamesHubModal from "@/components/game/GamesHubModal";
 import UnifiedGlobalChatModal from "@/components/chat/UnifiedGlobalChatModal";
+import {
+  getStoredStudentProfile,
+  getStoredStudentPhoto,
+  getStoredThemeMode,
+  getStoredThemeColor,
+  applyTheme,
+  StudentCardProfile,
+} from "@/lib/student-settings";
 
 export default function StudentDashboardClient({
   userProfile,
@@ -53,6 +61,19 @@ export default function StudentDashboardClient({
   const [activeTab, setActiveTab] = useState<
     "Home" | "Belajar" | "Ruang Ujian" | "Peringkat" | "Pencapaian"
   >("Home");
+
+  // Dynamic Student Profile (synced with settings & localStorage)
+  const [profileState, setProfileState] = useState<StudentCardProfile>(() => {
+    return getStoredStudentProfile({
+      nama_lengkap: userProfile?.nama_lengkap || "SYAA PX",
+      nama_kelas: userProfile?.nama_kelas || "Kelas 8",
+      nis: userProfile?.nis || "260481",
+      nisn: userProfile?.nisn || "0089247182",
+      jurusan: userProfile?.jurusan || "Teknik Komputer & Jaringan",
+      tahun_ajaran: userProfile?.tahun_ajaran || "2026/2027",
+      foto_url: userProfile?.foto_url || undefined,
+    });
+  });
 
   // UI Preferences & Themes
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -264,8 +285,9 @@ export default function StudentDashboardClient({
     null
   );
 
-  const studentName = userProfile?.nama_lengkap || "Budi Kartika";
-  const studentEmail = userProfile?.email || "budi.kartika@sekolah.sch.id";
+  const studentName = profileState.nama_lengkap || userProfile?.nama_lengkap || "SYAA PX";
+  const studentEmail = userProfile?.email || "syaa.px@sekolah.sch.id";
+  const studentPhoto = getStoredStudentPhoto(profileState.foto_url || userProfile?.foto_url);
 
   // Effective Time Calculator (incorporating Dev Mock Time)
   const getEffectiveCurrentTime = () => {
@@ -309,13 +331,27 @@ export default function StudentDashboardClient({
   // Mount effects: load persisted theme & remote data
   useEffect(() => {
     try {
-      const savedTheme = localStorage.getItem("thinksy_theme");
-      if (savedTheme === "dark") setIsDarkMode(true);
-      else if (savedTheme === "light") setIsDarkMode(false);
+      const mode = getStoredThemeMode();
+      const color = getStoredThemeColor();
+      setIsDarkMode(mode === "dark" || mode === "dim");
+      applyTheme(mode, color);
 
       const savedGuidance = localStorage.getItem("thinksy_tutor_guidance");
       if (savedGuidance) setTutorGuidanceLevel(savedGuidance);
     } catch {}
+
+    const handleProfileChange = (e: any) => {
+      if (e.detail) {
+        setProfileState(e.detail);
+      }
+    };
+    const handleThemeChange = (e: any) => {
+      if (e.detail?.mode) {
+        setIsDarkMode(e.detail.mode === "dark" || e.detail.mode === "dim");
+      }
+    };
+    window.addEventListener("thinksy_profile_change", handleProfileChange);
+    window.addEventListener("thinksy_theme_change", handleThemeChange);
 
     fetchPresensiStatus();
     fetchNotifications();
@@ -324,6 +360,11 @@ export default function StudentDashboardClient({
     fetchMissions();
     fetchNotes();
     fetchGlobalChat();
+
+    return () => {
+      window.removeEventListener("thinksy_profile_change", handleProfileChange);
+      window.removeEventListener("thinksy_theme_change", handleThemeChange);
+    };
   }, []);
 
   // Auto-refresh leaderboard & pencapaian when student navigates to those tabs
@@ -1224,6 +1265,7 @@ export default function StudentDashboardClient({
         notifications={notifications}
         onMarkAllNotificationsAsRead={handleMarkAllNotificationsAsRead}
         studentName={studentName}
+        studentPhoto={studentPhoto}
         onOpenSettings={() => setIsSettingsModalOpen(true)}
         onOpenHelp={() => setIsHelpModalOpen(true)}
         onOpenProfile={() => setIsProfileModalOpen(true)}
@@ -1329,13 +1371,14 @@ export default function StudentDashboardClient({
         studentEmail={studentEmail}
         learningPoints={learningPoints}
         dailyStreak={dailyStreak}
-        nisn={userProfile.nisn}
-        nis={userProfile.nis}
-        namaKelas={userProfile.nama_kelas}
-        jurusan={userProfile.jurusan}
-        tahunAjaran={userProfile.tahun_ajaran}
-        fotoUrl={userProfile.foto_url}
+        nisn={profileState.nisn || userProfile.nisn}
+        nis={profileState.nis || userProfile.nis}
+        namaKelas={profileState.nama_kelas || userProfile.nama_kelas}
+        jurusan={profileState.jurusan || userProfile.jurusan}
+        tahunAjaran={profileState.tahun_ajaran || userProfile.tahun_ajaran}
+        fotoUrl={studentPhoto}
         sekolahData={sekolahData}
+        onOpenSettings={() => setIsSettingsModalOpen(true)}
       />
 
       <SettingsModal
@@ -1345,7 +1388,12 @@ export default function StudentDashboardClient({
         setIsDarkMode={setIsDarkMode}
         tutorGuidanceLevel={tutorGuidanceLevel}
         setTutorGuidanceLevel={setTutorGuidanceLevel}
+        profileData={profileState}
+        onSaveProfile={(updated) => {
+          setProfileState(updated);
+        }}
         onSave={handleSaveSettings}
+        onOpenProfileCard={() => setIsProfileModalOpen(true)}
       />
 
       <HelpCenterModal

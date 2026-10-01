@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   X,
   Printer,
@@ -10,8 +10,17 @@ import {
   QrCode,
   ShieldCheck,
   Building2,
+  Edit3,
+  Award,
+  Sparkles,
 } from "lucide-react";
 import { SekolahData } from "../../types";
+import {
+  getStoredStudentProfile,
+  getStoredStudentPhoto,
+  DEFAULT_STUDENT_PHOTO,
+  StudentCardProfile,
+} from "@/lib/student-settings";
 
 interface StudentProfileModalProps {
   isOpen: boolean;
@@ -27,6 +36,7 @@ interface StudentProfileModalProps {
   tahunAjaran?: string | null;
   fotoUrl?: string | null;
   sekolahData?: SekolahData | null;
+  onOpenSettings?: () => void;
 }
 
 export default function StudentProfileModal({
@@ -43,12 +53,60 @@ export default function StudentProfileModal({
   tahunAjaran,
   fotoUrl,
   sekolahData,
+  onOpenSettings,
 }: StudentProfileModalProps) {
   const [cardSide, setCardSide] = useState<"front" | "back">("front");
+  const [profileState, setProfileState] = useState<StudentCardProfile>(() => {
+    return getStoredStudentProfile({
+      nama_lengkap: studentName,
+      nama_kelas: namaKelas || undefined,
+      nis: nis || undefined,
+      nisn: nisn || undefined,
+      jurusan: jurusan || undefined,
+      tahun_ajaran: tahunAjaran || undefined,
+      foto_url: fotoUrl || undefined,
+    });
+  });
+
+  // Sinkronisasi data dinamis dari storage / event perubahan
+  useEffect(() => {
+    if (isOpen) {
+      const current = getStoredStudentProfile({
+        nama_lengkap: studentName,
+        nama_kelas: namaKelas || undefined,
+        nis: nis || undefined,
+        nisn: nisn || undefined,
+        jurusan: jurusan || undefined,
+        tahun_ajaran: tahunAjaran || undefined,
+        foto_url: fotoUrl || undefined,
+      });
+      setProfileState(current);
+    }
+
+    const handleProfileChange = (e: any) => {
+      if (e.detail) {
+        setProfileState(e.detail);
+      }
+    };
+    window.addEventListener("thinksy_profile_change", handleProfileChange);
+    return () => {
+      window.removeEventListener("thinksy_profile_change", handleProfileChange);
+    };
+  }, [isOpen, studentName, namaKelas, nis, nisn, jurusan, tahunAjaran, fotoUrl]);
 
   if (!isOpen) return null;
 
-  const initials = studentName
+  const displayName = profileState.nama_lengkap || studentName;
+  const activeClass = profileState.nama_kelas || namaKelas || "Kelas 8";
+  const activeMajor = profileState.jurusan || jurusan || "Teknik Komputer & Jaringan";
+  const activeYear = profileState.tahun_ajaran || tahunAjaran || "2026/2027";
+  const activeNis = profileState.nis || nis || "260481";
+  const activeNisn = profileState.nisn || nisn || "0089247182";
+  const activeBirth = profileState.tempat_tgl_lahir || "Gunungkidul, 12 Agustus 2010";
+  const activeGenderReligion = `${profileState.jenis_kelamin || "Laki-laki"} / ${profileState.agama || "Islam"}`;
+  const displayPhoto = getStoredStudentPhoto(profileState.foto_url || fotoUrl);
+
+  const initials = displayName
     .split(" ")
     .map((n) => n[0])
     .join("")
@@ -64,50 +122,68 @@ export default function StudentProfileModal({
     sekolahData?.alamat ||
     "Jl. Logandeng No. 1, Playen, Gunungkidul, D.I. Yogyakarta 55861";
   const schoolNpsn = sekolahData?.npsn || "20402099";
-  const activeClass = namaKelas || "Kelas 8A";
-  const activeMajor = jurusan || "Teknik Komputer & Jaringan";
-  const activeYear = tahunAjaran || "2026/2027";
-  const activeNis = nis || "260481";
-  const activeNisn = nisn || "0089247182";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-200">
       <div className="relative w-full max-w-2xl bg-slate-100 rounded-3xl shadow-2xl border border-slate-300 overflow-hidden text-slate-900 transition-all flex flex-col max-h-[94vh]">
         {/* MODAL CONTROL HEADER (Non-print) */}
-        <div className="flex items-center justify-between px-6 py-3.5 bg-white border-b border-slate-200 shrink-0 print:hidden">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 bg-white border-b border-slate-200 shrink-0 print:hidden gap-2">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-xs font-black uppercase tracking-wider text-slate-700">
+            <span className="text-xs font-black uppercase tracking-wider text-slate-700 hidden sm:inline">
               Kartu Tanda Pelajar Resmi
+            </span>
+            <span className="text-xs font-black uppercase tracking-wider text-slate-700 sm:hidden">
+              KTPelajar
             </span>
           </div>
 
-          {/* Toggle Sisi Kartu (Depan / Belakang) */}
-          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 border border-slate-200">
-            <button
-              type="button"
-              onClick={() => setCardSide("front")}
-              className={`px-3 py-1 rounded-lg text-xs font-black transition cursor-pointer flex items-center gap-1.5 ${
-                cardSide === "front"
-                  ? "bg-white text-[#0F172A] shadow-xs"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              <Layers className="w-3.5 h-3.5" />
-              <span>Kartu Depan</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setCardSide("back")}
-              className={`px-3 py-1 rounded-lg text-xs font-black transition cursor-pointer flex items-center gap-1.5 ${
-                cardSide === "back"
-                  ? "bg-white text-[#0F172A] shadow-xs"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              <FileText className="w-3.5 h-3.5" />
-              <span>Ketentuan (Belakang)</span>
-            </button>
+          {/* Toggle Sisi Kartu (Depan / Belakang) & Edit Button */}
+          <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-100 border border-slate-200">
+              <button
+                type="button"
+                onClick={() => setCardSide("front")}
+                className={`px-2.5 sm:px-3 py-1 rounded-lg text-xs font-black transition cursor-pointer flex items-center gap-1.5 ${
+                  cardSide === "front"
+                    ? "bg-white text-[#0F172A] shadow-xs"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5" />
+                <span>Kartu Depan</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setCardSide("back")}
+                className={`px-2.5 sm:px-3 py-1 rounded-lg text-xs font-black transition cursor-pointer flex items-center gap-1.5 ${
+                  cardSide === "back"
+                    ? "bg-white text-[#0F172A] shadow-xs"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Ketentuan (Belakang)</span>
+                <span className="sm:hidden">Belakang</span>
+              </button>
+            </div>
+
+            {/* Button Edit Data Kartu (Membuka Pengaturan Layar Normal) */}
+            {onOpenSettings && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenSettings();
+                }}
+                className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 text-xs font-black transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                title="Edit Nama, Kelas, Pasfoto, atau NIS di Pengaturan"
+              >
+                <Edit3 className="w-3.5 h-3.5 text-amber-600" />
+                <span className="hidden sm:inline">Edit Data & Foto</span>
+                <span className="sm:hidden">Edit</span>
+              </button>
+            )}
           </div>
 
           <button
@@ -209,31 +285,19 @@ export default function StudentProfileModal({
               {/* 3. KONTEN IDENTITAS SISWA (PASFOTO + BIODATA TABULAR) */}
               <div className="p-4 sm:p-6 bg-white">
                 <div className="flex flex-col sm:flex-row gap-5 sm:gap-6 items-center sm:items-start">
-                  {/* Kolom Kiri: Pasfoto 3x4 Resmi & Barcode Pelajar */}
+                  {/* Kolom Kiri: Pasfoto 3x4 Resmi, Hologram & Barcode Pelajar */}
                   <div className="flex flex-col items-center shrink-0">
                     <div className="relative">
-                      {/* Pasfoto Resmi Standar 3x4 (Latar Merah Formal Indonesia) */}
+                      {/* Pasfoto Resmi Standar 3x4 (Latar Merah Formal Indonesia - Wajib Ada Fotonya) */}
                       <div className="w-[110px] h-[146px] rounded-md bg-[#C51E1E] border-2 border-slate-700 shadow-sm overflow-hidden flex items-center justify-center relative">
-                        {fotoUrl ? (
-                          <img
-                            src={fotoUrl}
-                            alt={studentName}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex flex-col items-center justify-center text-white bg-[#C51E1E] p-2 select-none">
-                            {/* Siluet Pasfoto Siswa Rapi Berkerah */}
-                            <div className="w-14 h-14 rounded-full bg-white/20 border-2 border-white/40 flex items-center justify-center font-black text-xl text-white shadow-inner mb-2">
-                              {initials}
-                            </div>
-                            <span className="text-[9px] font-black tracking-widest uppercase text-amber-200">
-                              PASFOTO 3X4
-                            </span>
-                            <span className="text-[8px] font-bold text-white/80">
-                              RESMI
-                            </span>
-                          </div>
-                        )}
+                        <img
+                          src={displayPhoto}
+                          alt={displayName}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.src = DEFAULT_STUDENT_PHOTO;
+                          }}
+                        />
                       </div>
 
                       {/* Cap / Stempel Sekolah Fisik Timbul (Warna Ungu Stempel Basah) */}
@@ -251,10 +315,10 @@ export default function StudentProfileModal({
                     </div>
 
                     {/* Barcode Fisik Resmi Siswa (Format 1D Code 128) */}
-                    <div className="mt-4 flex flex-col items-center w-full">
+                    <div className="mt-3 flex flex-col items-center w-full">
                       {/* Simulasi Garis Barcode Presisi */}
                       <div
-                        className="h-8 w-28 bg-white border border-slate-300 px-1 py-0.5 flex items-center justify-between"
+                        className="h-7 w-28 bg-white border border-slate-300 px-1 py-0.5 flex items-center justify-between"
                         title={`Barcode NIS: ${activeNis}`}
                       >
                         <div className="w-[2px] h-full bg-black" />
@@ -273,9 +337,15 @@ export default function StudentProfileModal({
                         <div className="w-[3px] h-full bg-black" />
                         <div className="w-[2px] h-full bg-black" />
                       </div>
-                      <span className="text-[9px] font-mono font-bold text-slate-700 tracking-widest mt-0.5">
+                      <span className="text-[8.5px] font-mono font-bold text-slate-700 tracking-widest mt-0.5">
                         * {activeNis} *
                       </span>
+                    </div>
+
+                    {/* Hologram / Security Seal Pelajar Nasional */}
+                    <div className="mt-2.5 px-2 py-0.5 rounded-md bg-gradient-to-r from-amber-200 via-amber-100 to-amber-300 border border-amber-400/80 text-[7.5px] font-black text-amber-900 tracking-wider flex items-center gap-1 shadow-2xs select-none">
+                      <ShieldCheck className="w-3 h-3 text-amber-700 shrink-0" />
+                      <span>KEMDIKBUD • RESMI</span>
                     </div>
                   </div>
 
@@ -290,7 +360,7 @@ export default function StudentProfileModal({
                           </td>
                           <td className="py-1.5 px-1 font-bold text-slate-700 w-3">:</td>
                           <td className="py-1.5 pl-2 font-black text-[#0F172A] text-sm uppercase tracking-tight">
-                            {studentName}
+                            {displayName}
                           </td>
                         </tr>
 
@@ -305,7 +375,7 @@ export default function StudentProfileModal({
                           </td>
                         </tr>
 
-                        {/* KELAS (DIPERJELAS SESUAI PERINTAH USER) */}
+                        {/* KELAS */}
                         <tr className="bg-amber-50/60">
                           <td className="py-1.5 pr-2 font-black text-amber-950 whitespace-nowrap">
                             Kelas
@@ -339,7 +409,7 @@ export default function StudentProfileModal({
                           </td>
                           <td className="py-1.5 px-1 font-bold text-slate-700">:</td>
                           <td className="py-1.5 pl-2 font-semibold text-slate-800">
-                            Gunungkidul, 12 Agustus 2010
+                            {activeBirth}
                           </td>
                         </tr>
 
@@ -350,7 +420,7 @@ export default function StudentProfileModal({
                           </td>
                           <td className="py-1.5 px-1 font-bold text-slate-700">:</td>
                           <td className="py-1.5 pl-2 font-semibold text-slate-800">
-                            Laki-laki / Islam
+                            {activeGenderReligion}
                           </td>
                         </tr>
 
