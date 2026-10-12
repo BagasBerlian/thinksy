@@ -20,15 +20,6 @@ import {
   Layers,
   FileText,
 } from "lucide-react";
-
-export default function GuruBuatUjianPage() {
-  return (
-    <Suspense fallback={<div className="p-8 text-center text-slate-500 font-bold">Memuat formulir ujian...</div>}>
-      <GuruBuatUjianContent />
-    </Suspense>
-  );
-}
-
 function GuruBuatUjianContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -598,5 +589,19 @@ function GuruBuatUjianContent() {
         </div>
       </form>
     </GuruLayout>
+  );
+}
+
+export default function GuruBuatUjianPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-slate-50">
+          <Loader2 className="w-8 h-8 animate-spin text-[#0B1A2E]" />
+        </div>
+      }
+    >
+      <GuruBuatUjianContent />
+    </Suspense>
   );
 }

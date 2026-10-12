@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import StudentDashboardClient from "./StudentDashboardClient";
@@ -524,20 +525,22 @@ export default async function SiswaDashboardPage() {
   }
 
   return (
-    <StudentDashboardClient
-      userProfile={userProfile}
-      sekolahData={sekolahData}
-      schedulesData={schedules}
-      chapters={chaptersWithProgress}
-      peerStudents={peerStudents}
-      agendasData={agendasData}
-      examsData={examsData}
-      completedQuizCount={completedQuizCount}
-      answeredSoalCount={answeredSoalCount}
-      totalSoalCount={totalSoalCount}
-      learningProgressPercent={learningProgressPercent}
-      classesData={classesData}
-    />
+    <Suspense fallback={null}>
+      <StudentDashboardClient
+        userProfile={userProfile}
+        sekolahData={sekolahData}
+        schedulesData={schedules}
+        chapters={chaptersWithProgress}
+        peerStudents={peerStudents}
+        agendasData={agendasData}
+        examsData={examsData}
+        completedQuizCount={completedQuizCount}
+        answeredSoalCount={answeredSoalCount}
+        totalSoalCount={totalSoalCount}
+        learningProgressPercent={learningProgressPercent}
+        classesData={classesData}
+      />
+    </Suspense>
   );
 }
 

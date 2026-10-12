@@ -122,13 +122,8 @@ export default function StudentDashboardClient({
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
 
-  // UAT Mock Time State (persisted & synced with localStorage)
-  const [mockTime, setMockTime] = useState<string | null>(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("thinksy_mock_time") || null;
-    }
-    return null;
-  });
+  // UAT Mock Time State (persisted & synced with localStorage after mount to prevent hydration mismatch)
+  const [mockTime, setMockTime] = useState<string | null>(null);
   const [isDevMenuOpen, setIsDevMenuOpen] = useState(false);
 
   // Dynamic Last Activity (Chapter or Quiz) synced with localStorage
@@ -198,7 +193,6 @@ export default function StudentDashboardClient({
       setClassroomView("home");
     }
   }, [searchParams]);
-
   // Auto-collapse sidebar on mobile screen on mount
   useEffect(() => {
     if (typeof window !== "undefined" && window.innerWidth < 768) {
@@ -229,8 +223,13 @@ export default function StudentDashboardClient({
     }
   };
 
-  // Sync mockTime across tabs/windows
+  // Sync mockTime across tabs/windows & initial load after mount
   useEffect(() => {
+    try {
+      const saved = localStorage.getItem("thinksy_mock_time") || null;
+      if (saved) setMockTime(saved);
+    } catch {}
+
     const handleMockTimeSync = () => {
       try {
         const saved = localStorage.getItem("thinksy_mock_time") || null;
@@ -398,17 +397,19 @@ export default function StudentDashboardClient({
   const getEffectiveCurrentTime = () => {
     if (mockTime) return mockTime;
     const now = new Date();
-    return now.toLocaleTimeString("id-ID", {
+    const formatter = new Intl.DateTimeFormat("en-GB", {
       timeZone: "Asia/Jakarta",
       hour: "2-digit",
       minute: "2-digit",
       hour12: false,
     });
+    return formatter.format(now);
   };
 
   const getEffectiveMinutes = () => {
     const timeStr = getEffectiveCurrentTime();
-    const [h, m] = timeStr.split(":").map(Number);
+    const normalized = timeStr.replace(".", ":");
+    const [h, m] = normalized.split(":").map(Number);
     return (h || 0) * 60 + (m || 0);
   };
 
