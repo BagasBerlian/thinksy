@@ -117,11 +117,11 @@ export default function StudentProfileModal({
     window.print();
   };
 
-  const schoolName = sekolahData?.nama || "SMK Muhammadiyah 1 Playen";
+  const schoolName = sekolahData?.nama || "SMKS Muhammadiyah Pakem";
   const schoolAddress =
     sekolahData?.alamat ||
-    "Jl. Logandeng No. 1, Playen, Gunungkidul, D.I. Yogyakarta 55861";
-  const schoolNpsn = sekolahData?.npsn || "20402099";
+    "Jl. Pakem - Turi No.23, Area Sawah, Pakembinangun, Kec. Pakem, Kab. Sleman, D.I. Yogyakarta 55582";
+  const schoolNpsn = sekolahData?.npsn || "20401318";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-200">
@@ -343,7 +343,7 @@ export default function StudentProfileModal({
                     </div>
 
                     {/* Hologram / Security Seal Pelajar Nasional */}
-                    <div className="mt-2.5 px-2 py-0.5 rounded-md bg-gradient-to-r from-amber-200 via-amber-100 to-amber-300 border border-amber-400/80 text-[7.5px] font-black text-amber-900 tracking-wider flex items-center gap-1 shadow-2xs select-none">
+                    <div className="mt-2.5 px-2 py-0.5 rounded-md bg-amber-100 border border-amber-300 text-[7.5px] font-black text-amber-900 tracking-wider flex items-center gap-1 shadow-2xs select-none">
                       <ShieldCheck className="w-3 h-3 text-amber-700 shrink-0" />
                       <span>KEMDIKBUD • RESMI</span>
                     </div>
@@ -468,7 +468,7 @@ export default function StudentProfileModal({
                   {/* Blok Tanda Tangan & Stempel Resmi Kepala Sekolah */}
                   <div className="flex flex-col items-center text-center relative shrink-0">
                     <span className="text-[10px] text-slate-600 font-semibold">
-                      Playen, Juli 2026
+                      Pakem, Juli 2026
                     </span>
                     <span className="text-[10px] text-slate-700 font-bold">
                       Kepala Sekolah,
@@ -478,8 +478,8 @@ export default function StudentProfileModal({
                     <div className="relative w-36 h-12 flex items-center justify-center my-0.5">
                       {/* Cap / Stempel Sekolah Biru-Ungu Basah */}
                       <div className="absolute left-1 w-12 h-12 rounded-full border-2 border-indigo-700/75 bg-indigo-50/20 flex flex-col items-center justify-center text-[6px] font-black text-indigo-900 pointer-events-none -rotate-6">
-                        <span>SMK MUH 1</span>
-                        <span className="text-[7px]">PLAYEN</span>
+                        <span>SMK MUH</span>
+                        <span className="text-[7px]">PAKEM</span>
                       </div>
 
                       {/* Simulasi Goresan Tanda Tangan Resmi */}
@@ -577,7 +577,7 @@ export default function StudentProfileModal({
 
                 <div className="flex flex-col items-center sm:items-end text-center sm:text-right">
                   <span className="text-[10px] text-slate-600 font-semibold">
-                    Ditetapkan di Playen, {activeYear.split("/")[0]}
+                    Ditetapkan di Pakem, {activeYear.split("/")[0]}
                   </span>
                   <span className="text-[10px] font-bold text-slate-800">
                     a.n. Kepala Sekolah, Bagian Kesiswaan

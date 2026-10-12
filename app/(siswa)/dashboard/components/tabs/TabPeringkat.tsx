@@ -371,7 +371,7 @@ export default function TabPeringkat({
       <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden">
         {/* TOP 3 PODIUM SECTION (Puncak Prestasi) */}
         {hasTop3 && (
-          <div className="p-5 sm:p-8 bg-gradient-to-b from-slate-50/80 via-slate-50/30 to-white border-b border-slate-100">
+          <div className="p-5 sm:p-8 bg-slate-50/70 border-b border-slate-200">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end max-w-5xl mx-auto pt-3 pb-2">
               {/* Rank 2 (Silver) */}
               {top2 && (
@@ -415,7 +415,7 @@ export default function TabPeringkat({
                   className={`rounded-3xl p-6 border-2 transition-all relative flex flex-col items-center text-center space-y-3 order-1 md:order-2 shadow-md hover:shadow-lg ${
                     top1.isCurrentUser
                       ? "bg-amber-50/90 border-amber-400 ring-4 ring-amber-400/20"
-                      : "bg-gradient-to-b from-amber-50/50 via-white to-amber-50/30 border-amber-300"
+                      : "bg-amber-50/40 border-amber-300"
                   }`}
                 >
                   <div className="absolute -top-3.5 px-3 py-0.5 rounded-full bg-amber-400 text-amber-950 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-sm">

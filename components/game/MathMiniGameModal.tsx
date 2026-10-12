@@ -428,7 +428,7 @@ export default function MathMiniGameModal({ isOpen, onClose }: MathMiniGameModal
                     ? "bg-emerald-50 border-emerald-300 scale-[1.02]"
                     : feedback === "wrong"
                     ? "bg-rose-50 border-rose-300 scale-[0.98]"
-                    : "bg-linear-to-b from-slate-50 to-white border-slate-200 shadow-xs"
+                    : "bg-white border-slate-200 shadow-xs"
                 }`}
               >
                 <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-800 uppercase tracking-wider mb-2">

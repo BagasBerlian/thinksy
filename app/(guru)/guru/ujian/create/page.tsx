@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import GuruLayout from "@/components/guru/GuruLayout";
@@ -22,6 +22,14 @@ import {
 } from "lucide-react";
 
 export default function GuruBuatUjianPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-slate-500 font-bold">Memuat formulir ujian...</div>}>
+      <GuruBuatUjianContent />
+    </Suspense>
+  );
+}
+
+function GuruBuatUjianContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 

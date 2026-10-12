@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { notFound } from "next/navigation";
 import DaftarMateriClient from "./DaftarMateriClient";
 import { generateTextbookModules } from "@/lib/curriculum-textbook-engine";
@@ -13,6 +14,7 @@ export default async function DetailBabPage({
   const { id } = await params;
   const { materiId, view } = await searchParams;
   const supabase = await createClient();
+  const adminSupabase = createAdminClient();
 
   // 1. Ambil data bab dari Supabase
   const { data: babData } = await supabase
@@ -62,28 +64,68 @@ export default async function DetailBabPage({
     }));
   }
 
-  // 2. Hitung progres belajar bab secara nyata dari database
+  // 2. Hitung progres belajar bab & ambil profil serta kelas nyata dari database
   const { data: { user } } = await supabase.auth.getUser();
 
   let answeredCount = 0;
   let totalSoalCount = 0;
+  let studentName = "SYAA PX";
+  let studentPhoto: string | null = null;
+  let namaKelas = `Kelas ${resolvedBab.kelas || 8}`;
 
-  const { count: dbTotalSoal } = await supabase
-    .from("soal_publik")
-    .select("id", { count: "exact", head: true })
-    .eq("bab_id", id);
+  if (user) {
+    // Ambil profil siswa
+    const { data: profil } = await supabase
+      .from("profil")
+      .select("id, nama_lengkap, email, foto_url")
+      .eq("id", user.id)
+      .maybeSingle();
 
-  totalSoalCount = dbTotalSoal || 0;
+    if (profil?.nama_lengkap) {
+      studentName = profil.nama_lengkap;
+    } else if (user.email) {
+      studentName = user.email.split("@")[0];
+    }
+    if (profil?.foto_url) {
+      studentPhoto = profil.foto_url;
+    }
 
-  if (user && totalSoalCount > 0) {
-    const { data: answeredRows } = await supabase
-      .from("jawaban")
-      .select("soal_id, soal_publik!inner(bab_id), sesi!inner(siswa_id)")
-      .eq("sesi.siswa_id", user.id)
-      .eq("soal_publik.bab_id", id);
+    // Ambil kelas siswa dari anggota_kelas
+    const { data: memberKelas } = await adminSupabase
+      .from("anggota_kelas")
+      .select("kelas ( id, nama, nama_kelas, tingkat )")
+      .eq("siswa_id", user.id)
+      .maybeSingle();
 
-    const answeredSet = new Set(answeredRows?.map((r: any) => r.soal_id));
-    answeredCount = answeredSet.size;
+    const rawKelas = (memberKelas as any)?.kelas;
+    if (rawKelas) {
+      const kName = rawKelas.nama_kelas || rawKelas.nama;
+      if (kName) {
+        namaKelas = kName.toLowerCase().startsWith("kelas") ? kName : `Kelas ${kName}`;
+      } else if (rawKelas.tingkat) {
+        namaKelas = `Kelas ${rawKelas.tingkat}`;
+      }
+    } else if (resolvedBab.kelas) {
+      namaKelas = `Kelas ${resolvedBab.kelas}`;
+    }
+
+    const { count: dbTotalSoal } = await supabase
+      .from("soal_publik")
+      .select("id", { count: "exact", head: true })
+      .eq("bab_id", id);
+
+    totalSoalCount = dbTotalSoal || 0;
+
+    if (totalSoalCount > 0) {
+      const { data: answeredRows } = await supabase
+        .from("jawaban")
+        .select("soal_id, soal_publik!inner(bab_id), sesi!inner(siswa_id)")
+        .eq("sesi.siswa_id", user.id)
+        .eq("soal_publik.bab_id", id);
+
+      const answeredSet = new Set(answeredRows?.map((r: any) => r.soal_id));
+      answeredCount = answeredSet.size;
+    }
   }
 
   const chapterProgressPercent = totalSoalCount > 0
@@ -98,6 +140,9 @@ export default async function DetailBabPage({
       urutanBab={resolvedBab.urutan || 1}
       mapel={resolvedBab.mapel || "Matematika"}
       kelas={resolvedBab.kelas || 8}
+      namaKelas={namaKelas}
+      studentName={studentName}
+      studentPhoto={studentPhoto}
       listMateri={listMateri}
       initialMateriId={materiId}
       initialViewMode={(view as "pdf" | "journal" | "modules") || "pdf"}

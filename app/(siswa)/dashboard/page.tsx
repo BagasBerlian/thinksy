@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import StudentDashboardClient from "./StudentDashboardClient";
 import { normalizeMapel } from "@/lib/mapel";
-import { StudentDashboardProps, SekolahData, PeerStudent } from "./types";
+import { StudentDashboardProps, SekolahData, PeerStudent, ClassroomCardItem } from "./types";
 
 export default async function SiswaDashboardPage() {
   const supabase = await createClient();
@@ -92,20 +92,14 @@ export default async function SiswaDashboardPage() {
     const currentPoin = profil?.poin ?? 0;
     const currentStreak = profil?.streak ?? 0;
 
-    // Calculate completed quiz count (sesi kuis/latihan + sesi_ujian resmi)
+    // Calculate completed quiz count (sesi kuis/latihan mandiri)
     const { count: quizDoneCount } = await adminSupabase
       .from("sesi")
       .select("id", { count: "exact", head: true })
       .eq("siswa_id", user.id)
       .eq("status_sesi", "selesai");
 
-    const { count: ujianDoneCount } = await adminSupabase
-      .from("sesi_ujian")
-      .select("id", { count: "exact", head: true })
-      .eq("siswa_id", user.id)
-      .eq("status", "selesai");
-
-    completedQuizCount = (quizDoneCount || 0) + (ujianDoneCount || 0);
+    completedQuizCount = quizDoneCount || 0;
 
     // Calculate dynamic student rank among ALL users with peran = 'siswa' sorted by learning points
     let { data: allStudents } = await adminSupabase
@@ -389,148 +383,8 @@ export default async function SiswaDashboardPage() {
     }));
   }
 
-  // 5. Fetch Ujian & Ulangan untuk Section "AKU LULUS"
-  let examsData: any[] = [];
-  const { data: dbExams } = await adminSupabase
-    .from("ujian")
-    .select(`
-      id,
-      judul,
-      deskripsi,
-      mapel,
-      durasi_menit,
-      passing_grade,
-      waktu_mulai,
-      waktu_berakhir,
-      status,
-      tipe,
-      token,
-      bab_id
-    `)
-    .order("waktu_mulai", { ascending: false });
-
-  let userExamSessions: Record<string, any> = {};
-  if (user) {
-    const { data: sesiList } = await adminSupabase
-      .from("sesi_ujian")
-      .select("id, ujian_id, status, nilai_akhir")
-      .eq("siswa_id", user.id);
-
-    if (sesiList) {
-      sesiList.forEach((s: any) => {
-        userExamSessions[s.ujian_id] = s;
-      });
-    }
-  }
-
-  if (dbExams && dbExams.length > 0) {
-    examsData = dbExams.map((e: any) => {
-      const s = userExamSessions[e.id];
-      return {
-        ...e,
-        tipe: e.tipe || "ujian",
-        token: e.token || "THINKSY26",
-        sessionStatus: s?.status || "belum_mulai",
-        score: s?.nilai_akhir ?? null,
-        sesiId: s?.id,
-        bab_id: e.bab_id || null,
-      };
-    });
-  } else {
-    // Fallback default sample exams if DB is empty
-    examsData = [
-      {
-        id: "e1eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
-        judul: "Ulangan Harian 1: Bilangan Berpangkat & Aljabar",
-        deskripsi: "Evaluasi formatif bab bilangan berpangkat & aljabar.",
-        mapel: "Matematika",
-        durasi_menit: 60,
-        passing_grade: 75,
-        waktu_mulai: new Date().toISOString(),
-        waktu_berakhir: new Date(Date.now() + 30 * 86400000).toISOString(),
-        status: "dipublikasi",
-        tipe: "ulangan",
-        token: "MTK-ULG26",
-        sessionStatus: "belum_mulai",
-        score: null,
-      },
-      {
-        id: "e3eebc99-9c0b-4ef8-bb6d-6bb9bd380a33",
-        judul: "Ulangan Harian: Teks LHO & Kalimat Efektif",
-        deskripsi: "Evaluasi formatif struktur teks LHO & kebahasaan.",
-        mapel: "Bahasa Indonesia",
-        durasi_menit: 60,
-        passing_grade: 75,
-        waktu_mulai: new Date().toISOString(),
-        waktu_berakhir: new Date(Date.now() + 30 * 86400000).toISOString(),
-        status: "dipublikasi",
-        tipe: "ulangan",
-        token: "IND-ULG26",
-        sessionStatus: "belum_mulai",
-        score: null,
-      },
-      {
-        id: "e4eebc99-9c0b-4ef8-bb6d-6bb9bd380a44",
-        judul: "Ulangan Harian: Descriptive Text & Daily Routines",
-        deskripsi: "Evaluasi tenses, vocabulary, and descriptive context.",
-        mapel: "Bahasa Inggris",
-        durasi_menit: 60,
-        passing_grade: 75,
-        waktu_mulai: new Date().toISOString(),
-        waktu_berakhir: new Date(Date.now() + 30 * 86400000).toISOString(),
-        status: "dipublikasi",
-        tipe: "ulangan",
-        token: "ENG-ULG26",
-        sessionStatus: "belum_mulai",
-        score: null,
-      },
-      {
-        id: "e5eebc99-9c0b-4ef8-bb6d-6bb9bd380a55",
-        judul: "Penilaian Tengah Semester (PTS) Matematika Terpadu",
-        deskripsi: "Asesmen sumatif resmi tengah semester mata pelajaran Matematika.",
-        mapel: "Matematika",
-        durasi_menit: 90,
-        passing_grade: 75,
-        waktu_mulai: new Date().toISOString(),
-        waktu_berakhir: new Date(Date.now() + 30 * 86400000).toISOString(),
-        status: "dipublikasi",
-        tipe: "ujian",
-        token: "MTK-PTS26",
-        sessionStatus: "belum_mulai",
-        score: null,
-      },
-      {
-        id: "e6eebc99-9c0b-4ef8-bb6d-6bb9bd380a66",
-        judul: "Penilaian Tengah Semester (PTS) Bahasa Indonesia",
-        deskripsi: "Asesmen sumatif resmi tengah semester mata pelajaran Bahasa Indonesia.",
-        mapel: "Bahasa Indonesia",
-        durasi_menit: 90,
-        passing_grade: 75,
-        waktu_mulai: new Date().toISOString(),
-        waktu_berakhir: new Date(Date.now() + 30 * 86400000).toISOString(),
-        status: "dipublikasi",
-        tipe: "ujian",
-        token: "IND-PTS26",
-        sessionStatus: "belum_mulai",
-        score: null,
-      },
-      {
-        id: "e2eebc99-9c0b-4ef8-bb6d-6bb9bd380a22",
-        judul: "Penilaian Tengah Semester (PTS) Bahasa Inggris",
-        deskripsi: "Asesmen sumatif resmi tengah semester mata pelajaran Bahasa Inggris.",
-        mapel: "Bahasa Inggris",
-        durasi_menit: 90,
-        passing_grade: 75,
-        waktu_mulai: new Date().toISOString(),
-        waktu_berakhir: new Date(Date.now() + 30 * 86400000).toISOString(),
-        status: "dipublikasi",
-        tipe: "ujian",
-        token: "ENG-PTS26",
-        sessionStatus: "belum_mulai",
-        score: null,
-      },
-    ];
-  }
+  // 5. Ujian & Ulangan dinonaktifkan sesuai spesifikasi
+  const examsData: any[] = [];
 
   // Fallback default sample peer avatars if no peers in DB yet
   if (peerStudents.length === 0) {
@@ -547,21 +401,126 @@ export default async function SiswaDashboardPage() {
   if (!sekolahData) {
     sekolahData = {
       id: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
-      nama: "SMK Muhammadiyah Pakem",
-      npsn: "20402099",
-      alamat: "Jl. Pakem - Turi No.23, Area Sawah, Pakembinangun, Kec. Pakem, Kab. Sleman, D.I. Yogyakarta",
+      nama: "SMKS Muhammadiyah Pakem",
+      npsn: "20401318",
+      alamat: "Jl. Pakem - Turi No.23, Area Sawah, Pakembinangun, Kec. Pakem, Kab. Sleman, D.I. Yogyakarta 55582",
       motto: "Pusat Keunggulan & Pesantren Vokasi • Bahagia Bersama",
-      deskripsi: "SMK Muhammadiyah Pakem (MUPA) merupakan Sekolah Pusat Keunggulan dan Sekolah yang mengusung konsep Pesantren Vokasi dengan jurusan unggulan berstandar industri dan teknologi modern.",
-      bg_image_url: "/images/smk-muh-pakem.png",
+      deskripsi: "SMKS Muhammadiyah Pakem (MUPA) merupakan Sekolah Pusat Keunggulan dan Pesantren Vokasi yang berkomitmen mencetak generasi muda berakhlak mulia, terampil, mandiri, dan menguasai keahlian industri masa depan.",
+      bg_image_url: "/images/smk-muh-pakem-gedung.jpg",
       links: [
-        { label: "Website Resmi", url: "https://smkmuhpakem.sch.id/#", icon: "Globe" },
-        { label: "Portal SPMB", url: "https://smkmuhpakem.sch.id/ppdb/", icon: "ExternalLink" },
+        { label: "Website Resmi", url: "https://smkmuhpakem.sch.id", icon: "Globe" },
+        { label: "Portal PPDB", url: "https://smkmuhpakem.sch.id/ppdb/", icon: "ExternalLink" },
         { label: "Instagram", url: "https://www.instagram.com/smkmuhpakem/?hl=id", icon: "Instagram" },
       ],
       jam_masuk: "07:00:00",
       jam_terlambat: "07:15:00",
       jam_tutup: "08:00:00",
     };
+  }
+
+  // 6. Fetch real classes and assigned teachers directly from database (Google Classroom Cards)
+  let classesData: ClassroomCardItem[] = [];
+  try {
+    const { data: rawDbClasses } = await adminSupabase
+      .from("kelas")
+      .select(`
+        id,
+        nama_kelas,
+        wali_kelas_id,
+        profil:wali_kelas_id (
+          id,
+          nama_lengkap,
+          foto_url
+        )
+      `)
+      .order("dibuat_pada", { ascending: true });
+
+    // Also fetch all guru in case a class has no wali_kelas_id
+    const { data: allGurus } = await adminSupabase
+      .from("profil")
+      .select("id, nama_lengkap, foto_url")
+      .eq("peran", "guru")
+      .order("dibuat_pada", { ascending: true });
+
+    const fallbackGuru = allGurus && allGurus.length > 0 ? allGurus[0] : null;
+
+    if (rawDbClasses && rawDbClasses.length > 0) {
+      // Strictly filter to the 3 core subjects in the application
+      const coreMapel = ["Matematika", "Bahasa Indonesia", "Bahasa Inggris"];
+      const displayClasses = rawDbClasses.filter((k) =>
+        coreMapel.some((m) => k.nama_kelas.toLowerCase().includes(m.toLowerCase()))
+      );
+
+      // Sort by coreMapel order
+      displayClasses.sort((a, b) => {
+        const idxA = coreMapel.findIndex((m) => a.nama_kelas.toLowerCase().includes(m.toLowerCase()));
+        const idxB = coreMapel.findIndex((m) => b.nama_kelas.toLowerCase().includes(m.toLowerCase()));
+        return (idxA === -1 ? 99 : idxA) - (idxB === -1 ? 99 : idxB);
+      });
+
+      classesData = displayClasses.map((k: any, idx: number) => {
+        const teacherObj =
+          k.profil || (allGurus ? allGurus[idx % allGurus.length] : fallbackGuru);
+        const namaGuru = teacherObj?.nama_lengkap || "Guru Pengajar";
+        const fotoGuru = teacherObj?.foto_url || null;
+
+        const nk = (k.nama_kelas || "").toLowerCase();
+        let banner_pattern: ClassroomCardItem["banner_pattern"] = "generic";
+        let banner_color = "#4338CA";
+
+        if (nk.includes("matematika") || nk.includes("math")) {
+          banner_pattern = "matematika";
+          banner_color = "#4338CA";
+        } else if (nk.includes("indonesia")) {
+          banner_pattern = "indonesia";
+          banner_color = "#047857";
+        } else if (nk.includes("inggris") || nk.includes("english")) {
+          banner_pattern = "inggris";
+          banner_color = "#0284C7";
+        }
+
+        return {
+          id: k.id,
+          nama_kelas: k.nama_kelas,
+          nama_guru: namaGuru,
+          foto_guru: fotoGuru,
+          banner_color,
+          banner_pattern,
+        };
+      });
+    }
+  } catch (err) {
+    console.error("Error fetching classes from database:", err);
+  }
+
+  // Graceful fallback strictly for the 3 subjects with real teachers from DB
+  if (classesData.length === 0) {
+    classesData = [
+      {
+        id: "class_matematika",
+        nama_kelas: "Matematika",
+        nama_guru: "Ibu Rani Kamayasha, S.Pd.",
+        foto_guru: null,
+        banner_color: "#4338CA",
+        banner_pattern: "matematika",
+      },
+      {
+        id: "class_indonesia",
+        nama_kelas: "Bahasa Indonesia",
+        nama_guru: "Ibu Rani Kamayasha, S.Pd.",
+        foto_guru: null,
+        banner_color: "#047857",
+        banner_pattern: "indonesia",
+      },
+      {
+        id: "class_inggris",
+        nama_kelas: "Bahasa Inggris",
+        nama_guru: "Ibu Siti Rahmawati, M.Pd.",
+        foto_guru: "/images/foto-guru.jpg",
+        banner_color: "#0284C7",
+        banner_pattern: "inggris",
+      },
+    ];
   }
 
   return (
@@ -577,6 +536,7 @@ export default async function SiswaDashboardPage() {
       answeredSoalCount={answeredSoalCount}
       totalSoalCount={totalSoalCount}
       learningProgressPercent={learningProgressPercent}
+      classesData={classesData}
     />
   );
 }

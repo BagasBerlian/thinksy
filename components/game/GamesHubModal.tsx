@@ -430,7 +430,7 @@ export default function GamesHubModal({
         </button>
 
         {/* TOP BANNER */}
-        <div className="relative bg-gradient-to-r from-[#0F172A] via-[#1E293B] to-[#0F172A] text-white px-6 py-5 border-b-4 border-amber-400">
+        <div className="relative bg-[#090D16] text-white px-6 py-5 border-b border-slate-800">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center font-black text-xl shadow-md">
@@ -482,7 +482,7 @@ export default function GamesHubModal({
                 {/* Math Game Card */}
                 <div
                   onClick={() => startGame("math")}
-                  className="p-4 rounded-2xl border-2 border-blue-100 hover:border-blue-500 bg-gradient-to-r from-blue-50/50 to-indigo-50/30 hover:shadow-md transition-all cursor-pointer flex items-center justify-between group"
+                  className="p-4 rounded-2xl border border-blue-200 hover:border-blue-500 bg-white hover:shadow-md transition-all cursor-pointer flex items-center justify-between group"
                 >
                   <div className="flex items-center gap-3.5">
                     <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center text-2xl shadow-md group-hover:scale-105 transition-transform">
@@ -509,7 +509,7 @@ export default function GamesHubModal({
                 {/* English Game Card */}
                 <div
                   onClick={() => startGame("english")}
-                  className="p-4 rounded-2xl border-2 border-purple-100 hover:border-purple-500 bg-gradient-to-r from-purple-50/50 to-pink-50/30 hover:shadow-md transition-all cursor-pointer flex items-center justify-between group"
+                  className="p-4 rounded-2xl border border-purple-200 hover:border-purple-500 bg-white hover:shadow-md transition-all cursor-pointer flex items-center justify-between group"
                 >
                   <div className="flex items-center gap-3.5">
                     <div className="w-12 h-12 rounded-2xl bg-purple-600 text-white flex items-center justify-center text-2xl shadow-md group-hover:scale-105 transition-transform">
@@ -536,7 +536,7 @@ export default function GamesHubModal({
                 {/* Indonesian Game Card */}
                 <div
                   onClick={() => startGame("indonesia")}
-                  className="p-4 rounded-2xl border-2 border-rose-100 hover:border-rose-500 bg-gradient-to-r from-rose-50/50 to-amber-50/30 hover:shadow-md transition-all cursor-pointer flex items-center justify-between group"
+                  className="p-4 rounded-2xl border border-rose-200 hover:border-rose-500 bg-white hover:shadow-md transition-all cursor-pointer flex items-center justify-between group"
                 >
                   <div className="flex items-center gap-3.5">
                     <div className="w-12 h-12 rounded-2xl bg-rose-600 text-white flex items-center justify-center text-2xl shadow-md group-hover:scale-105 transition-transform">
@@ -704,7 +704,7 @@ export default function GamesHubModal({
                   <button
                     onClick={handleClaimReward}
                     disabled={isClaiming || score === 0}
-                    className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-black text-sm shadow-lg hover:shadow-amber-500/30 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                    className="w-full py-3.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-sm shadow-md transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                   >
                     <Award className="w-5 h-5 text-amber-200" />
                     <span>

@@ -51,6 +51,9 @@ export interface DaftarMateriClientProps {
   urutanBab: number;
   mapel?: string;
   kelas?: number;
+  namaKelas?: string;
+  studentName?: string;
+  studentPhoto?: string | null;
   listMateri: MateriItem[];
   initialMateriId?: string;
   initialViewMode?: "pdf" | "journal" | "modules";
@@ -76,6 +79,9 @@ export default function DaftarMateriClient({
   urutanBab,
   mapel = "Matematika",
   kelas = 8,
+  namaKelas,
+  studentName = "SYAA PX",
+  studentPhoto = null,
   listMateri = [],
   initialMateriId,
   initialViewMode = "pdf",
@@ -83,6 +89,47 @@ export default function DaftarMateriClient({
   answeredCount = 0,
   totalSoalCount = 0,
 }: DaftarMateriClientProps) {
+  const displayKelas = namaKelas || (typeof kelas === "string" ? kelas : `Kelas ${kelas}`);
+  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+  const profileDropdownRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        profileDropdownRef.current &&
+        !profileDropdownRef.current.contains(e.target as Node)
+      ) {
+        setIsProfileDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Save last learning activity for Quick Resume & To-do integration
+  useEffect(() => {
+    if (typeof window !== "undefined" && babId && judulBab) {
+      const activity = {
+        type: "bab",
+        id: babId,
+        judul: judulBab,
+        mapel: mapel || "Informatika",
+        link: `/bab/${babId}`,
+        updatedAt: new Date().toISOString(),
+      };
+      try {
+        localStorage.setItem("thinksy_last_activity", JSON.stringify(activity));
+        window.dispatchEvent(new CustomEvent("thinksy_activity_update", { detail: activity }));
+      } catch {}
+    }
+  }, [babId, judulBab, mapel]);
+
+  const initials = studentName
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .substring(0, 2)
+    .toUpperCase();
   // View Modes:
   // "pdf" -> Long-form continuous textbook / PDF reading document
   // "journal" -> Page-by-page interactive digital journal with highlights & margin notes
@@ -294,15 +341,15 @@ export default function DaftarMateriClient({
   }[readingTheme];
 
   const paperClasses = {
-    light: "bg-white border-slate-200/90 shadow-sm text-slate-900",
-    sepia: "bg-[#FFFBF0] border-[#EADFC7] shadow-sm text-[#2C2416]",
-    dark: "bg-[#1E293B] border-slate-800 shadow-md text-slate-100",
+    light: "bg-white shadow-[0_4px_20px_rgba(0,0,0,0.02)] text-slate-900",
+    sepia: "bg-[#FFFBF0] shadow-[0_4px_20px_rgba(0,0,0,0.02)] text-[#2C2416]",
+    dark: "bg-[#1E293B] shadow-[0_4px_20px_rgba(0,0,0,0.02)] text-slate-100",
   }[readingTheme];
 
   const fontSizeClass = {
-    normal: "text-sm sm:text-base leading-relaxed sm:leading-loose",
-    large: "text-base sm:text-lg leading-relaxed sm:leading-loose",
-    xlarge: "text-lg sm:text-xl leading-relaxed sm:leading-loose",
+    normal: "text-sm sm:text-base leading-relaxed text-slate-600 dark:text-slate-300 font-normal",
+    large: "text-base sm:text-lg leading-relaxed text-slate-600 dark:text-slate-300 font-normal",
+    xlarge: "text-base sm:text-lg leading-relaxed text-slate-700 dark:text-slate-200 font-normal",
   }[fontSize];
 
   return (
@@ -316,30 +363,30 @@ export default function DaftarMateriClient({
             ? "bg-slate-900/95 border-slate-800 text-white"
             : readingTheme === "sepia"
             ? "bg-[#F4E8CE]/95 border-[#E5D7B7] text-[#2C2416]"
-            : "bg-white/95 border-slate-200 text-slate-900"
+            : "bg-white/95 border-slate-100 text-slate-900 shadow-2xs"
         }`}
       >
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-3 sm:px-6 py-2.5 sm:py-3 gap-2">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-3 sm:px-6 py-2 sm:py-2.5 gap-2">
           {/* Left: Back Link & Subject Badge */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <Link
               href={`/belajar?mapel=${encodeURIComponent(mapel)}&babId=${babId}`}
-              className={`p-2 rounded-xl border transition flex items-center gap-1.5 text-xs font-bold ${
+              className={`py-1.5 px-3 rounded-lg border transition flex items-center gap-1.5 text-xs font-semibold ${
                 readingTheme === "dark"
                   ? "bg-slate-800 border-slate-700 hover:bg-slate-700 text-white"
-                  : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700"
+                  : "bg-white border-slate-200/70 hover:bg-slate-50 text-slate-700"
               }`}
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="w-3.5 h-3.5" />
               <span className="hidden md:inline">Kembali ke Belajar</span>
             </Link>
 
-            <div className="border-l border-slate-300/50 pl-2 sm:pl-3">
+            <div className="border-l border-slate-200 pl-2 sm:pl-3">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-                  {mapel} • Kelas {kelas}
+                <span className="text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200/70 tracking-wide shadow-2xs">
+                  {mapel} • {displayKelas}
                 </span>
-                <span className="text-xs font-extrabold truncate max-w-[150px] sm:max-w-xs md:max-w-md hidden sm:inline">
+                <span className="text-xs font-semibold truncate max-w-[150px] sm:max-w-xs md:max-w-md hidden sm:inline text-slate-800 dark:text-slate-200">
                   {judulBab}
                 </span>
               </div>
@@ -347,48 +394,48 @@ export default function DaftarMateriClient({
           </div>
 
           {/* Center: Mode Switcher Tabs */}
-          <div className="flex items-center p-1 rounded-2xl bg-slate-100/90 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold">
+          <div className="flex items-center p-1 rounded-xl bg-slate-100/90 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-xs font-semibold">
             <button
               onClick={() => setViewMode("pdf")}
-              className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
                 viewMode === "pdf"
-                  ? "bg-white dark:bg-slate-700 text-[#0F172A] dark:text-white shadow-xs font-extrabold"
-                  : "text-slate-500 hover:text-slate-900 dark:text-slate-400"
+                  ? "bg-blue-600 text-white shadow-xs font-bold"
+                  : "text-slate-600 hover:text-blue-700 dark:text-slate-300"
               }`}
             >
-              <FileText className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+              <FileText className={`w-3.5 h-3.5 ${viewMode === "pdf" ? "text-white" : "text-blue-600 dark:text-blue-400"}`} />
               <span className="hidden sm:inline">Modul Bacaan (PDF)</span>
               <span className="sm:hidden">PDF</span>
             </button>
 
             <button
               onClick={() => setViewMode("journal")}
-              className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
                 viewMode === "journal"
-                  ? "bg-white dark:bg-slate-700 text-[#0F172A] dark:text-white shadow-xs font-extrabold"
-                  : "text-slate-500 hover:text-slate-900 dark:text-slate-400"
+                  ? "bg-blue-600 text-white shadow-xs font-bold"
+                  : "text-slate-600 hover:text-blue-700 dark:text-slate-300"
               }`}
             >
-              <BookOpen className="w-3.5 h-3.5 text-amber-500" />
+              <BookOpen className={`w-3.5 h-3.5 ${viewMode === "journal" ? "text-white" : "text-amber-500"}`} />
               <span className="hidden sm:inline">Jurnal Per Halaman</span>
               <span className="sm:hidden">Jurnal</span>
             </button>
 
             <button
               onClick={() => setViewMode("modules")}
-              className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
                 viewMode === "modules"
-                  ? "bg-white dark:bg-slate-700 text-[#0F172A] dark:text-white shadow-xs font-extrabold"
-                  : "text-slate-500 hover:text-slate-900 dark:text-slate-400"
+                  ? "bg-blue-600 text-white shadow-xs font-bold"
+                  : "text-slate-600 hover:text-blue-700 dark:text-slate-300"
               }`}
             >
-              <List className="w-3.5 h-3.5 text-indigo-500" />
+              <List className={`w-3.5 h-3.5 ${viewMode === "modules" ? "text-white" : "text-blue-600 dark:text-blue-400"}`} />
               <span className="hidden sm:inline">Daftar Modul</span>
               <span className="sm:hidden">Silabus</span>
             </button>
           </div>
 
-          {/* Right: Quick Controls (Theme, Font, Print, AI) */}
+          {/* Right: Quick Controls (Theme, Font, Print, AI, Profile) */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {/* Theme Selector */}
             <div
@@ -478,10 +525,10 @@ export default function DaftarMateriClient({
               <span className="hidden lg:inline">Cetak PDF</span>
             </button>
 
-            {/* Tanya AI Tutor */}
+            {/* Tanya AI Tutor with Agenda Akademik Blue */}
             <button
               onClick={() => setIsAiOpen(!isAiOpen)}
-              className="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+              className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition cursor-pointer"
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-300" />
               <span className="hidden sm:inline">Tanya AI</span>
@@ -490,11 +537,80 @@ export default function DaftarMateriClient({
             {/* Mulai Kuis Bab Top Action Button */}
             <Link
               href={`/quiz/${babId}?mode=inclass&babId=${babId}`}
-              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold flex items-center gap-1.5 shadow-md hover:shadow-emerald-600/30 transition cursor-pointer"
+              className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition cursor-pointer"
             >
-              <CheckCircle2 className="w-4 h-4 text-emerald-200 animate-pulse" />
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-200" />
               <span>Mulai Kuis (10 Soal)</span>
             </Link>
+
+            {/* Profile Dropdown Menu & Student Greeting */}
+            <div className="relative" ref={profileDropdownRef}>
+              <button
+                onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
+                className="flex items-center gap-2 p-1 pl-2 sm:pl-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200/80 dark:border-slate-700 transition cursor-pointer group"
+                title={`Profil Siswa: ${studentName}`}
+              >
+                <div className="text-left hidden xl:block leading-tight">
+                  <div className="text-[10px] text-slate-400 font-semibold">Siswa</div>
+                  <div className="text-xs font-bold text-slate-800 dark:text-white truncate max-w-[110px]">
+                    {studentName.split(" ")[0]}
+                  </div>
+                </div>
+                <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-[11px] shadow-2xs overflow-hidden">
+                  {studentPhoto ? (
+                    <img src={studentPhoto} alt={studentName} className="w-full h-full object-cover" />
+                  ) : (
+                    initials
+                  )}
+                </div>
+                <ChevronDown className="w-3 h-3 text-slate-400 group-hover:text-slate-600 transition" />
+              </button>
+
+              {/* Profile Dropdown Popover */}
+              {isProfileDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-64 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3 z-50 shadow-xl animate-in fade-in duration-150 text-slate-900 dark:text-white">
+                  <div className="p-2.5 rounded-lg bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200/70 dark:border-blue-800 mb-2 flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden shadow-2xs">
+                      {studentPhoto ? (
+                        <img src={studentPhoto} alt={studentName} className="w-full h-full object-cover" />
+                      ) : (
+                        initials
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Sapaan Siswa</div>
+                      <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                        {studentName}
+                      </div>
+                      <div className="text-[10px] text-blue-700 dark:text-blue-300 font-semibold">
+                        {displayKelas}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1 text-xs font-medium">
+                    <Link
+                      href="/dashboard"
+                      className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition"
+                    >
+                      <span>Dashboard Utama</span>
+                    </Link>
+                    <Link
+                      href="/belajar"
+                      className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition"
+                    >
+                      <span>Ruang Belajar</span>
+                    </Link>
+                    <Link
+                      href="/ujian"
+                      className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition"
+                    >
+                      <span>Ruang Ujian</span>
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -510,38 +626,38 @@ export default function DaftarMateriClient({
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             {/* Left Sticky Navigation / Table of Contents (Outline) */}
             <aside className="lg:col-span-3 space-y-4 sticky top-20 hidden lg:block print:hidden">
-              <div className={`p-5 rounded-3xl border ${paperClasses}`}>
-                <div className="flex items-center justify-between pb-3 border-b border-black/5 dark:border-white/5 mb-3">
+              <div className={`p-4 sm:p-5 rounded-xl ${paperClasses}`}>
+                <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 dark:border-slate-800 mb-2.5">
                   <div className="flex items-center gap-2">
                     <BookOpen className="w-4 h-4 text-blue-600" />
-                    <h3 className="text-xs font-extrabold uppercase tracking-wider">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
                       Daftar Isi Bab
                     </h3>
                   </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800">
                     {listMateri.length} Sub-bab
                   </span>
                 </div>
 
-                <nav className="space-y-1.5 max-h-[calc(100vh-280px)] overflow-y-auto pr-1">
+                <nav className="space-y-1 max-h-[calc(100vh-280px)] overflow-y-auto pr-1">
                   {listMateri.map((m, idx) => (
                     <a
                       key={m.id}
                       href={`#subbab-${idx + 1}`}
                       onClick={() => setActiveSubSection(idx)}
-                      className={`w-full text-left p-2.5 rounded-2xl transition flex items-start gap-2.5 text-xs font-bold border ${
+                      className={`w-full text-left p-2 rounded-lg transition flex items-start gap-2 text-xs border ${
                         activeSubSection === idx
-                          ? "bg-[#0F172A] text-white border-slate-900 shadow-xs"
+                          ? "bg-blue-50/90 text-blue-700 border-l-4 border-l-blue-600 border-blue-200/80 font-bold shadow-2xs"
                           : readingTheme === "dark"
-                          ? "hover:bg-slate-800 text-slate-300 border-transparent"
-                          : "hover:bg-slate-100 text-slate-700 border-transparent"
+                          ? "hover:bg-slate-800 text-slate-300 border-transparent font-medium"
+                          : "hover:bg-slate-50 text-slate-600 hover:text-slate-900 border-transparent font-medium"
                       }`}
                     >
                       <span
-                        className={`w-5 h-5 rounded-lg flex items-center justify-center text-[10px] font-extrabold shrink-0 mt-0.5 ${
+                        className={`w-4 h-4 rounded flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5 ${
                           activeSubSection === idx
-                            ? "bg-blue-600 text-white"
-                            : "bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+                            ? "bg-blue-600 text-white shadow-2xs"
+                            : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
                         }`}
                       >
                         {idx + 1}
@@ -552,10 +668,10 @@ export default function DaftarMateriClient({
                 </nav>
 
                 {/* Final Assessment Button */}
-                <div className="pt-4 border-t border-black/5 dark:border-white/5 mt-4">
+                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 mt-3">
                   <Link
                     href={`/quiz/${babId}?mode=inclass&babId=${babId}`}
-                    className="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold flex items-center justify-center gap-2 shadow-xs transition"
+                    className="w-full py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-2xs transition cursor-pointer"
                   >
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-200" />
                     <span>Mulai Kuis Bab (10 Soal)</span>
@@ -571,43 +687,43 @@ export default function DaftarMateriClient({
             >
               {/* E-Book Document Cover Header */}
               <div
-                className={`p-6 sm:p-10 rounded-3xl border relative overflow-hidden transition-all ${paperClasses}`}
+                className={`p-5 sm:p-6 rounded-xl relative overflow-hidden transition-all ${paperClasses}`}
               >
-                {/* Visual Top Ribbon */}
-                <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-blue-600 via-indigo-500 to-amber-500" />
+                {/* Visual Top Architectural Bar */}
+                <div className="absolute top-0 left-0 right-0 h-1 bg-blue-600/80" />
 
-                <div className="space-y-4">
+                <div className="space-y-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wide bg-blue-100 text-blue-800 border border-blue-200 dark:bg-blue-900/50 dark:text-blue-200">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wide bg-blue-50 text-blue-700 border border-blue-200/60 dark:bg-blue-900/40 dark:text-blue-200">
                       <GraduationCap className="w-3.5 h-3.5 text-blue-600" />
                       <span>Kurikulum Merdeka • Fase D</span>
                     </span>
-                    <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-                      {mapel} • Kelas {kelas}
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                      {mapel} • {displayKelas}
                     </span>
-                    <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 border border-amber-300">
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300">
                       Bab {urutanBab}
                     </span>
                   </div>
 
-                  <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight leading-tight">
+                  <h1 className="text-xl sm:text-2xl font-semibold tracking-tight leading-snug text-slate-900 dark:text-white font-heading">
                     {judulBab}
                   </h1>
 
-                  <p className="text-xs sm:text-base text-slate-600 dark:text-slate-400 leading-relaxed max-w-3xl">
+                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed max-w-3xl font-normal">
                     {deskripsiBab ||
                       "Buku teks modul ajar komprehensif memuat apersepsi kontekstual, konsep materi terperinci, formulasi ilmiah/matematis, contoh soal bertahap, dan rangkuman intisari."}
                   </p>
 
-                  <div className="pt-4 border-t border-black/5 dark:border-white/5 flex flex-wrap items-center justify-between gap-4 text-xs font-semibold text-slate-500">
-                    <div className="flex items-center gap-4">
+                  <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs font-medium text-slate-500">
+                    <div className="flex items-center gap-3">
                       <span className="flex items-center gap-1.5">
-                        <Clock className="w-4 h-4 text-slate-400" />
+                        <Clock className="w-3.5 h-3.5 text-slate-400" />
                         <span>Estimasi Baca: {listMateri.length * 20} Menit</span>
                       </span>
                       <span>•</span>
                       <span className="flex items-center gap-1.5">
-                        <Layers className="w-4 h-4 text-slate-400" />
+                        <Layers className="w-3.5 h-3.5 text-slate-400" />
                         <span>{listMateri.length} Bagian Lengkap</span>
                       </span>
                     </div>
@@ -615,7 +731,7 @@ export default function DaftarMateriClient({
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => handleAskAi(`Jelaskan secara ringkas poin penting dari ${judulBab}`)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/40 dark:text-blue-300 font-bold border border-blue-200 dark:border-blue-800 transition cursor-pointer"
+                        className="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/40 dark:text-blue-300 font-semibold text-xs transition cursor-pointer"
                       >
                         <Sparkles className="w-3.5 h-3.5 text-blue-600" />
                         <span>Ringkasan AI</span>
@@ -623,7 +739,7 @@ export default function DaftarMateriClient({
 
                       <button
                         onClick={() => setIsNotesDrawerOpen(true)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 text-amber-800 hover:bg-amber-100 font-bold border border-amber-200 transition cursor-pointer text-xs"
+                        className="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-lg bg-amber-50 text-amber-800 hover:bg-amber-100 font-semibold text-xs transition cursor-pointer"
                       >
                         <MessageSquarePlus className="w-3.5 h-3.5 text-amber-600" />
                         <span>Catatan ({notesList.length})</span>
@@ -639,19 +755,19 @@ export default function DaftarMateriClient({
                   <article
                     key={mod.id}
                     id={`subbab-${idx + 1}`}
-                    className={`p-6 sm:p-10 md:p-12 rounded-3xl border relative transition-all scroll-mt-24 ${paperClasses}`}
+                    className={`p-5 sm:p-6 rounded-xl relative transition-all scroll-mt-24 ${paperClasses}`}
                   >
                     {/* Section Header */}
-                    <div className="flex items-center justify-between border-b border-black/10 dark:border-white/10 pb-4 mb-6">
-                      <div className="flex items-center gap-2">
-                        <span className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-sm shrink-0 shadow-xs">
+                    <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-3 mb-4">
+                      <div className="flex items-center gap-2.5">
+                        <span className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
                           {idx + 1}
                         </span>
                         <div>
-                          <div className="text-[10px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
                             Sub-Bab {idx + 1} dari {listMateri.length}
                           </div>
-                          <h2 className="text-lg sm:text-2xl font-black text-slate-900 dark:text-white">
+                          <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white leading-snug">
                             {mod.judul}
                           </h2>
                         </div>
@@ -659,11 +775,11 @@ export default function DaftarMateriClient({
 
                       <button
                         onClick={() => handleAskAi(`Tolong bantu jelaskan materi ini dengan bahasa sederhana: ${mod.judul}`)}
-                        className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-bold transition text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 cursor-pointer"
-                        title="Tanya AI tentang sub-bab ini"
+                        className="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-lg bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/80 dark:hover:bg-slate-800 text-xs font-medium text-slate-600 hover:text-slate-900 dark:text-slate-300 transition cursor-pointer border border-slate-200/60 dark:border-slate-700/60"
+                        title="Tanya Tutor AI tentang materi ini"
                       >
                         <Sparkles className="w-3.5 h-3.5 text-blue-500" />
-                        <span>Tanya Sub-Bab Ini</span>
+                        <span>Tanya Tutor AI</span>
                       </button>
                     </div>
 
@@ -678,33 +794,33 @@ export default function DaftarMateriClient({
                     </div>
 
                     {/* Section Footer */}
-                    <div className="mt-8 pt-4 border-t border-black/5 dark:border-white/5 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
+                    <div className="mt-6 pt-3.5 border-t border-slate-100 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
                       <div className="flex items-center gap-3">
-                        <span className="font-semibold">Bagian {idx + 1} dari {listMateri.length}</span>
+                        <span className="font-medium text-slate-500">Bagian {idx + 1} dari {listMateri.length}</span>
                         {readMateriIds.has(mod.id) ? (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-extrabold text-xs">
-                            <Check className="w-3.5 h-3.5" />
-                            Selesai Dibaca
+                          <span className="inline-flex items-center gap-1 py-1 px-2.5 rounded-lg bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 font-semibold text-xs border border-emerald-200/60">
+                            <Check className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Selesai Dibaca</span>
                           </span>
                         ) : (
                           <button
                             onClick={() => handleMarkComplete(mod.id)}
                             disabled={markingMateriId === mod.id}
-                            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs transition shadow-xs cursor-pointer disabled:opacity-50"
+                            className="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs transition shadow-2xs cursor-pointer disabled:opacity-50"
                           >
                             {markingMateriId === mod.id ? (
                               <Loader2 className="w-3.5 h-3.5 animate-spin" />
                             ) : (
                               <Check className="w-3.5 h-3.5" />
                             )}
-                            <span>Tandai Selesai Dibaca (+5 Poin)</span>
+                            <span>Tandai Selesai (+5 Poin)</span>
                           </button>
                         )}
                       </div>
 
                       <a
                         href="#subbab-1"
-                        className="hover:text-blue-600 transition flex items-center gap-1 font-bold"
+                        className="hover:text-blue-600 transition flex items-center gap-1 font-medium text-slate-500"
                       >
                         <span>Kembali ke Atas ↑</span>
                       </a>
@@ -714,25 +830,25 @@ export default function DaftarMateriClient({
               </div>
 
               {/* Bottom Call to Action Card: Evaluation & Quiz */}
-              <div className="p-6 sm:p-8 rounded-3xl border-2 border-emerald-300 bg-gradient-to-br from-emerald-50 via-teal-50/50 to-blue-50 dark:from-slate-800 dark:to-slate-900 dark:border-emerald-500/40 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-6">
-                <div className="space-y-2 text-center sm:text-left">
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-100 text-emerald-900 dark:bg-emerald-900/60 dark:text-emerald-200 text-xs font-extrabold">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
+              <div className="p-5 sm:p-6 rounded-xl border border-emerald-200/70 bg-emerald-50/40 dark:bg-emerald-950/20 dark:border-emerald-800/50 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex flex-col sm:flex-row items-center justify-between gap-5 transition-all">
+                <div className="space-y-1.5 text-center sm:text-left">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-100/80 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 text-[11px] font-bold">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                     <span>Siap Menguji Pemahaman Anda?</span>
                   </div>
-                  <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
                     Asesmen Kuis Bab {urutanBab} (10 Soal • 10 Poin / Soal)
                   </h3>
-                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 max-w-xl">
+                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 max-w-xl font-normal leading-relaxed">
                     Kerjakan 10 soal interaktif berbasis bacaan buku ajar dengan dukungan AI Sokratik, feedback real-time, dan penilaian otomatis terintegrasi ke dashboard guru.
                   </p>
                 </div>
 
                 <Link
                   href={`/quiz/${babId}?mode=inclass&babId=${babId}`}
-                  className="px-6 py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-xl hover:shadow-2xl transition transform hover:-translate-y-0.5 shrink-0"
+                  className="px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs transition hover:shadow-sm shrink-0 cursor-pointer"
                 >
-                  <CheckCircle2 className="w-5 h-5 text-emerald-200" />
+                  <CheckCircle2 className="w-4 h-4 text-emerald-100" />
                   <span>Mulai Kuis 10 Soal Sekarang →</span>
                 </Link>
               </div>
@@ -752,6 +868,8 @@ export default function DaftarMateriClient({
               urutanBab={urutanBab}
               mapel={mapel}
               kelas={kelas}
+              namaKelas={displayKelas}
+              studentName={studentName}
               listMateri={listMateri.map((m) => ({
                 id: m.id,
                 judul: m.judul,
@@ -772,25 +890,25 @@ export default function DaftarMateriClient({
         {viewMode === "modules" && (
           <div className="space-y-6">
             {/* Header Hero Card */}
-            <div className="saas-card rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white">
+            <div className="bg-white rounded-xl p-5 sm:p-6 shadow-[0_4px_20px_rgba(0,0,0,0.02)] relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-5">
               <div className="space-y-2 max-w-2xl">
-                <span className="inline-block text-xs font-extrabold text-[#0F172A] bg-emerald-100 border border-emerald-300 px-3.5 py-1.5 rounded-full">
-                  Kurikulum Merdeka • Fase D • {mapel} Kelas {kelas} • Bab {urutanBab}
+                <span className="inline-block text-[11px] font-semibold text-[#0F172A] bg-emerald-50 text-emerald-800 border border-emerald-200/60 px-3 py-1 rounded-full">
+                  Kurikulum Merdeka • Fase D • {mapel} • {displayKelas} • Bab {urutanBab}
                 </span>
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0F172A] tracking-tight">
+                <h1 className="text-xl sm:text-2xl font-semibold text-[#0F172A] tracking-tight font-heading">
                   {judulBab}
                 </h1>
-                <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-normal">
                   {deskripsiBab ||
                     "Modul ajar terstruktur mencakup konsep inti, contoh soal, dan latihan terbimbing."}
                 </p>
               </div>
 
               {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
                 <button
                   onClick={() => setViewMode("pdf")}
-                  className="px-5 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-2.5 transition shadow-sm cursor-pointer"
+                  className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs flex items-center justify-center gap-2 transition shadow-2xs cursor-pointer"
                 >
                   <FileText className="w-4 h-4 text-white" />
                   <span>Buka Bacaan PDF Lengkap</span>
@@ -798,7 +916,7 @@ export default function DaftarMateriClient({
 
                 <button
                   onClick={() => setViewMode("journal")}
-                  className="px-5 py-3 rounded-2xl bg-[#0F172A] hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-2.5 transition shadow-sm cursor-pointer"
+                  className="px-4 py-2 rounded-lg bg-[#0F172A] hover:bg-slate-800 text-white font-semibold text-xs flex items-center justify-center gap-2 transition shadow-2xs cursor-pointer"
                 >
                   <BookOpen className="w-4 h-4 text-amber-300" />
                   <span>Buka Jurnal Digital</span>
@@ -807,13 +925,13 @@ export default function DaftarMateriClient({
             </div>
 
             {/* List of Modules */}
-            <div className="space-y-4">
+            <div className="space-y-3.5">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-extrabold text-[#0F172A] flex items-center gap-2">
-                  <List className="w-5 h-5 text-indigo-500" />
+                <h2 className="text-base font-bold text-[#0F172A] flex items-center gap-2">
+                  <List className="w-4 h-4 text-indigo-500" />
                   <span>Modul Pembelajaran Bab Ini</span>
                 </h2>
-                <span className="text-xs text-slate-500 font-semibold">
+                <span className="text-xs text-slate-500 font-medium">
                   {listMateri.length} Modul Ajar Tersedia
                 </span>
               </div>
@@ -822,24 +940,24 @@ export default function DaftarMateriClient({
                 {listMateri.map((mod, idx) => (
                   <div
                     key={mod.id}
-                    className="bg-white rounded-2xl p-5 border border-slate-200 shadow-2xs hover:shadow-xs transition duration-150 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                    className="bg-white rounded-xl p-4 sm:p-5 shadow-[0_4px_20px_rgba(0,0,0,0.02)] transition flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                   >
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-2xl bg-[#0F172A] text-white flex items-center justify-center font-extrabold text-sm shrink-0 shadow-xs">
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-8 h-8 rounded-lg bg-[#0F172A] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
                         {idx + 1}
                       </div>
 
                       <div>
                         <div className="flex items-center gap-2">
-                          <h3 className="text-sm font-extrabold text-[#0F172A]">
+                          <h3 className="text-sm sm:text-base font-bold text-slate-900">
                             {mod.judul}
                           </h3>
-                          <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
                             Sub-Bab {idx + 1}
                           </span>
                         </div>
-                        <div className="flex items-center gap-3 text-xs text-slate-500 mt-1">
-                          <span className="flex items-center gap-1">
+                        <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5">
+                          <span className="flex items-center gap-1 font-medium">
                             <Clock className="w-3.5 h-3.5 text-slate-400" />
                             {15 + idx * 5} Menit
                           </span>
@@ -858,9 +976,9 @@ export default function DaftarMateriClient({
                             if (el) el.scrollIntoView({ behavior: "smooth" });
                           }, 100);
                         }}
-                        className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center justify-center gap-2 transition duration-200 cursor-pointer shadow-xs shrink-0"
+                        className="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs shrink-0"
                       >
-                        <Eye className="w-4 h-4 text-white" />
+                        <Eye className="w-3.5 h-3.5 text-white" />
                         <span>Baca Sub-Bab {idx + 1}</span>
                       </button>
                     </div>
@@ -936,7 +1054,7 @@ export default function DaftarMateriClient({
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex justify-end animate-in fade-in duration-200">
           <div className="w-full max-w-lg bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col overflow-hidden text-slate-900 dark:text-slate-100">
             {/* Drawer Header */}
-            <div className="p-5 bg-gradient-to-r from-[#0F172A] to-slate-800 text-white flex items-center justify-between">
+            <div className="p-5 bg-[#090D16] border-b border-slate-800 text-white flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center">
                   <MessageSquarePlus className="w-5 h-5 text-white" />

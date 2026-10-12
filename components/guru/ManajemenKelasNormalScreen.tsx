@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import KelasSoalConfigModal from "@/components/guru/KelasSoalConfigModal";
 import {
   GraduationCap,
   Users,
@@ -13,20 +16,25 @@ import {
   Flame,
   CheckCircle2,
   Clock,
-  Sparkles,
   BookOpen,
-  FileCheck,
+  FileText,
   AlertTriangle,
   Mail,
   Phone,
   BarChart3,
   Calendar,
   Check,
-  HelpCircle,
-  TrendingUp,
   RefreshCw,
   Loader2,
-  ChevronDown,
+  Plus,
+  Trash2,
+  ToggleLeft,
+  ToggleRight,
+  Eye,
+  ExternalLink,
+  Sliders,
+  Filter,
+  CheckSquare,
 } from "lucide-react";
 
 interface ManajemenKelasNormalScreenProps {
@@ -40,29 +48,53 @@ export default function ManajemenKelasNormalScreen({
   onClose,
   isEmbedded = false,
 }: ManajemenKelasNormalScreenProps) {
-  // Navigation level: "classes" | "class_detail" | "student_detail"
-  const [currentLevel, setCurrentLevel] = useState<"classes" | "class_detail" | "student_detail">("classes");
+  const router = useRouter();
 
-  // Selected Class & Selected Student
-  const [selectedClassData, setSelectedClassData] = useState<any | null>(null);
+  // Navigation level: "overview" | "student_detail"
+  const [currentLevel, setCurrentLevel] = useState<"overview" | "student_detail">("overview");
+
+  // Tabs in overview: "hasil_siswa" | "kelas_aktif" | "profil_rombel"
+  const [activeTab, setActiveTab] = useState<"hasil_siswa" | "kelas_aktif" | "profil_rombel">("hasil_siswa");
+
+  // Selected Student & Selected Exam Detail (Level 2: student_detail)
   const [selectedStudentData, setSelectedStudentData] = useState<any | null>(null);
   const [selectedExamDetail, setSelectedExamDetail] = useState<any | null>(null);
 
-  // Class list data from API
-  const [kelasList, setKelasList] = useState<any[]>([]);
+  // Data from API
+  const [kelasUtama, setKelasUtama] = useState<any | null>(null);
+  const [allStudents, setAllStudents] = useState<any[]>([]);
+  const [mapelAktifList, setMapelAktifList] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [searchStudentQuery, setSearchStudentQuery] = useState("");
 
-  const fetchClasses = async () => {
+  // Search & Filter in Table
+  const [searchTableQuery, setSearchTableQuery] = useState("");
+  const [sortBy, setSortBy] = useState<"poin" | "nilai" | "nama" | "streak">("poin");
+
+  // Add Subject Modal State
+  const [isAddMapelModalOpen, setIsAddMapelModalOpen] = useState(false);
+  const [newMapelNama, setNewMapelNama] = useState("");
+  const [newMapelKode, setNewMapelKode] = useState("");
+  const [newMapelGuru, setNewMapelGuru] = useState("");
+  const [newMapelDeskripsi, setNewMapelDeskripsi] = useState("");
+  const [isSubmittingMapel, setIsSubmittingMapel] = useState(false);
+  const [mapelSuccessMsg, setMapelSuccessMsg] = useState<string | null>(null);
+
+  // Kelas Soal Config Modal State
+  const [isKelasSoalConfigOpen, setIsKelasSoalConfigOpen] = useState(false);
+  const [selectedMapelForSoal, setSelectedMapelForSoal] = useState<any | null>(null);
+
+  const fetchManajemenKelasData = async () => {
     setIsLoading(true);
     try {
       const res = await fetch("/api/guru/manajemen-kelas");
       if (res.ok) {
         const data = await res.json();
-        setKelasList(data.kelas_list || []);
+        setKelasUtama(data.kelas_utama || null);
+        setAllStudents(data.hasil_keseluruhan_siswa || []);
+        setMapelAktifList(data.mapel_aktif || []);
       }
-    } catch {
-      // silent fallback
+    } catch (err) {
+      console.error("Gagal memuat data manajemen kelas:", err);
     } finally {
       setIsLoading(false);
     }
@@ -70,17 +102,94 @@ export default function ManajemenKelasNormalScreen({
 
   useEffect(() => {
     if (isOpen || isEmbedded) {
-      fetchClasses();
-      setCurrentLevel("classes");
-      setSelectedClassData(null);
+      fetchManajemenKelasData();
+      setCurrentLevel("overview");
       setSelectedStudentData(null);
       setSelectedExamDetail(null);
     }
   }, [isOpen, isEmbedded]);
 
-  const handleSelectClass = (cls: any) => {
-    setSelectedClassData(cls);
-    setCurrentLevel("class_detail");
+  const handleToggleMapel = async (mapelId: string, currentStatus: boolean) => {
+    try {
+      const res = await fetch("/api/guru/kelas-aktif", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "toggle",
+          id: mapelId,
+          is_active: !currentStatus,
+        }),
+      });
+
+      if (res.ok) {
+        // Update local state
+        setMapelAktifList((prev) =>
+          prev.map((m) => (m.id === mapelId ? { ...m, is_active: !currentStatus } : m))
+        );
+        setMapelSuccessMsg("Status mata pelajaran berhasil diperbarui.");
+        setTimeout(() => setMapelSuccessMsg(null), 3000);
+      }
+    } catch (err) {
+      console.error("Gagal mengubah status mapel:", err);
+    }
+  };
+
+  const handleCreateMapel = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMapelNama.trim()) return;
+
+    setIsSubmittingMapel(true);
+    try {
+      const res = await fetch("/api/guru/kelas-aktif", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "create",
+          nama_mapel: newMapelNama.trim(),
+          kode_mapel: newMapelKode.trim() || undefined,
+          guru_pengampu: newMapelGuru.trim() || undefined,
+          deskripsi: newMapelDeskripsi.trim() || undefined,
+        }),
+      });
+
+      if (res.ok) {
+        setIsAddMapelModalOpen(false);
+        setNewMapelNama("");
+        setNewMapelKode("");
+        setNewMapelGuru("");
+        setNewMapelDeskripsi("");
+        fetchManajemenKelasData();
+        setMapelSuccessMsg("Mata pelajaran baru berhasil ditambahkan dan aktif.");
+        setTimeout(() => setMapelSuccessMsg(null), 3500);
+      }
+    } catch (err) {
+      console.error("Gagal membuat mapel:", err);
+    } finally {
+      setIsSubmittingMapel(false);
+    }
+  };
+
+  const handleDeleteMapel = async (mapelId: string, mapelNama: string) => {
+    if (!confirm(`Hapus mata pelajaran "${mapelNama}" dari daftar?`)) return;
+
+    try {
+      const res = await fetch("/api/guru/kelas-aktif", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "delete",
+          id: mapelId,
+        }),
+      });
+
+      if (res.ok) {
+        setMapelAktifList((prev) => prev.filter((m) => m.id !== mapelId));
+        setMapelSuccessMsg(`Mata pelajaran "${mapelNama}" berhasil dihapus.`);
+        setTimeout(() => setMapelSuccessMsg(null), 3000);
+      }
+    } catch (err) {
+      console.error("Gagal menghapus mapel:", err);
+    }
   };
 
   const handleSelectStudent = (st: any) => {
@@ -93,90 +202,82 @@ export default function ManajemenKelasNormalScreen({
     setCurrentLevel("student_detail");
   };
 
+  // Filter and sort students for the large table
+  const filteredStudents = allStudents
+    .filter((st) => {
+      const q = searchTableQuery.toLowerCase();
+      return (
+        st.nama_lengkap.toLowerCase().includes(q) ||
+        (st.nisn && st.nisn.toLowerCase().includes(q))
+      );
+    })
+    .sort((a, b) => {
+      if (sortBy === "poin") return (b.total_poin || 0) - (a.total_poin || 0);
+      if (sortBy === "nilai") return (b.nilai || 0) - (a.nilai || 0);
+      if (sortBy === "streak") return (b.streak || 0) - (a.streak || 0);
+      if (sortBy === "nama") return a.nama_lengkap.localeCompare(b.nama_lengkap);
+      return 0;
+    });
+
   if (!isOpen && !isEmbedded) return null;
 
   return (
     <div
       className={
         isEmbedded
-          ? "w-full bg-[#F8FAFC] flex flex-col text-slate-900 rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden animate-in fade-in duration-200"
+          ? "w-full bg-[#F8FAFC] flex flex-col text-slate-900 rounded-3xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in duration-200"
           : "fixed inset-0 z-50 bg-[#F8FAFC] flex flex-col overflow-hidden text-slate-900 animate-in fade-in duration-200"
       }
     >
-      {/* 1. TOP NAVBAR / HEADER (NORMAL SCREEN BAR) */}
-      <header className="bg-[#0F172A] text-white px-6 py-4 flex items-center justify-between border-b border-slate-800 shrink-0 shadow-lg">
+      {/* 1. TOP HEADER BAR */}
+      <header className="bg-[#0F172A] text-white px-6 py-4 flex items-center justify-between border-b border-slate-800 shrink-0 shadow-md">
         <div className="flex items-center gap-3">
-          {currentLevel !== "classes" && (
+          {currentLevel === "student_detail" && (
             <button
               type="button"
               onClick={() => {
-                if (currentLevel === "student_detail") {
-                  setCurrentLevel("class_detail");
-                  setSelectedStudentData(null);
-                  setSelectedExamDetail(null);
-                } else if (currentLevel === "class_detail") {
-                  setCurrentLevel("classes");
-                  setSelectedClassData(null);
-                }
+                setCurrentLevel("overview");
+                setSelectedStudentData(null);
+                setSelectedExamDetail(null);
               }}
               className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white transition cursor-pointer mr-1"
-              title="Kembali ke tampilan sebelumnya"
+              title="Kembali ke Manajemen Kelas"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
           )}
 
-          <div className="w-11 h-11 rounded-2xl bg-blue-500/15 border border-blue-500/30 text-blue-400 flex items-center justify-center font-black shadow-inner shrink-0">
-            <GraduationCap className="w-6 h-6" />
+          <div className="w-10 h-10 rounded-xl bg-blue-500/20 border border-blue-500/30 text-blue-400 flex items-center justify-center font-black shrink-0">
+            <GraduationCap className="w-5 h-5" />
           </div>
 
           <div>
-            {/* Breadcrumb Navigation */}
             <div className="flex items-center gap-2 text-[11px] font-bold text-slate-400">
               <span
                 onClick={() => {
-                  setCurrentLevel("classes");
-                  setSelectedClassData(null);
+                  setCurrentLevel("overview");
                   setSelectedStudentData(null);
                 }}
-                className="hover:text-amber-400 transition cursor-pointer"
+                className="hover:text-blue-300 transition cursor-pointer"
               >
-                Manajemen Kelas
+                Manajemen Siswa
               </span>
-
-              {selectedClassData && (
-                <>
-                  <ChevronRight className="w-3 h-3 text-slate-600" />
-                  <span
-                    onClick={() => {
-                      setCurrentLevel("class_detail");
-                      setSelectedStudentData(null);
-                    }}
-                    className={`transition ${
-                      currentLevel === "class_detail"
-                        ? "text-amber-400 font-extrabold"
-                        : "hover:text-amber-400 cursor-pointer"
-                    }`}
-                  >
-                    {selectedClassData.nama_kelas}
-                  </span>
-                </>
-              )}
-
+              <ChevronRight className="w-3 h-3 text-slate-600" />
+              <span className="text-white font-extrabold">Data Keseluruhan Siswa</span>
               {selectedStudentData && (
                 <>
                   <ChevronRight className="w-3 h-3 text-slate-600" />
-                  <span className="text-amber-400 font-extrabold truncate max-w-[140px] sm:max-w-none">
+                  <span className="text-blue-400 font-extrabold truncate max-w-[160px] sm:max-w-none">
                     {selectedStudentData.nama_lengkap}
                   </span>
                 </>
               )}
             </div>
 
-            <h1 className="text-xl font-black text-white tracking-tight mt-0.5">
-              {currentLevel === "classes" && "Manajemen Kelas (8A, 8B, 8C)"}
-              {currentLevel === "class_detail" && `${selectedClassData?.nama_kelas} — Wali Kelas & Siswa`}
-              {currentLevel === "student_detail" && `Hasil Ujian & Jawaban: ${selectedStudentData?.nama_lengkap}`}
+            <h1 className="text-lg font-black text-white tracking-tight mt-0.5">
+              {currentLevel === "overview"
+                ? "Manajemen Siswa — Hasil Keseluruhan Siswa & Poin"
+                : `Hasil Evaluasi & Jawaban Siswa: ${selectedStudentData?.nama_lengkap}`}
             </h1>
           </div>
         </div>
@@ -185,466 +286,305 @@ export default function ManajemenKelasNormalScreen({
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={fetchClasses}
+            onClick={fetchManajemenKelasData}
             disabled={isLoading}
-            className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-extrabold flex items-center gap-1.5 transition cursor-pointer border border-slate-700"
-            title="Segarkan Data"
+            className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer border border-slate-700"
+            title="Segarkan Data Supabase"
           >
-            <RefreshCw className={`w-3.5 h-3.5 text-amber-400 ${isLoading ? "animate-spin" : ""}`} />
-            <span className="hidden sm:inline">Refresh</span>
+            <RefreshCw className={`w-3.5 h-3.5 text-blue-400 ${isLoading ? "animate-spin" : ""}`} />
+            <span className="hidden sm:inline">Refresh Data</span>
           </button>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black flex items-center gap-1.5 transition cursor-pointer shadow-md"
-          >
-            <X className="w-4 h-4" />
-            <span>Tutup Layar</span>
-          </button>
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black flex items-center gap-1.5 transition cursor-pointer shadow-sm"
+            >
+              <X className="w-4 h-4" />
+              <span>Tutup Layar</span>
+            </button>
+          )}
         </div>
       </header>
 
-      {/* 2. BODY CONTENT ROUTER (LEVEL 1: CLASSES, LEVEL 2: CLASS DETAIL, LEVEL 3: STUDENT EXAM ANSWERS) */}
-      <div className="flex-1 overflow-y-auto bg-slate-100/60 p-6">
+      {/* 2. BODY CONTENT */}
+      <div className="flex-1 overflow-y-auto bg-slate-50 p-4 sm:p-6">
         <div className="max-w-7xl mx-auto space-y-6">
-          {isLoading && kelasList.length === 0 ? (
+          {isLoading && !kelasUtama ? (
             <div className="py-28 flex flex-col items-center justify-center gap-3 text-slate-400">
-              <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
-              <span className="text-xs font-bold">Memuat data manajemen kelas...</span>
+              <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+              <span className="text-xs font-bold">Memuat data asli Supabase...</span>
             </div>
-          ) : currentLevel === "classes" ? (
-            /* ======================================================== */
-            /* VIEW 1: PILIHAN KELAS 8A, 8B, DAN 8C                    */
-            /* ======================================================== */
-            <div className="space-y-6">
-              <div className="bg-white p-6 rounded-3xl border border-slate-200/90 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="space-y-1">
-                  <div className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-800 border border-blue-200">
-                    <Sparkles className="w-3 h-3 text-blue-600" />
-                    <span>STRUKTUR TAHUN AJARAN 2026/2027</span>
+          ) : currentLevel === "overview" ? (
+            <>
+              {/* SUCCESS NOTIFICATION */}
+              {mapelSuccessMsg && (
+                <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center justify-between animate-in fade-in duration-150">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>{mapelSuccessMsg}</span>
                   </div>
-                  <h2 className="text-xl font-black text-[#0F172A]">
-                    Daftar Kelas Binaan & Administrasi
+                  <button
+                    onClick={() => setMapelSuccessMsg(null)}
+                    className="text-emerald-700 hover:text-emerald-900 cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
+              {/* CLASS SUMMARY BANNER (SINGLE KELAS 8) */}
+              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="space-y-1.5">
+                  <div className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-800 border border-blue-200">
+                    <Check className="w-3 h-3 text-blue-600" />
+                    <span>KELAS UTAMA ROMBEL AKTIF • TA 2026/2027</span>
+                  </div>
+                  <h2 className="text-2xl font-black text-[#0F172A] tracking-tight">
+                    Kelas 8 — SMKS Muhammadiyah Pakem
                   </h2>
                   <p className="text-xs text-slate-500 font-medium">
-                    Silakan klik salah satu kelas di bawah untuk memantau profil wali kelas, keaktifan siswa, dan riwayat lembar jawaban ujian.
+                    Wali Kelas: <strong className="text-slate-700">{kelasUtama?.wali_kelas?.nama || "Ibu Siti Rahmawati, M.Pd."}</strong> • {kelasUtama?.wali_kelas?.mapel || "Matematika"} (NIP. {kelasUtama?.wali_kelas?.nip || "19880415 201001 2 012"})
                   </p>
                 </div>
 
                 <div className="flex items-center gap-3 shrink-0">
                   <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-center min-w-[110px]">
-                    <div className="text-lg font-black text-[#0F172A]">3 Rombel</div>
-                    <div className="text-[10px] text-slate-400 font-bold">Kelas 8</div>
+                    <div className="text-xl font-black text-[#0F172A]">
+                      {allStudents.length} Siswa
+                    </div>
+                    <div className="text-[10px] text-slate-500 font-bold">Terdaftar Aktif</div>
                   </div>
                   <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-center min-w-[110px]">
-                    <div className="text-lg font-black text-emerald-700">97.4%</div>
-                    <div className="text-[10px] text-slate-400 font-bold">Rata-rata Presensi</div>
+                    <div className="text-xl font-black text-emerald-700">
+                      {kelasUtama?.rata_rata_kehadiran || "97.5%"}
+                    </div>
+                    <div className="text-[10px] text-slate-500 font-bold">Presensi Kelas</div>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-center min-w-[110px]">
+                    <div className="text-xl font-black text-blue-600">
+                      {kelasUtama?.rata_rata_nilai || 83}
+                    </div>
+                    <div className="text-[10px] text-slate-500 font-bold">Rata-rata Nilai</div>
                   </div>
                 </div>
               </div>
 
-              {/* Grid 3 Kelas: 8A, 8B, 8C */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {kelasList.map((cls, idx) => {
-                  const gradient =
-                    idx === 0
-                      ? "from-blue-600 to-indigo-700"
-                      : idx === 1
-                      ? "from-emerald-600 to-teal-700"
-                      : "from-amber-600 to-orange-700";
-
-                  const badgeBg =
-                    idx === 0 ? "bg-blue-50 text-blue-800" : idx === 1 ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800";
-
-                  return (
-                    <div
-                      key={cls.id || idx}
-                      onClick={() => handleSelectClass(cls)}
-                      className="group bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-2xl hover:border-blue-400 transition-all duration-300 flex flex-col justify-between cursor-pointer"
-                    >
-                      {/* Class Header Banner */}
-                      <div className={`p-6 bg-gradient-to-r ${gradient} text-white space-y-3 relative`}>
-                        <div className="flex items-center justify-between">
-                          <span className="text-2xl font-black tracking-tight">{cls.nama_kelas}</span>
-                          <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-white/20 backdrop-blur-sm border border-white/20">
-                            SMP Negeri 1
-                          </span>
-                        </div>
-                        <p className="text-xs text-white/80 font-medium">
-                          Fokus Pembelajaran Matematika & Kurikulum Merdeka
-                        </p>
-                      </div>
-
-                      {/* Wali Kelas Mini Info */}
-                      <div className="p-6 space-y-5">
-                        <div className="flex items-center gap-3.5 p-3 rounded-2xl bg-slate-50 border border-slate-100">
-                          <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-slate-200 border border-slate-300 shrink-0">
-                            <Image
-                              src={cls.wali_kelas?.foto}
-                              alt={cls.wali_kelas?.nama}
-                              fill
-                              className="object-cover"
-                              unoptimized
-                            />
-                          </div>
-                          <div className="min-w-0">
-                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                              Wali Kelas
-                            </div>
-                            <h4 className="text-xs font-black text-[#0F172A] truncate">
-                              {cls.wali_kelas?.nama}
-                            </h4>
-                            <p className="text-[10px] text-slate-500 font-medium mt-0.5 truncate">
-                              {cls.wali_kelas?.mapel} • {cls.wali_kelas?.nip}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Class Stats */}
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 text-center">
-                            <div className="text-lg font-black text-[#0F172A]">
-                              {cls.total_siswa} Siswa
-                            </div>
-                            <div className="text-[10px] text-slate-400 font-bold">Anggota Kelas</div>
-                          </div>
-                          <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 text-center">
-                            <div className="text-lg font-black text-blue-600">
-                              {cls.avg_score}%
-                            </div>
-                            <div className="text-[10px] text-slate-400 font-bold">Rata-rata Ujian</div>
-                          </div>
-                        </div>
-
-                        {/* Action hint button */}
-                        <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs font-black text-slate-700 group-hover:text-blue-600 transition">
-                          <span>Buka Anggota & Rapor Kelas</span>
-                          <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ) : currentLevel === "class_detail" && selectedClassData ? (
-            /* ======================================================== */
-            /* VIEW 2: WALI KELAS & ANGGOTA KELAS (BUTTON-BUTTON SISWA) */
-            /* ======================================================== */
-            <div className="space-y-6">
-              {/* Wali Kelas Profile Card Banner */}
-              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                <div className="flex items-center gap-5">
-                  <div className="relative w-20 h-20 rounded-2xl overflow-hidden bg-slate-100 border-2 border-amber-400 shadow-md shrink-0">
-                    <Image
-                      src={selectedClassData.wali_kelas?.foto}
-                      alt={selectedClassData.wali_kelas?.nama}
-                      fill
-                      className="object-cover"
-                      unoptimized
-                    />
+              {/* HEADER: HASIL KESELURUHAN SISWA */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-blue-50 text-[#1967D2] flex items-center justify-center font-bold">
+                    <BarChart3 className="w-4 h-4" />
                   </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-900 border border-amber-200">
-                        WALI KELAS RESMI
-                      </span>
-                      <span className="text-[10px] font-bold text-slate-400">
-                        {selectedClassData.nama_kelas}
-                      </span>
-                    </div>
-                    <h2 className="text-xl font-black text-[#0F172A]">
-                      {selectedClassData.wali_kelas?.nama}
-                    </h2>
-                    <p className="text-xs text-slate-500 font-medium">
-                      NIP. {selectedClassData.wali_kelas?.nip} • Guru {selectedClassData.wali_kelas?.mapel}
-                    </p>
-                    <p className="text-xs text-slate-600 font-medium max-w-xl pt-1">
-                      {selectedClassData.wali_kelas?.bio}
+                  <div>
+                    <h3 className="text-sm font-extrabold text-[#0F172A]">
+                      Hasil Keseluruhan Siswa & Poin Pembelajaran
+                    </h3>
+                    <p className="text-[11px] text-slate-500 font-medium">
+                      Menampilkan data seluruh siswa, poin belajar, nilai rata-rata, dan streak terintegrasi Supabase.
                     </p>
                   </div>
                 </div>
 
-                {/* Contact & Meta */}
-                <div className="flex flex-col sm:flex-row md:flex-col gap-2 shrink-0 self-stretch sm:self-auto">
-                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center gap-2 text-xs font-bold text-slate-700">
-                    <Mail className="w-4 h-4 text-blue-600" />
-                    <span>{selectedClassData.wali_kelas?.email}</span>
-                  </div>
-                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center gap-2 text-xs font-bold text-slate-700">
-                    <Phone className="w-4 h-4 text-emerald-600" />
-                    <span>{selectedClassData.wali_kelas?.telepon}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* 3 BUTTON KELAS 8A, 8B, 8C SWITCHER */}
-              <div className="bg-white rounded-2xl p-3.5 border border-slate-200/90 shadow-xs flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-black text-slate-500 uppercase tracking-wider">
-                    Pilihan Kelas Binaan:
+                  <span className="text-xs font-bold px-3 py-1 rounded-full bg-blue-50 text-[#1967D2] border border-blue-200/80">
+                    {allStudents.length} Siswa Terdaftar
                   </span>
-                  <div className="flex items-center gap-2">
-                    {kelasList.map((cls) => {
-                      const isCurrent = selectedClassData.id === cls.id;
-                      return (
-                        <button
-                          key={cls.id}
-                          type="button"
-                          onClick={() => handleSelectClass(cls)}
-                          className={`px-4 py-2 rounded-xl text-xs font-black transition cursor-pointer flex items-center gap-2 shadow-xs ${
-                            isCurrent
-                              ? "bg-[#0F172A] text-white shadow-md ring-2 ring-blue-500/20"
-                              : "bg-slate-100 hover:bg-slate-200 text-slate-700"
-                          }`}
-                        >
-                          <Users className={`w-3.5 h-3.5 ${isCurrent ? "text-amber-400" : "text-slate-500"}`} />
-                          <span>{cls.nama_kelas}</span>
-                          <span className="text-[10px] font-bold opacity-80">
-                            • {cls.wali_kelas?.nama?.split(" ")[0]}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="text-xs text-slate-500 font-bold">
-                  Total Terdaftar: <span className="font-extrabold text-[#0F172A]">{selectedClassData.total_siswa} Siswa</span>
                 </div>
               </div>
 
-              {/* 🏆 PODIUM TOP 3 SISWA TERATAS BERDASARKAN DATABASE */}
-              {(() => {
-                const top3 = [...(selectedClassData.anggota_siswa || [])]
-                  .sort((a, b) => (b.poin_belajar || 0) - (a.poin_belajar || 0))
-                  .slice(0, 3);
-                if (top3.length === 0) return null;
-                return (
-                  <div className="bg-gradient-to-br from-[#0F172A] via-[#1E293B] to-[#0F172A] rounded-3xl p-6 sm:p-7 text-white border border-slate-700 shadow-xl space-y-5">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-700/80">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/40 flex items-center justify-center font-black">
-                          <Award className="w-6 h-6" />
-                        </div>
-                        <div>
-                          <h4 className="text-lg font-black text-white flex items-center gap-2">
-                            <span>🏆 Top 3 Siswa Teratas Berdasarkan Database</span>
-                            <span className="text-[10px] font-bold text-amber-400 bg-amber-500/15 px-2.5 py-0.5 rounded-full border border-amber-500/30">
-                              {selectedClassData.nama_kelas}
-                            </span>
-                          </h4>
-                          <p className="text-xs text-slate-400 font-medium">
-                            Diurutkan otomatis dari perolehan akumulasi poin belajar, ketuntasan ujian, dan streak aktif di database.
-                          </p>
-                        </div>
-                      </div>
-                      <span className="text-[11px] font-bold text-slate-300 bg-slate-800/80 px-3 py-1 rounded-xl border border-slate-700">
-                        Sinkronisasi Database Aktif
-                      </span>
+              {/* TAB CONTENT: HASIL KESELURUHAN SISWA (TABEL BESAR) */}
+              <div className="space-y-4">
+                  {/* Table Control Bar */}
+                  <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div className="relative w-full sm:w-80">
+                      <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        value={searchTableQuery}
+                        onChange={(e) => setSearchTableQuery(e.target.value)}
+                        placeholder="Cari nama siswa atau NISN..."
+                        className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#0F172A]"
+                      />
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      {top3.map((student, idx) => {
-                        const medalBorder =
-                          idx === 0
-                            ? "border-amber-400/80 bg-amber-500/10 shadow-amber-500/10"
-                            : idx === 1
-                            ? "border-slate-300/80 bg-slate-300/10 shadow-slate-300/10"
-                            : "border-orange-400/80 bg-orange-500/10 shadow-orange-500/10";
-                        const badgeColor =
-                          idx === 0
-                            ? "bg-amber-400 text-slate-950"
-                            : idx === 1
-                            ? "bg-slate-200 text-slate-900"
-                            : "bg-orange-300 text-slate-950";
-                        const medalTitle =
-                          idx === 0 ? "🥇 Juara 1 Teratas" : idx === 1 ? "🥈 Juara 2 Teratas" : "🥉 Juara 3 Teratas";
-
-                        return (
-                          <div
-                            key={student.id}
-                            onClick={() => handleSelectStudent(student)}
-                            className={`p-5 rounded-2xl border-2 ${medalBorder} hover:scale-[1.02] transition-all cursor-pointer flex flex-col justify-between space-y-4 relative overflow-hidden group shadow-lg`}
-                          >
-                            <div className="flex items-start gap-3.5">
-                              <div className="relative w-14 h-14 rounded-2xl overflow-hidden bg-slate-800 border-2 border-white/20 shrink-0">
-                                <Image
-                                  src={student.foto}
-                                  alt={student.nama_lengkap}
-                                  fill
-                                  className="object-cover"
-                                  unoptimized
-                                />
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <span className={`inline-block text-[10px] font-black uppercase px-2 py-0.5 rounded-md ${badgeColor}`}>
-                                  {medalTitle}
-                                </span>
-                                <h5 className="text-sm font-black text-white mt-1 truncate group-hover:text-amber-300 transition">
-                                  {student.nama_lengkap}
-                                </h5>
-                                <span className="text-[10px] text-slate-400">NISN {student.nisn}</span>
-                              </div>
-                            </div>
-
-                            <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-700/60 space-y-1.5 text-xs">
-                              <div className="flex justify-between items-center">
-                                <span className="text-slate-400 font-bold">Poin Database:</span>
-                                <span className="font-black text-amber-400 flex items-center gap-1">
-                                  <Sparkles className="w-3.5 h-3.5" />
-                                  <span>{student.poin_belajar} Poin</span>
-                                </span>
-                              </div>
-                              <div className="flex justify-between items-center">
-                                <span className="text-slate-400 font-bold">Rata-rata Nilai:</span>
-                                <span className="font-extrabold text-emerald-400">
-                                  {student.nilai_ulangan_ujian?.rata_rata || 90} (KKM 75)
-                                </span>
-                              </div>
-                              <div className="flex justify-between items-center">
-                                <span className="text-slate-400 font-bold">Streak Belajar:</span>
-                                <span className="font-extrabold text-orange-400 flex items-center gap-1">
-                                  <Flame className="w-3 h-3" />
-                                  <span>{student.keaktifan?.streak_hari || 15} Hari</span>
-                                </span>
-                              </div>
-                            </div>
-
-                            <div className="text-[11px] font-black text-amber-400 group-hover:text-amber-300 flex items-center justify-between pt-1">
-                              <span>Buka Lembar Ujian & Jawaban</span>
-                              <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-                            </div>
-                          </div>
-                        );
-                      })}
+                    <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                      <span className="text-[11px] font-bold text-slate-500">Urutkan:</span>
+                      <select
+                        value={sortBy}
+                        onChange={(e: any) => setSortBy(e.target.value)}
+                        className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0F172A] cursor-pointer"
+                      >
+                        <option value="poin">Total Poin Tertinggi</option>
+                        <option value="nilai">Rata-rata Nilai Tertinggi</option>
+                        <option value="streak">Streak Terpanjang</option>
+                        <option value="nama">Nama (A - Z)</option>
+                      </select>
                     </div>
                   </div>
-                );
-              })()}
 
-              {/* Student Members Header & Filter */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-lg font-black text-[#0F172A] flex items-center gap-2">
-                    <Users className="w-5 h-5 text-blue-600" />
-                    <span>Anggota Siswa {selectedClassData.nama_kelas} ({selectedClassData.anggota_siswa?.length || 0})</span>
-                  </h3>
-                  <p className="text-xs text-slate-500 font-medium mt-0.5">
-                    Klik kartu siswa mana saja untuk membuka detail hasil ujian dan lembar jawaban lengkap mereka.
-                  </p>
+                  {/* Big Responsive Normal-Screen Data Table */}
+                  <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-extrabold uppercase text-[10px] tracking-wider">
+                            <th className="py-3.5 px-4 text-center">No</th>
+                            <th className="py-3.5 px-4">Nama Siswa</th>
+                            <th className="py-3.5 px-3">NISN</th>
+                            <th className="py-3.5 px-3 text-center">Kelas</th>
+                            <th className="py-3.5 px-3 text-center">Poin Absensi</th>
+                            <th className="py-3.5 px-3 text-center">Poin Kuis</th>
+                            <th className="py-3.5 px-3 text-center">Poin Game</th>
+                            <th className="py-3.5 px-3 text-center">Poin Simulasi</th>
+                            <th className="py-3.5 px-3 text-center">Poin Ulangan</th>
+                            <th className="py-3.5 px-3 text-center">Poin Ujian</th>
+                            <th className="py-3.5 px-3 text-center">Total Poin</th>
+                            <th className="py-3.5 px-3 text-center">Nilai</th>
+                            <th className="py-3.5 px-3 text-center">Progress</th>
+                            <th className="py-3.5 px-3 text-center">Achievement</th>
+                            <th className="py-3.5 px-3 text-center">Streak</th>
+                            <th className="py-3.5 px-4 text-center">Aktivitas Terakhir</th>
+                            <th className="py-3.5 px-4 text-center">Aksi</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
+                          {filteredStudents.length === 0 ? (
+                            <tr>
+                              <td colSpan={17} className="py-12 text-center text-slate-400 font-bold">
+                                Tidak ada data siswa yang cocok dengan pencarian &quot;{searchTableQuery}&quot;.
+                              </td>
+                            </tr>
+                          ) : (
+                            filteredStudents.map((st, idx) => {
+                              const scoreColor =
+                                st.nilai >= 85
+                                  ? "text-emerald-700 bg-emerald-50 border-emerald-200"
+                                  : st.nilai >= 75
+                                  ? "text-blue-700 bg-blue-50 border-blue-200"
+                                  : "text-amber-700 bg-amber-50 border-amber-200";
+
+                              return (
+                                <tr
+                                  key={st.id || idx}
+                                  className="hover:bg-slate-50/80 transition-colors"
+                                >
+                                  <td className="py-3 px-4 text-center text-slate-400 font-bold">
+                                    {idx + 1}
+                                  </td>
+                                  <td className="py-3 px-4">
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-200 shrink-0 relative border border-slate-200">
+                                        <Image
+                                          src={st.foto || "/images/pasfoto-siswa-1.jpg"}
+                                          alt={st.nama_lengkap}
+                                          fill
+                                          className="object-cover"
+                                          unoptimized
+                                        />
+                                      </div>
+                                      <span className="font-bold text-slate-900 hover:text-blue-600 transition truncate max-w-[150px]">
+                                        {st.nama_lengkap}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td className="py-3 px-3 text-slate-600 font-mono text-[11px]">
+                                    {st.nisn}
+                                  </td>
+                                  <td className="py-3 px-3 text-center">
+                                    <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-bold text-[10px]">
+                                      {st.kelas}
+                                    </span>
+                                  </td>
+                                  <td className="py-3 px-3 text-center text-slate-700 font-semibold">
+                                    {st.poin_absensi}
+                                  </td>
+                                  <td className="py-3 px-3 text-center text-slate-700 font-semibold">
+                                    {st.poin_kuis}
+                                  </td>
+                                  <td className="py-3 px-3 text-center text-slate-700 font-semibold">
+                                    {st.poin_game}
+                                  </td>
+                                  <td className="py-3 px-3 text-center text-slate-700 font-semibold">
+                                    {st.poin_simulasi}
+                                  </td>
+                                  <td className="py-3 px-3 text-center text-slate-700 font-semibold">
+                                    {st.poin_ulangan}
+                                  </td>
+                                  <td className="py-3 px-3 text-center text-slate-700 font-semibold">
+                                    {st.poin_ujian}
+                                  </td>
+                                  <td className="py-3 px-3 text-center">
+                                    <span className="font-black text-slate-900 bg-slate-100 px-2.5 py-1 rounded-lg">
+                                      {st.total_poin}
+                                    </span>
+                                  </td>
+                                  <td className="py-3 px-3 text-center">
+                                    <span
+                                      className={`px-2.5 py-0.5 rounded-md font-black border text-[11px] ${scoreColor}`}
+                                    >
+                                      {st.nilai}
+                                    </span>
+                                  </td>
+                                  <td className="py-3 px-3 text-center">
+                                    <div className="flex items-center justify-center gap-1.5">
+                                      <div className="w-12 h-2 rounded-full bg-slate-100 overflow-hidden">
+                                        <div
+                                          className="h-full bg-blue-600 rounded-full"
+                                          style={{ width: `${Math.min(100, st.progress)}%` }}
+                                        />
+                                      </div>
+                                      <span className="text-[10px] font-bold text-slate-500">
+                                        {st.progress}%
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td className="py-3 px-3 text-center">
+                                    <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold">
+                                      {st.achievement}
+                                    </span>
+                                  </td>
+                                  <td className="py-3 px-3 text-center">
+                                    <span className="inline-flex items-center gap-1 text-orange-600 font-bold">
+                                      <Flame className="w-3.5 h-3.5" />
+                                      <span>{st.streak} hr</span>
+                                    </span>
+                                  </td>
+                                  <td className="py-3 px-4 text-center text-[10px] text-slate-500">
+                                    {st.status_keaktifan}
+                                  </td>
+                                  <td className="py-3 px-4 text-center">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSelectStudent(st)}
+                                      className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-[#0F172A] hover:text-white text-slate-700 text-[11px] font-bold transition flex items-center gap-1 mx-auto cursor-pointer"
+                                    >
+                                      <Eye className="w-3.5 h-3.5" />
+                                      <span>Jawaban</span>
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 </div>
-
-                <div className="relative w-full sm:w-64">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    value={searchStudentQuery}
-                    onChange={(e) => setSearchStudentQuery(e.target.value)}
-                    placeholder="Cari nama siswa..."
-                    className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-
-              {/* Grid of Interactive Student Action Buttons / Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {(selectedClassData.anggota_siswa || [])
-                  .filter((st: any) =>
-                    st.nama_lengkap.toLowerCase().includes(searchStudentQuery.toLowerCase())
-                  )
-                  .map((student: any) => (
-                    <button
-                      key={student.id}
-                      type="button"
-                      onClick={() => handleSelectStudent(student)}
-                      className="group p-5 bg-white hover:bg-slate-50/80 rounded-3xl border border-slate-200 hover:border-blue-400 shadow-sm hover:shadow-xl transition-all duration-200 text-left cursor-pointer flex flex-col justify-between space-y-4 relative overflow-hidden"
-                    >
-                      {/* Top Row: Photo, Name, Rank */}
-                      <div className="flex items-start gap-3.5">
-                        <div className="relative w-14 h-14 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0 group-hover:scale-105 transition-transform shadow-xs">
-                          <Image
-                            src={student.foto}
-                            alt={student.nama_lengkap}
-                            fill
-                            className="object-cover"
-                            unoptimized
-                          />
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-1">
-                            <span className="text-[10px] font-bold text-slate-400">
-                              NISN {student.nisn}
-                            </span>
-                            <span className="inline-flex items-center gap-1 text-[11px] font-black px-2 py-0.5 rounded-full bg-amber-50 text-amber-900 border border-amber-200 shrink-0">
-                              <Award className="w-3.5 h-3.5 text-amber-500" />
-                              <span>Peringkat #{student.peringkat}</span>
-                            </span>
-                          </div>
-
-                          <h4 className="text-sm font-black text-[#0F172A] mt-1 group-hover:text-blue-600 transition truncate">
-                            {student.nama_lengkap}
-                          </h4>
-
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/60">
-                              <Sparkles className="w-3 h-3 text-amber-500" />
-                              <span>{student.poin_belajar} Poin</span>
-                            </span>
-                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-orange-800 bg-orange-50 px-2 py-0.5 rounded-md border border-orange-200/60">
-                              <Flame className="w-3 h-3 text-orange-500" />
-                              <span>{student.keaktifan.streak_hari} Hari</span>
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Middle: Attendance & Exam Performance Pills */}
-                      <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 space-y-2 text-xs">
-                        <div className="flex items-center justify-between">
-                          <span className="text-slate-500 font-bold">Status Kehadiran:</span>
-                          <span className="font-extrabold text-emerald-800 bg-emerald-100/70 px-2 py-0.5 rounded-md">
-                            {student.keaktifan.status_hari_ini}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center justify-between pt-1 border-t border-slate-200/60">
-                          <span className="text-slate-500 font-bold">Rata-rata Nilai:</span>
-                          <span className="font-black text-blue-700 bg-blue-100/70 px-2 py-0.5 rounded-md">
-                            {student.nilai_ulangan_ujian.rata_rata} (KKM 75)
-                          </span>
-                        </div>
-
-                        <div className="flex items-center justify-between pt-1 border-t border-slate-200/60">
-                          <span className="text-slate-500 font-bold">Kelulusan Ujian:</span>
-                          <span className="font-extrabold text-slate-800">
-                            {student.nilai_ulangan_ujian.lulus_kkm_count} dari {student.nilai_ulangan_ujian.total_dikerjakan} Ulangan
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Footer Button Indicator */}
-                      <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs font-black text-blue-600">
-                        <span>Lihat Hasil Ujian & Jawaban</span>
-                        <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                      </div>
-                    </button>
-                  ))}
-              </div>
-            </div>
-          ) : currentLevel === "student_detail" && selectedStudentData ? (
+              </>
+            ) : currentLevel === "student_detail" && selectedStudentData ? (
             /* ======================================================== */
-            /* VIEW 3: HASIL UJIAN BESERTA JAWABAN SISWA (INTERAKTIF)   */
+            /* VIEW: DETAIL HASIL UJIAN & LEMBAR JAWABAN SISWA          */
             /* ======================================================== */
             <div className="space-y-6">
               {/* Student Overview Header Card */}
-              <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div className="flex items-center gap-4">
-                  <div className="relative w-16 h-16 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0 shadow-sm">
+                  <div className="relative w-16 h-16 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0">
                     <Image
-                      src={selectedStudentData.foto}
+                      src={selectedStudentData.foto || "/images/pasfoto-siswa-1.jpg"}
                       alt={selectedStudentData.nama_lengkap}
                       fill
                       className="object-cover"
@@ -653,232 +593,284 @@ export default function ManajemenKelasNormalScreen({
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
+                      <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-slate-100 text-slate-700">
                         {selectedStudentData.kelas}
                       </span>
-                      <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-                        Peringkat #{selectedStudentData.peringkat}
+                      <span className="text-[10px] font-bold text-slate-400">
+                        NISN {selectedStudentData.nisn}
                       </span>
                     </div>
-                    <h2 className="text-xl font-black text-[#0F172A] mt-1">
+                    <h2 className="text-xl font-black text-[#0F172A] mt-0.5">
                       {selectedStudentData.nama_lengkap}
                     </h2>
                     <p className="text-xs text-slate-500 font-medium">
-                      NISN: {selectedStudentData.nisn} • Akumulasi Poin: <strong>{selectedStudentData.poin_belajar} Poin</strong> • Streak: <strong>{selectedStudentData.keaktifan.streak_hari} Hari</strong>
+                      Total Poin: <strong className="text-slate-800">{selectedStudentData.total_poin}</strong> • Streak: <strong className="text-orange-600">{selectedStudentData.streak} Hari</strong> • Achievement: <strong className="text-blue-600">{selectedStudentData.achievement}</strong>
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <div className="p-3 rounded-2xl bg-blue-50 border border-blue-200 text-center min-w-[120px]">
-                    <div className="text-2xl font-black text-blue-700">
-                      {selectedStudentData.nilai_ulangan_ujian.rata_rata}
-                    </div>
-                    <div className="text-[10px] text-blue-600 font-bold">Rata-rata Skor</div>
-                  </div>
-                  <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-center min-w-[120px]">
-                    <div className="text-2xl font-black text-emerald-700">
-                      {selectedStudentData.nilai_ulangan_ujian.lulus_kkm_count} / {selectedStudentData.nilai_ulangan_ujian.total_dikerjakan}
-                    </div>
-                    <div className="text-[10px] text-emerald-600 font-bold">Lulus KKM (75)</div>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCurrentLevel("overview");
+                      setSelectedStudentData(null);
+                    }}
+                    className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition cursor-pointer flex items-center gap-1.5"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    <span>Kembali ke Tabel Siswa</span>
+                  </button>
                 </div>
               </div>
 
-              {/* Two Column Layout: Left (Exam selector list), Right (Exam Answers Sheet) */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                {/* Left Column: Daftar Ujian / Ulangan Siswa (4 cols) */}
-                <div className="lg:col-span-4 space-y-3">
-                  <h3 className="text-xs font-black text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                    <BookOpen className="w-3.5 h-3.5 text-blue-600" />
-                    <span>Daftar Riwayat Ujian Siswa ({selectedStudentData.riwayat_ujian?.length || 0})</span>
-                  </h3>
+              {/* Exam Sessions Picker */}
+              <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs space-y-4">
+                <h3 className="text-sm font-black text-[#0F172A] uppercase tracking-wider">
+                  Riwayat Evaluasi & Lembar Ujian Siswa ({selectedStudentData.riwayat_ujian?.length || 0})
+                </h3>
 
-                  <div className="space-y-2.5">
-                    {(selectedStudentData.riwayat_ujian || []).map((exam: any) => {
-                      const isSelected = selectedExamDetail?.ujian_id === exam.ujian_id;
-                      const isPassed = exam.nilai_akhir >= exam.passing_grade;
-
+                {(!selectedStudentData.riwayat_ujian || selectedStudentData.riwayat_ujian.length === 0) ? (
+                  <div className="p-8 text-center text-slate-400 font-bold text-xs bg-slate-50 rounded-2xl">
+                    Siswa ini belum memiliki riwayat pengerjaan ujian tercatat di database.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {selectedStudentData.riwayat_ujian.map((ex: any, eIdx: number) => {
+                      const isChosen = selectedExamDetail?.sesi_id === ex.sesi_id;
                       return (
                         <div
-                          key={exam.ujian_id}
-                          onClick={() => setSelectedExamDetail(exam)}
-                          className={`p-4 rounded-2xl border transition-all cursor-pointer text-left space-y-2 ${
-                            isSelected
-                              ? "bg-white border-blue-500 ring-2 ring-blue-500/20 shadow-md"
-                              : "bg-white hover:bg-slate-50 border-slate-200 shadow-2xs"
+                          key={ex.sesi_id || eIdx}
+                          onClick={() => setSelectedExamDetail(ex)}
+                          className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+                            isChosen
+                              ? "bg-slate-900 text-white border-slate-900 shadow-sm"
+                              : "bg-slate-50 hover:bg-white text-slate-800 border-slate-200"
                           }`}
                         >
-                          <div className="flex items-start justify-between gap-2">
-                            <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
-                              {exam.mapel}
-                            </span>
-                            <span
-                              className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
-                                isPassed
-                                  ? "bg-emerald-100 text-emerald-800"
-                                  : "bg-rose-100 text-rose-800"
-                              }`}
-                            >
-                              {isPassed ? "LULUS KKM" : "REMEDIAL"}
-                            </span>
+                          <div className="flex items-center justify-between text-[10px] font-bold opacity-75">
+                            <span>{ex.mapel}</span>
+                            <span className="uppercase">{ex.tipe}</span>
                           </div>
-
-                          <h4 className="text-xs font-black text-[#0F172A] leading-snug">
-                            {exam.judul}
-                          </h4>
-
-                          <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-100">
-                            <span className="text-slate-500 font-medium">Skor Akhir:</span>
-                            <span className="font-black text-sm text-[#0F172A]">{exam.nilai_akhir} / 100</span>
-                          </div>
-
-                          <div className="text-[10px] text-slate-400 font-medium">
-                            Diselesaikan: {exam.tanggal_selesai}
+                          <h4 className="text-xs font-black mt-1 truncate">{ex.judul}</h4>
+                          <div className="mt-2 flex items-center justify-between text-xs font-bold">
+                            <span>Nilai Akhir:</span>
+                            <span className={isChosen ? "text-emerald-300 font-black text-sm" : "text-emerald-600 font-black text-sm"}>
+                              {ex.nilai}
+                            </span>
                           </div>
                         </div>
                       );
                     })}
                   </div>
-                </div>
+                )}
+              </div>
 
-                {/* Right Column: Lembar Jawaban & Analisis Butir Soal (8 cols) */}
-                <div className="lg:col-span-8 space-y-4">
-                  {selectedExamDetail ? (
-                    <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-sm space-y-6">
-                      {/* Exam Header */}
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
-                        <div>
-                          <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-900 border border-blue-200">
-                            LEMBAR JAWABAN SISWA
-                          </span>
-                          <h3 className="text-base font-black text-[#0F172A] mt-1">
-                            {selectedExamDetail.judul}
-                          </h3>
-                          <p className="text-xs text-slate-500 font-medium">
-                            Mata Pelajaran: <strong>{selectedExamDetail.mapel}</strong> • Standar KKM: <strong>{selectedExamDetail.passing_grade}</strong>
-                          </p>
-                        </div>
+              {/* Exam Answer Sheet Details */}
+              {selectedExamDetail && (
+                <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-xs space-y-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+                    <div>
+                      <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700">
+                        LEMBAR JAWABAN RESMI
+                      </span>
+                      <h3 className="text-lg font-black text-[#0F172A] mt-1">
+                        {selectedExamDetail.judul}
+                      </h3>
+                      <p className="text-xs text-slate-500 font-medium">
+                        Mata Pelajaran: {selectedExamDetail.mapel} • Passing Grade: {selectedExamDetail.passing_grade}
+                      </p>
+                    </div>
 
-                        <div className="flex items-center gap-3">
-                          <div className="text-right">
-                            <div className="text-xs font-bold text-slate-400">Nilai Siswa</div>
-                            <div className="text-2xl font-black text-blue-600">
-                              {selectedExamDetail.nilai_akhir}
-                            </div>
-                          </div>
-                        </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-black text-emerald-600">
+                        {selectedExamDetail.nilai}
                       </div>
+                      <div className="text-[10px] text-slate-400 font-bold">Nilai Perolehan</div>
+                    </div>
+                  </div>
 
-                      {/* Question Answer Items */}
-                      <div className="space-y-5">
-                        <h4 className="text-xs font-black text-slate-500 uppercase tracking-wider">
-                          Daftar Pertanyaan & Jawaban Siswa ({selectedExamDetail.lembar_jawaban?.length || 0} Butir Soal)
-                        </h4>
-
-                        {(selectedExamDetail.lembar_jawaban || []).map((q: any) => (
-                          <div
-                            key={q.nomor}
-                            className={`p-5 rounded-2xl border space-y-3.5 ${
-                              q.is_benar
-                                ? "bg-emerald-50/20 border-emerald-200"
-                                : "bg-rose-50/20 border-rose-200"
-                            }`}
-                          >
-                            {/* Question Title & Score Badge */}
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="flex items-start gap-2.5">
-                                <span
-                                  className={`w-6 h-6 rounded-lg text-xs font-black flex items-center justify-center shrink-0 mt-0.5 ${
-                                    q.is_benar
-                                      ? "bg-emerald-600 text-white"
-                                      : "bg-rose-600 text-white"
-                                  }`}
-                                >
-                                  {q.nomor}
-                                </span>
-                                <p className="text-xs font-extrabold text-[#0F172A] leading-relaxed">
-                                  {q.pertanyaan}
-                                </p>
-                              </div>
-
-                              <span
-                                className={`text-[10px] font-black px-2 py-0.5 rounded-full shrink-0 ${
-                                  q.is_benar
-                                    ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
-                                    : "bg-rose-100 text-rose-800 border border-rose-200"
-                                }`}
-                              >
-                                {q.is_benar ? `+${q.skor} Poin (Benar)` : "0 Poin (Salah)"}
-                              </span>
-                            </div>
-
-                            {/* Options Grid */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                              {(q.opsi || []).map((op: any) => {
-                                const isChosen = q.jawaban_siswa === op.label;
-                                const isCorrectKey = q.kunci_jawaban === op.label;
-
-                                return (
-                                  <div
-                                    key={op.label}
-                                    className={`p-3 rounded-xl border text-xs flex items-start gap-2 ${
-                                      isChosen && isCorrectKey
-                                        ? "bg-emerald-100/90 border-emerald-400 font-extrabold text-emerald-950 ring-1 ring-emerald-400"
-                                        : isChosen && !isCorrectKey
-                                        ? "bg-rose-100/90 border-rose-400 font-extrabold text-rose-950 ring-1 ring-rose-400"
-                                        : isCorrectKey
-                                        ? "bg-emerald-50 border-emerald-300 font-bold text-emerald-900 border-dashed"
-                                        : "bg-white border-slate-200 text-slate-700"
-                                    }`}
-                                  >
-                                    <span className="font-mono font-black shrink-0">{op.label}.</span>
-                                    <span className="flex-1">{op.teks}</span>
-                                    {isChosen && (
-                                      <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-white text-slate-800 shadow-2xs shrink-0">
-                                        Pilihan Siswa
-                                      </span>
-                                    )}
-                                    {isCorrectKey && !isChosen && (
-                                      <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-emerald-200 text-emerald-900 shadow-2xs shrink-0">
-                                        Kunci Benar
-                                      </span>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-
-                            {/* Explanation & AI Feedback */}
-                            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1 text-xs">
-                              <div className="font-black text-slate-700 flex items-center gap-1.5">
-                                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                                <span>Pembahasan & Analisis Soal:</span>
-                              </div>
-                              <p className="text-slate-600 font-medium leading-relaxed">
-                                {q.pembahasan}
-                              </p>
-                              {q.umpan_balik_guru && (
-                                <div className="mt-1 pt-1 border-t border-slate-200/60 text-[11px] text-slate-500">
-                                  <strong>Catatan Penilaian:</strong> {q.umpan_balik_guru}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                  {/* Question items */}
+                  {(!selectedExamDetail.lembar_jawaban || selectedExamDetail.lembar_jawaban.length === 0) ? (
+                    <div className="p-8 text-center text-slate-400 text-xs font-medium bg-slate-50 rounded-2xl">
+                      Detail butir soal untuk sesi ini telah terekam dengan nilai akhir {selectedExamDetail.nilai}.
                     </div>
                   ) : (
-                    <div className="py-24 text-center bg-white rounded-3xl border border-dashed border-slate-200 text-slate-400 text-xs font-bold">
-                      Pilih salah satu ujian di sebelah kiri untuk melihat lembar jawaban siswa.
+                    <div className="space-y-4">
+                      {selectedExamDetail.lembar_jawaban.map((q: any) => (
+                        <div
+                          key={q.nomor}
+                          className="p-5 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-3"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <span className="font-bold text-xs text-slate-800">
+                              Nomor {q.nomor}. {q.pertanyaan}
+                            </span>
+                            <span
+                              className={`text-[10px] font-black px-2 py-0.5 rounded-md ${
+                                q.is_benar
+                                  ? "bg-emerald-100 text-emerald-800"
+                                  : "bg-rose-100 text-rose-800"
+                              }`}
+                            >
+                              {q.is_benar ? "Benar (+10)" : "Salah (0)"}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                            <div className="p-2 rounded-lg bg-white border border-slate-200">
+                              <span className="text-[10px] text-slate-400 font-bold block">
+                                Jawaban Siswa:
+                              </span>
+                              <span className="font-extrabold text-slate-800">
+                                Pilihan {q.jawaban_siswa}
+                              </span>
+                            </div>
+                            <div className="p-2 rounded-lg bg-white border border-slate-200">
+                              <span className="text-[10px] text-slate-400 font-bold block">
+                                Kunci Jawaban:
+                              </span>
+                              <span className="font-extrabold text-emerald-700">
+                                Pilihan {q.kunci_jawaban}
+                              </span>
+                            </div>
+                          </div>
+
+                          {q.pembahasan && (
+                            <div className="p-3 rounded-xl bg-blue-50/70 text-blue-900 text-xs font-medium">
+                              <strong>Pembahasan:</strong> {q.pembahasan}
+                            </div>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
-              </div>
+              )}
             </div>
           ) : null}
         </div>
       </div>
+
+      {/* 3. MODAL: TAMBAH MATA PELAJARAN BARU */}
+      {isAddMapelModalOpen && (
+        <div className="fixed inset-0 z-60 bg-black/60 flex items-center justify-center p-4 animate-in fade-in duration-100 font-mono text-zinc-900">
+          <div className="bg-white border border-zinc-950 p-5 max-w-md w-full shadow-none space-y-4">
+            <div className="flex items-center justify-between pb-2.5 border-b border-zinc-200">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 bg-zinc-950 text-white flex items-center justify-center">
+                  <BookOpen className="w-3.5 h-3.5" />
+                </div>
+                <h3 className="text-sm font-bold text-zinc-950 uppercase tracking-tight">
+                  Tambah Mata Pelajaran Baru
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddMapelModalOpen(false)}
+                className="p-1 text-zinc-400 hover:text-zinc-900 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateMapel} className="space-y-3">
+              <div>
+                <label className="block text-[10px] font-bold text-zinc-600 uppercase mb-1">
+                  Nama Mata Pelajaran *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newMapelNama}
+                  onChange={(e) => setNewMapelNama(e.target.value)}
+                  placeholder="Contoh: Informatika, IPA, Agama Islam"
+                  className="w-full px-3 py-1.5 border border-zinc-300 text-xs font-bold text-zinc-900 focus:outline-none focus:border-zinc-950 bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-zinc-600 uppercase mb-1">
+                  Kode Mata Pelajaran
+                </label>
+                <input
+                  type="text"
+                  value={newMapelKode}
+                  onChange={(e) => setNewMapelKode(e.target.value)}
+                  placeholder="Contoh: INF-8, IPA-8 (opsional)"
+                  className="w-full px-3 py-1.5 border border-zinc-300 text-xs font-bold text-zinc-900 focus:outline-none focus:border-zinc-950 bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-zinc-600 uppercase mb-1">
+                  Guru Pengampu
+                </label>
+                <input
+                  type="text"
+                  value={newMapelGuru}
+                  onChange={(e) => setNewMapelGuru(e.target.value)}
+                  placeholder="Contoh: Budi Prasetyo, S.Kom."
+                  className="w-full px-3 py-1.5 border border-zinc-300 text-xs font-bold text-zinc-900 focus:outline-none focus:border-zinc-950 bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-zinc-600 uppercase mb-1">
+                  Deskripsi Singkat
+                </label>
+                <textarea
+                  rows={2}
+                  value={newMapelDeskripsi}
+                  onChange={(e) => setNewMapelDeskripsi(e.target.value)}
+                  placeholder="Penjelasan ringkas materi atau fokus kelas..."
+                  className="w-full px-3 py-1.5 border border-zinc-300 text-xs text-zinc-900 focus:outline-none focus:border-zinc-950 bg-white"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddMapelModalOpen(false)}
+                  className="px-3 py-1.5 border border-zinc-300 bg-white hover:bg-zinc-100 text-xs font-bold text-zinc-700 transition cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingMapel || !newMapelNama.trim()}
+                  className="px-4 py-1.5 bg-zinc-950 hover:bg-zinc-800 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {isSubmittingMapel ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Check className="w-3.5 h-3.5" />
+                  )}
+                  <span>Simpan & Aktifkan</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL SETTING SOAL KELAS AKTIF */}
+      {isKelasSoalConfigOpen && selectedMapelForSoal && (
+        <KelasSoalConfigModal
+          isOpen={isKelasSoalConfigOpen}
+          onClose={() => {
+            setIsKelasSoalConfigOpen(false);
+            setSelectedMapelForSoal(null);
+          }}
+          kelasId={selectedMapelForSoal.id || "8a"}
+          kelasName={selectedMapelForSoal.kode_mapel || "8A"}
+          kelasTitle={selectedMapelForSoal.nama_mapel}
+          mapel={selectedMapelForSoal.nama_mapel}
+          onUpdated={() => {
+            fetchManajemenKelasData();
+          }}
+        />
+      )}
     </div>
   );
 }

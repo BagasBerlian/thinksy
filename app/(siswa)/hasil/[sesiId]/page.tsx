@@ -105,6 +105,9 @@ export default async function HasilPage({
         correctAnswer: correctAns,
         isCorrect: isCorrect,
         explanation: explanation,
+        tipeSoal: (soal?.tipe_soal || "pilihan_ganda") as any,
+        statusPenilaian: soal?.tipe_soal === "esai" ? "sementara" : "final",
+        topik: (soal as any)?.bab?.judul || "Materi Terkait",
       });
     });
   }

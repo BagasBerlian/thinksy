@@ -31,8 +31,8 @@ export default function MarkdownRenderer({
             <h1
               className={
                 isCompact
-                  ? "text-base font-extrabold text-inherit mt-3 mb-1.5 border-b border-black/10 dark:border-white/10 pb-1"
-                  : "text-xl sm:text-2xl font-black text-inherit tracking-tight mt-6 mb-3 pb-2 border-b border-black/10 dark:border-white/10"
+                  ? "text-sm sm:text-base font-bold text-slate-900 dark:text-white mt-3 mb-1.5 border-b border-slate-100 dark:border-slate-800 pb-1"
+                  : "text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight mt-5 mb-2.5 pb-1.5 border-b border-slate-100 dark:border-slate-800"
               }
               {...props}
             />
@@ -41,8 +41,8 @@ export default function MarkdownRenderer({
             <h2
               className={
                 isCompact
-                  ? "text-sm font-bold text-inherit mt-2.5 mb-1 flex items-center gap-1.5"
-                  : "text-lg sm:text-xl font-extrabold text-inherit tracking-tight mt-6 mb-3 flex items-center gap-2"
+                  ? "text-xs sm:text-sm font-bold text-slate-900 dark:text-white mt-2.5 mb-1 flex items-center gap-1.5"
+                  : "text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight mt-5 mb-2 flex items-center gap-2"
               }
               {...props}
             />
@@ -51,8 +51,8 @@ export default function MarkdownRenderer({
             <h3
               className={
                 isCompact
-                  ? "text-xs sm:text-sm font-bold text-inherit mt-2 mb-1"
-                  : "text-base sm:text-lg font-bold text-inherit mt-4 mb-2"
+                  ? "text-xs font-semibold text-slate-800 dark:text-slate-200 mt-2 mb-1"
+                  : "text-sm sm:text-base font-semibold text-slate-800 dark:text-slate-200 mt-3.5 mb-1.5"
               }
               {...props}
             />
@@ -61,8 +61,8 @@ export default function MarkdownRenderer({
             <h4
               className={
                 isCompact
-                  ? "text-xs font-bold text-inherit mt-1.5 mb-0.5"
-                  : "text-sm sm:text-base font-bold text-inherit mt-3 mb-1"
+                  ? "text-[11px] font-semibold text-slate-800 dark:text-slate-200 mt-1.5 mb-0.5"
+                  : "text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-200 mt-2.5 mb-1"
               }
               {...props}
             />
@@ -71,8 +71,8 @@ export default function MarkdownRenderer({
             <p
               className={
                 isCompact
-                  ? "leading-relaxed text-inherit/90 mb-2 last:mb-0"
-                  : "leading-relaxed sm:leading-loose text-inherit/90 mb-3"
+                  ? "leading-relaxed text-slate-600 dark:text-slate-300 font-normal mb-2 last:mb-0 text-xs sm:text-sm"
+                  : "leading-relaxed text-slate-600 dark:text-slate-300 font-normal mb-3 text-sm sm:text-base"
               }
               {...props}
             />
@@ -81,8 +81,8 @@ export default function MarkdownRenderer({
             <ul
               className={
                 isCompact
-                  ? "list-disc list-inside space-y-1 my-2 pl-2 text-inherit/90"
-                  : "list-disc list-inside space-y-1.5 my-3 pl-2 text-inherit/90"
+                  ? "list-disc list-inside space-y-1 my-2 pl-1 text-slate-600 dark:text-slate-300 text-xs sm:text-sm font-normal"
+                  : "list-disc list-inside space-y-1.5 my-3 pl-2 text-slate-600 dark:text-slate-300 text-sm sm:text-base font-normal"
               }
               {...props}
             />
@@ -91,21 +91,21 @@ export default function MarkdownRenderer({
             <ol
               className={
                 isCompact
-                  ? "list-decimal list-inside space-y-1 my-2 pl-2 text-inherit/90"
-                  : "list-decimal list-inside space-y-1.5 my-3 pl-2 text-inherit/90"
+                  ? "list-decimal list-inside space-y-1 my-2 pl-1 text-slate-600 dark:text-slate-300 text-xs sm:text-sm font-normal"
+                  : "list-decimal list-inside space-y-1.5 my-3 pl-2 text-slate-600 dark:text-slate-300 text-sm sm:text-base font-normal"
               }
               {...props}
             />
           ),
           li: ({ node, ...props }) => (
-            <li className={isCompact ? "leading-relaxed" : "leading-relaxed"} {...props} />
+            <li className="leading-relaxed" {...props} />
           ),
           blockquote: ({ node, ...props }) => (
             <blockquote
               className={
                 isCompact
-                  ? "p-3 my-2.5 rounded-xl bg-amber-500/10 border-l-3 border-amber-500 text-inherit italic text-xs sm:text-sm"
-                  : "p-4 my-4 rounded-2xl bg-amber-500/10 border-l-4 border-amber-500 text-inherit italic"
+                  ? "p-3 my-2 rounded-xl bg-amber-50/60 text-amber-900/80 dark:text-amber-200/90 text-xs italic leading-relaxed border-0 [&>p]:italic [&>p]:text-xs [&>p]:mb-1 last:[&>p]:mb-0"
+                  : "p-4 my-3.5 rounded-xl bg-amber-50/60 text-amber-900/80 dark:text-amber-200/90 text-xs sm:text-sm italic leading-relaxed border-0 [&>p]:italic [&>p]:text-xs [&>p]:sm:text-sm [&>p]:mb-1.5 last:[&>p]:mb-0"
               }
               {...props}
             />

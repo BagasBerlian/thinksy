@@ -21,6 +21,7 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --font-sans: var(--font-plus-jakarta), system-ui, sans-serif;
+  --font-heading: var(--font-plus-jakarta), system-ui, sans-serif;
 }
 
 body {
@@ -30,20 +31,30 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Professional Enterprise SaaS Styling */
-.saas-card {
+/* ANTI-AI HUMAN DESIGN SYSTEM: Headings with Plus Jakarta Sans & Tracking Tight (Rapi, kompak, ramah edukasi) */
+h1, h2, h3, h4, h5, h6, .font-heading {
+  font-family: var(--font-heading);
+  letter-spacing: -0.025em;
+}
+
+/* ANTI-AI HUMAN DESIGN SYSTEM: Destroy double borders, use white bg & floating shadow */
+.saas-card, .soft-card, .card-modern {
   background-color: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 1rem;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+  border-radius: 1.25rem;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.03);
+  border: 1px solid rgba(241, 245, 249, 0.8);
+}
+
+.shadow-soft-float {
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.03);
 }
 
 /* Color Accent Palettes */
 :root {
-  --theme-accent: #2563EB;
-  --theme-accent-hover: #1D4ED8;
-  --theme-accent-bg: #EFF6FF;
-  --theme-accent-border: #BFDBFE;
+  --theme-accent: #059669;
+  --theme-accent-hover: #047857;
+  --theme-accent-bg: #ECFDF5;
+  --theme-accent-border: #A7F3D0;
 }
 
 [data-accent="blue"] {
@@ -54,10 +65,10 @@ body {
 }
 
 [data-accent="purple"] {
-  --theme-accent: #7C3AED;
-  --theme-accent-hover: #6D28D9;
-  --theme-accent-bg: #FAF5FF;
-  --theme-accent-border: #E9D5FF;
+  --theme-accent: #1E3A8A;
+  --theme-accent-hover: #172554;
+  --theme-accent-bg: #F0F4F8;
+  --theme-accent-border: #BFDBFE;
 }
 
 [data-accent="emerald"] {

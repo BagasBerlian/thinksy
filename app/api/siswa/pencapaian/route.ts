@@ -205,7 +205,7 @@ export async function GET() {
         title: "Bintang Matematika",
         desc: "Mengumpulkan 1.500+ Poin Belajar dan menyelesaikan minimal 10 sesi kuis/ujian.",
         tier: "Diamond",
-        tierColor: "from-purple-500 via-pink-500 to-indigo-600 border-purple-300 text-purple-950 bg-purple-50",
+        tierColor: "border-sky-300 text-sky-950 bg-sky-50",
         icon: "👑",
         rewardPoints: 500,
         isUnlocked: learningPoints >= 1500 && completedQuizCount >= 10,

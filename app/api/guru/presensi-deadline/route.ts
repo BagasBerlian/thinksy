@@ -15,6 +15,7 @@ interface PresensiDeadlineConfig {
     rabu: string;
     kamis: string;
     jumat: string;
+    sabtu?: string;
   };
   jam_masuk: string;
   jam_terlambat: string;
@@ -31,6 +32,7 @@ const DEFAULT_CONFIG: PresensiDeadlineConfig = {
     rabu: "07:30",
     kamis: "07:30",
     jumat: "07:15",
+    sabtu: "07:30",
   },
   jam_masuk: "07:00",
   jam_terlambat: "07:15",
@@ -62,7 +64,7 @@ function writeConfig(cfg: PresensiDeadlineConfig) {
   fs.writeFileSync(CONFIG_FILE, JSON.stringify(cfg, null, 2), "utf-8");
 }
 
-function getDayKey(date: Date): "senin" | "selasa" | "rabu" | "kamis" | "jumat" | "weekend" {
+function getDayKey(date: Date): "senin" | "selasa" | "rabu" | "kamis" | "jumat" | "sabtu" | "weekend" {
   const day = date.getDay(); // 0 is Sunday, 1 is Monday ...
   switch (day) {
     case 1:
@@ -75,6 +77,8 @@ function getDayKey(date: Date): "senin" | "selasa" | "rabu" | "kamis" | "jumat" 
       return "kamis";
     case 5:
       return "jumat";
+    case 6:
+      return "sabtu";
     default:
       return "weekend";
   }
@@ -140,6 +144,7 @@ export async function POST(req: Request) {
         rabu: schedule?.rabu || "07:30",
         kamis: schedule?.kamis || "07:30",
         jumat: schedule?.jumat || "07:15",
+        sabtu: schedule?.sabtu || "07:30",
       },
       jam_masuk: jam_masuk || "07:00",
       jam_terlambat: jam_terlambat || "07:15",

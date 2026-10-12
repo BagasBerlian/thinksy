@@ -130,7 +130,7 @@ export default function SuperAdminDashboard() {
             </button>
 
             <div className="flex items-center space-x-2 bg-slate-800/50 border border-slate-700/50 p-1.5 pr-3 rounded-xl backdrop-blur-sm">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 text-white flex items-center justify-center font-extrabold text-xs shadow-sm">
+              <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-700 text-amber-400 flex items-center justify-center font-extrabold text-xs shadow-sm">
                 SA
               </div>
               <div className="hidden sm:block text-left">
@@ -275,13 +275,9 @@ export default function SuperAdminDashboard() {
           </div>
 
           {/* HERO CONTROL CONTAINER */}
-          <section className="relative bg-gradient-to-br from-slate-800/60 via-slate-900/60 to-slate-800/60 rounded-2xl p-6 sm:p-8 border border-slate-700/50 overflow-hidden backdrop-blur-sm">
+          <section className="relative bg-[#090D16] rounded-2xl p-6 sm:p-8 border border-slate-800 overflow-hidden shadow-sm">
             <div className="relative space-y-5">
               <div className="space-y-3">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 text-xs font-bold">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  Manajemen Multi-Tenant
-                </div>
                 <h2 className="text-xl font-extrabold text-white tracking-tight">
                   Infrastruktur Multi-Sekolah Terintegrasi
                 </h2>

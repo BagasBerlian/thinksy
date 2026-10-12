@@ -41,7 +41,7 @@ export default function FloatingActionHub({
             className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-white hover:bg-slate-50 text-[#0F172A] text-xs font-extrabold shadow-xl border border-slate-200 group transition transform hover:scale-105 cursor-pointer"
           >
             <span className="text-xs font-bold text-slate-700">GAME 🎮</span>
-            <div className="w-9 h-9 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-md">
+            <div className="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center shadow-md">
               <Gamepad2 className="w-4.5 h-4.5" />
             </div>
           </button>
@@ -66,8 +66,8 @@ export default function FloatingActionHub({
         aria-label="Action Menu"
         className={`w-14 h-14 rounded-full shadow-2xl flex items-center justify-center text-white font-extrabold text-2xl transition duration-300 cursor-pointer transform hover:scale-105 ${
           isFabOpen
-            ? "bg-slate-900 rotate-45 border-2 border-slate-700"
-            : "bg-linear-to-br from-[#0F172A] via-[#1E293B] to-amber-500 border-2 border-amber-400/50 shadow-amber-500/20"
+            ? "bg-slate-900 rotate-45 border-2 border-slate-700 text-white"
+            : "bg-[#090D16] hover:bg-slate-900 border-2 border-slate-700 text-amber-400 shadow-xl"
         }`}
       >
         +

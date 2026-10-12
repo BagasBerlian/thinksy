@@ -1,6 +1,7 @@
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import ExamPracticeClient from "@/components/sesi/ExamPracticeClient";
+import QuizAssessmentClient, { CleanQuizQuestion } from "@/components/sesi/QuizAssessmentClient";
 import { generateChapterQuestions } from "@/lib/curriculum-quiz-engine";
 
 export default async function QuizPage({
@@ -27,22 +28,26 @@ export default async function QuizPage({
         .single()
     : { data: null };
 
-  // 1. Resolve effective babId from params, existing sesi, or default first bab
-  let effectiveBabId = babId;
-
   const isValidUUID = (str?: string) =>
     Boolean(str && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str));
 
-  if (!effectiveBabId && isValidUUID(sesiId)) {
-    const { data: sesiRow } = await adminDb
+  // 1. Fetch Sesi record & Check if already finished
+  let sesiRow: any = null;
+  if (isValidUUID(sesiId)) {
+    const { data: sRow } = await adminDb
       .from("sesi")
-      .select("bab_id")
+      .select("id, bab_id, status_sesi, batas_menit, mulai_pada")
       .eq("id", sesiId)
       .maybeSingle();
-    if (sesiRow?.bab_id) {
-      effectiveBabId = sesiRow.bab_id;
+    sesiRow = sRow;
+
+    if (sesiRow?.status_sesi === "selesai") {
+      redirect(`/hasil/${sesiId}`);
     }
   }
+
+  // 2. Resolve effective babId
+  let effectiveBabId = babId || sesiRow?.bab_id;
 
   if (!effectiveBabId) {
     const { data: firstBab } = await adminDb
@@ -56,7 +61,7 @@ export default async function QuizPage({
     }
   }
 
-  // 2. Fetch Bab Info
+  // 3. Fetch Bab Info
   let babData: { judul: string; mapel?: string; kelas?: number } | null = null;
   if (effectiveBabId) {
     const { data: bData } = await adminDb
@@ -67,7 +72,7 @@ export default async function QuizPage({
     babData = bData;
   }
 
-  // 3. Query Real Questions from Database (without leaking answer keys/pembahasan to student)
+  // 4. Query Real Questions with DEVTOOLS PROTECTION (Strictly no keys/answers leaked)
   let query = adminDb
     .from("soal")
     .select(`
@@ -89,8 +94,8 @@ export default async function QuizPage({
     .order("dibuat_pada", { ascending: true })
     .limit(10);
 
-  // Fallback questions if chapter has no questions yet in database
-  const defaultSoalList = generateChapterQuestions(
+  // Fallback questions if chapter has no questions in database yet
+  const defaultSoalList: CleanQuizQuestion[] = generateChapterQuestions(
     babData?.judul || "Bab Pembelajaran",
     babData?.mapel || "Matematika",
     babData?.kelas || 8
@@ -104,7 +109,7 @@ export default async function QuizPage({
     })),
   }));
 
-  const formattedSoalList =
+  const formattedSoalList: CleanQuizQuestion[] =
     dbSoalList && dbSoalList.length > 0
       ? dbSoalList.map((item: any) => ({
           id: item.id,
@@ -121,21 +126,38 @@ export default async function QuizPage({
         }))
       : defaultSoalList;
 
+  // 5. Query Existing Saved Answers for State Persistence across Refresh
+  const initialAnswers: Record<string, string> = {};
+  if (isValidUUID(sesiId)) {
+    const { data: existingJawaban } = await adminDb
+      .from("jawaban")
+      .select("soal_id, opsi_dipilih_id, jawaban_teks")
+      .eq("sesi_id", sesiId);
+
+    if (existingJawaban) {
+      existingJawaban.forEach((j: any) => {
+        initialAnswers[j.soal_id] = j.opsi_dipilih_id || j.jawaban_teks || "";
+      });
+    }
+  }
+
   const sessionTitle = babData
     ? `EVALUASI: ${babData.judul}`
     : mode === "inclass"
     ? "EVALUASI BAB - ASESMEN TOPIK IN-CLASS"
-    : "UJIAN AKHIR SEMESTER - PRACTICE EXAM";
+    : "UJIAN FORMATIF TOPIK PEMBELAJARAN";
 
   return (
-    <ExamPracticeClient
+    <QuizAssessmentClient
       sesiId={sesiId}
       babId={effectiveBabId}
-      mode={mode || "inclass"}
       judulSesi={sessionTitle}
       mapel={babData?.mapel || "Matematika"}
+      batasMenit={Number(sesiRow?.batas_menit) || 30}
+      mulaiPada={sesiRow?.mulai_pada || undefined}
       soalList={formattedSoalList}
       namaSiswa={profil?.nama_lengkap ?? undefined}
+      initialAnswers={initialAnswers}
     />
   );
 }

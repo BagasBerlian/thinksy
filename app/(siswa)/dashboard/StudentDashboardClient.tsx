@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useRealtimeDashboard } from "@/hooks/useRealtimeDashboard";
 import {
   StudentDashboardProps,
@@ -17,11 +17,20 @@ import {
 
 // Sub-components
 import StudentNavbar from "./components/layout/StudentNavbar";
-import FloatingActionHub from "./components/layout/FloatingActionHub";
 import TabBelajar from "./components/tabs/TabBelajar";
 import TabKursusSaya from "./components/tabs/TabKursusSaya";
 import TabPeringkat from "./components/tabs/TabPeringkat";
 import TabPencapaian from "./components/tabs/TabPencapaian";
+
+// Google Classroom Layout Components
+import ClassroomTopBar from "./components/classroom/ClassroomTopBar";
+import ClassroomSidebar, { ClassroomViewMode } from "./components/classroom/ClassroomSidebar";
+import RuangBelajarSubjectChaptersView from "./components/classroom/RuangBelajarSubjectChaptersView";
+import ClassroomHomeView from "./components/classroom/ClassroomHomeView";
+import ClassroomClassDetailView from "./components/classroom/ClassroomClassDetailView";
+import ClassroomTodoView, { LastActivityItem } from "./components/classroom/ClassroomTodoView";
+import ClassroomCalendarView from "./components/classroom/ClassroomCalendarView";
+import ClassroomArchivedView from "./components/classroom/ClassroomArchivedView";
 
 // Modals
 import AttendanceModal from "./components/attendance/AttendanceModal";
@@ -57,11 +66,15 @@ export default function StudentDashboardClient({
   answeredSoalCount: initialAnsweredSoalCount = 0,
   totalSoalCount = 10,
   learningProgressPercent = 0,
+  classesData = [],
 }: StudentDashboardProps) {
-  // Navigation Tabs State
+  // Navigation Tabs State & Google Classroom View Mode
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<
     "Home" | "Belajar" | "Ruang Ujian" | "Peringkat" | "Pencapaian"
   >("Home");
+  const [classroomView, setClassroomView] = useState<ClassroomViewMode>("home");
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   // Dynamic Student Profile (synced with settings & localStorage after mount)
   const [profileState, setProfileState] = useState<StudentCardProfile>(() => ({
@@ -118,20 +131,103 @@ export default function StudentDashboardClient({
   });
   const [isDevMenuOpen, setIsDevMenuOpen] = useState(false);
 
+  // Dynamic Last Activity (Chapter or Quiz) synced with localStorage
+  const [lastActivity, setLastActivity] = useState<LastActivityItem | null>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("thinksy_last_activity");
+        if (saved) return JSON.parse(saved);
+      } catch {}
+    }
+    if (chapters && chapters.length > 0) {
+      return {
+        type: "bab",
+        id: chapters[0].id,
+        judul: chapters[0].judul,
+        mapel: chapters[0].mapel || "Informatika",
+        link: `/bab/${chapters[0].id}`,
+      };
+    }
+    return {
+      type: "bab",
+      id: "bab-1",
+      judul: "Bab 1: Berpikir Komputasional: Optimasi dan Struktur Data",
+      mapel: "Informatika",
+      link: "/bab/bab-1",
+    };
+  });
+
+  useEffect(() => {
+    const handleActivitySync = (e?: any) => {
+      try {
+        if (e?.detail) {
+          setLastActivity(e.detail);
+          return;
+        }
+        const saved = localStorage.getItem("thinksy_last_activity");
+        if (saved) {
+          setLastActivity(JSON.parse(saved));
+        }
+      } catch {}
+    };
+
+    window.addEventListener("thinksy_activity_update", handleActivitySync);
+    window.addEventListener("storage", handleActivitySync);
+    return () => {
+      window.removeEventListener("thinksy_activity_update", handleActivitySync);
+      window.removeEventListener("storage", handleActivitySync);
+    };
+  }, []);
+
   // Read searchParams for direct tab linking (?tab=peringkat or ?tab=pencapaian)
   const searchParams = useSearchParams();
   useEffect(() => {
     const tabParam = searchParams.get("tab");
     if (tabParam === "peringkat") {
       setActiveTab("Peringkat");
-    } else if (tabParam === "pencapaian") {
+      setClassroomView("peringkat");
+    } else if (tabParam === "pencapaian" || tabParam === "calendar") {
       setActiveTab("Pencapaian");
-    } else if (tabParam === "belajar") {
-      setActiveTab("Belajar");
-    } else if (tabParam === "home") {
+      setClassroomView("pencapaian");
+    } else if (tabParam === "todo") {
+      setClassroomView("todo");
+    } else if (tabParam === "matematika" || tabParam === "indonesia" || tabParam === "inggris") {
+      setClassroomView(tabParam);
+    } else if (tabParam === "belajar" || tabParam === "home") {
       setActiveTab("Home");
+      setClassroomView("home");
     }
   }, [searchParams]);
+
+  // Auto-collapse sidebar on mobile screen on mount
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      setIsSidebarOpen(false);
+    }
+  }, []);
+
+  const handleSelectClassroomView = (view: ClassroomViewMode) => {
+    setClassroomView(view);
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      setIsSidebarOpen(false);
+    }
+    if (view === "home") {
+      setActiveTab("Home");
+      if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+    } else if (view === "peringkat") {
+      setActiveTab("Peringkat");
+      if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+    } else if (view === "pencapaian" || view === "calendar") {
+      setActiveTab("Pencapaian");
+      setClassroomView("pencapaian");
+      if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+    } else if (view === "todo") {
+      setClassroomView("todo");
+      if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+    } else if (view === "matematika" || view === "indonesia" || view === "inggris") {
+      if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
 
   // Sync mockTime across tabs/windows
   useEffect(() => {
@@ -242,14 +338,14 @@ export default function StudentDashboardClient({
       {
         id: "cm1",
         nama_penulis: "Budi Santoso",
-        kelas_penulis: "Kelas 8B",
+        kelas_penulis: "Kelas 8",
         konten: "Saya tertarik ikut seleksi robotik!",
         dibuat_pada: "5 menit lalu",
       },
       {
         id: "cm2",
         nama_penulis: "Siti Aminah",
-        kelas_penulis: "XI IPA 2",
+        kelas_penulis: "Kelas 8",
         konten: "Bisa hubungi siapa untuk info lebih lanjut?",
         dibuat_pada: "2 menit lalu",
       },
@@ -258,7 +354,7 @@ export default function StudentDashboardClient({
       {
         id: "cm3",
         nama_penulis: "Andi Wijaya",
-        kelas_penulis: "Kelas 8A",
+        kelas_penulis: "Kelas 8",
         konten: "Boleh banget, nanti sore di perpustakaan ya!",
         dibuat_pada: "15 menit lalu",
       },
@@ -286,6 +382,13 @@ export default function StudentDashboardClient({
   const [isClaimingMissionId, setIsClaimingMissionId] = useState<string | null>(
     null
   );
+
+  // Pending tasks count for To-do navigation badge
+  const pendingMissionsCount = (dailyMissions || []).filter((m) => !m.isClaimed).length;
+  const activeExamsCount = (examsData || []).filter(
+    (e) => e.status === "dipublikasi" && e.sessionStatus !== "selesai"
+  ).length;
+  const todoCount = pendingMissionsCount + activeExamsCount + (lastActivity ? 1 : 0);
 
   const studentName = profileState.nama_lengkap || userProfile?.nama_lengkap || "SYAA PX";
   const studentEmail = userProfile?.email || "syaa.px@sekolah.sch.id";
@@ -738,7 +841,7 @@ export default function StudentDashboardClient({
     const newChatObj: GlobalChatItem = {
       id: tempId,
       nama_penulis: studentName,
-      kelas_penulis: "Kelas 8A",
+      kelas_penulis: profileState.nama_kelas || "Kelas 8",
       konten,
       minat_kategori: "Diskusi",
       jumlah_suka: 0,
@@ -825,7 +928,7 @@ export default function StudentDashboardClient({
     const tempComment: ChatCommentItem = {
       id: Date.now().toString(),
       nama_penulis: studentName,
-      kelas_penulis: "Kelas 8A",
+      kelas_penulis: profileState.nama_kelas || "Kelas 8",
       konten: replyText,
       dibuat_pada: "Baru saja",
     };
@@ -1260,16 +1363,15 @@ export default function StudentDashboardClient({
 
   return (
     <div
-      className={`min-h-screen font-sans pb-20 transition-colors duration-200 ${
-        isDarkMode ? "bg-slate-950 text-slate-100" : "bg-[#F8FAFC] text-slate-900"
+      className={`min-h-screen font-sans transition-colors duration-200 ${
+        isDarkMode ? "bg-slate-950 text-slate-100" : "bg-[#F8FAFD] text-slate-900"
       }`}
     >
-      {/* 1. SAAS NAVBAR */}
-      <StudentNavbar
-        isDarkMode={isDarkMode}
-        sekolahData={sekolahData}
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
+      {/* 1. GOOGLE CLASSROOM TOP BAR */}
+      <ClassroomTopBar
+        onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
+        studentName={studentName}
+        studentPhoto={studentPhoto}
         isCheckedIn={isCheckedIn}
         checkInStatus={checkInStatus}
         checkInTime={checkInTime}
@@ -1277,56 +1379,163 @@ export default function StudentDashboardClient({
         onStartAttendance={handleStartAttendance}
         notifications={notifications}
         onMarkAllNotificationsAsRead={handleMarkAllNotificationsAsRead}
-        studentName={studentName}
-        studentPhoto={studentPhoto}
         onOpenSettings={() => setIsSettingsModalOpen(true)}
-        onOpenHelp={() => setIsHelpModalOpen(true)}
         onOpenProfile={() => setIsProfileModalOpen(true)}
+        onOpenNotes={() => setIsNotesModalOpen(true)}
+        onOpenGames={() => setIsGamesModalOpen(true)}
+        onOpenChat={() => setIsGlobalChatOpen(true)}
+        onOpenHelp={() => setIsHelpModalOpen(true)}
+        sekolahData={sekolahData}
       />
 
-      {/* 2. TAB VIEWS */}
-      {(activeTab === "Home" || activeTab === "Belajar") && (
-        <TabBelajar
-          studentName={studentName}
-          currentUserRank={currentUserRank}
-          namaKelas={userProfile.nama_kelas || "Kelas 8A"}
-          learningProgressPercent={learningProgressPercent}
-          learningPoints={learningPoints}
-          sekolahData={sekolahData}
-          calendarWeeks={calendarWeeks}
-          dailyMissions={dailyMissions}
-          isMissionsLoading={isMissionsLoading}
-          isClaimingMissionId={isClaimingMissionId}
-          onClaimMission={handleClaimMission}
-          allChapters={chapters}
-          peerStudents={peerStudents}
-          agendasData={agendasData}
-          examsData={examsData}
-          onNavigateToCourses={() => setActiveTab("Home")}
+      {/* 2. BODY WITH SIDEBAR & MAIN CANVAS */}
+      <div className="flex pt-16 min-h-screen">
+        {/* Left Sidebar */}
+        <ClassroomSidebar
+          isOpen={isSidebarOpen}
+          activeView={classroomView}
+          onSelectView={handleSelectClassroomView}
+          onOpenSettings={() => setIsSettingsModalOpen(true)}
+          todoCount={todoCount}
         />
-      )}
 
-      {activeTab === "Peringkat" && (
-        <TabPeringkat
-          leaderboardList={leaderboardList}
-          isLoadingLeaderboard={isLoadingLeaderboard}
-          onRefreshLeaderboard={fetchLeaderboard}
-        />
-      )}
+        {/* Desktop Spacer for Fixed Sidebar so content flows properly next to fixed sidebar */}
+        {isSidebarOpen && (
+          <div
+            className="w-68 sm:w-72 shrink-0 hidden md:block pointer-events-none"
+            aria-hidden="true"
+          />
+        )}
 
-      {activeTab === "Pencapaian" && (
-        <TabPencapaian
-          studentName={studentName}
-          schoolName={sekolahData?.nama}
-          completedQuizCount={completedQuizCount}
-          learningPoints={learningPoints}
-          answeredSoalCount={answeredSoalCount}
-          badgesList={pencapaianBadges}
-          isLoading={isLoadingPencapaian}
-          onRefresh={fetchPencapaian}
-          onNavigateTab={setActiveTab}
-        />
-      )}
+        {/* Mobile Backdrop Overlay when Sidebar is open */}
+        {isSidebarOpen && (
+          <div
+            onClick={() => setIsSidebarOpen(false)}
+            className="fixed inset-0 top-16 bg-black/40 z-20 md:hidden backdrop-blur-xs transition-opacity cursor-pointer"
+            aria-hidden="true"
+          />
+        )}
+
+        {/* Main Content Area: Tightened top layout without wasted blank space */}
+        <main className="flex-1 min-w-0 px-2 sm:px-6 pt-2.5 sm:pt-3.5 pb-20 max-w-7xl mx-auto">
+          {classroomView === "todo" ? (
+            <ClassroomTodoView
+              dailyMissions={dailyMissions}
+              isMissionsLoading={isMissionsLoading}
+              isClaimingMissionId={isClaimingMissionId}
+              onClaimMission={handleClaimMission}
+              examsData={examsData}
+              lastActivity={lastActivity}
+              onBackToHome={() => setClassroomView("home")}
+            />
+          ) : classroomView === "peringkat" ? (
+            <TabPeringkat
+              leaderboardList={leaderboardList}
+              isLoadingLeaderboard={isLoadingLeaderboard}
+              onRefreshLeaderboard={fetchLeaderboard}
+            />
+          ) : classroomView === "pencapaian" ? (
+            <TabPencapaian
+              studentName={studentName}
+              schoolName={sekolahData?.nama}
+              completedQuizCount={completedQuizCount}
+              dailyStreak={dailyStreak}
+              learningPoints={learningPoints}
+              answeredSoalCount={answeredSoalCount}
+              badgesList={pencapaianBadges}
+              isLoading={isLoadingPencapaian}
+              onRefresh={fetchPencapaian}
+              onNavigateTab={(tab) => {
+                if (tab === "Home") setClassroomView("home");
+                if (tab === "Peringkat") setClassroomView("peringkat");
+                if (tab === "Ruang Ujian") router.push("/ujian");
+              }}
+            />
+          ) : classroomView === "matematika" ? (
+            <RuangBelajarSubjectChaptersView
+              selectedSubject="Matematika"
+              chapters={chapters}
+              userProfile={userProfile}
+              onBackToHome={() => setClassroomView("home")}
+              onSelectSubject={(subj) =>
+                setClassroomView(
+                  subj === "Matematika"
+                    ? "matematika"
+                    : subj === "Bahasa Indonesia"
+                    ? "indonesia"
+                    : "inggris"
+                )
+              }
+            />
+          ) : classroomView === "indonesia" ? (
+            <RuangBelajarSubjectChaptersView
+              selectedSubject="Bahasa Indonesia"
+              chapters={chapters}
+              userProfile={userProfile}
+              onBackToHome={() => setClassroomView("home")}
+              onSelectSubject={(subj) =>
+                setClassroomView(
+                  subj === "Matematika"
+                    ? "matematika"
+                    : subj === "Bahasa Indonesia"
+                    ? "indonesia"
+                    : "inggris"
+                )
+              }
+            />
+          ) : classroomView === "inggris" ? (
+            <RuangBelajarSubjectChaptersView
+              selectedSubject="Bahasa Inggris"
+              chapters={chapters}
+              userProfile={userProfile}
+              onBackToHome={() => setClassroomView("home")}
+              onSelectSubject={(subj) =>
+                setClassroomView(
+                  subj === "Matematika"
+                    ? "matematika"
+                    : subj === "Bahasa Indonesia"
+                    ? "indonesia"
+                    : "inggris"
+                )
+              }
+            />
+          ) : (
+            <TabBelajar
+              studentName={studentName}
+              currentUserRank={currentUserRank}
+              namaKelas={userProfile.nama_kelas || "Kelas 8"}
+              learningProgressPercent={learningProgressPercent}
+              learningPoints={learningPoints}
+              sekolahData={sekolahData}
+              calendarWeeks={calendarWeeks}
+              dailyMissions={dailyMissions}
+              isMissionsLoading={isMissionsLoading}
+              isClaimingMissionId={isClaimingMissionId}
+              onClaimMission={handleClaimMission}
+              allChapters={chapters}
+              peerStudents={peerStudents}
+              agendasData={agendasData}
+              examsData={examsData}
+              lastActivity={lastActivity}
+              onNavigateToCourses={() => setClassroomView("matematika")}
+              classesData={classesData}
+              onOpenClass={(classIdOrName) => {
+                const targetClass = classesData.find(
+                  (c) => c.id === classIdOrName || c.nama_kelas === classIdOrName
+                );
+                const name = (targetClass?.nama_kelas || classIdOrName || "").toLowerCase();
+                if (name.includes("indo")) {
+                  setClassroomView("indonesia");
+                } else if (name.includes("ingg") || name.includes("english")) {
+                  setClassroomView("inggris");
+                } else {
+                  setClassroomView("matematika");
+                }
+              }}
+            />
+          )}
+        </main>
+      </div>
 
       {/* 3. MODALS */}
       <AttendanceModal
@@ -1421,14 +1630,7 @@ export default function StudentDashboardClient({
         onClose={() => setToastNotification(null)}
       />
 
-      {/* 5. FLOATING ACTION HUB (FAB +) */}
-      <FloatingActionHub
-        onOpenNotes={() => setIsNotesModalOpen(true)}
-        onOpenGames={() => setIsGamesModalOpen(true)}
-        onOpenGlobalChat={() => setIsGlobalChatOpen(true)}
-      />
-
-      {/* 6. UAT / DEV MENU MOCK TIME */}
+      {/* 5. UAT / DEV MENU MOCK TIME */}
       <UatDevMenu
         mockTime={mockTime}
         setMockTime={setMockTime}

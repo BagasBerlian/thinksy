@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   Users,
   GraduationCap,
@@ -47,6 +48,8 @@ interface StudentItem {
   poinXP: number;
   lencanaCount: number;
   statusRemedial: "Perlu Remedial" | "Tuntas";
+  foto?: string;
+  examAttempts?: ExamAttempt[];
 }
 
 interface ExamQuestion {
@@ -70,7 +73,10 @@ interface ExamAttempt {
   soalList: ExamQuestion[];
 }
 
-export default function GuruPenilaianSiswaPage() {
+function PenilaianSiswaInner() {
+  const searchParams = useSearchParams();
+  const mapelParam = searchParams.get("mapel") || "";
+
   const [loading, setLoading] = useState(true);
   const [classes, setClasses] = useState<StudentClass[]>([]);
   const [students, setStudents] = useState<StudentItem[]>([]);
@@ -86,12 +92,15 @@ export default function GuruPenilaianSiswaPage() {
   // Exam Questions Modal
   const [selectedExam, setSelectedExam] = useState<ExamAttempt | null>(null);
 
-  // Mock Exam Attempts Generator per Student
+  // Get Exam Attempts for Student (from Supabase or default)
   const getExamAttemptsForStudent = (student: StudentItem): ExamAttempt[] => {
+    if (student.examAttempts && student.examAttempts.length > 0) {
+      return student.examAttempts;
+    }
     return [
       {
         id: `exam-1-${student.id}`,
-        judulUjian: "Ujian Tengah Semester 1 — Matematika 8",
+        judulUjian: mapelParam ? `Ujian ${mapelParam} — Kelas 8` : "Ujian Tengah Semester 1 — Matematika 8",
         tanggal: "28 Agt 2026",
         skorAkhir: student.skorRataRata,
         status: student.skorRataRata >= 70 ? "Tuntas" : "Remedial",
@@ -157,7 +166,11 @@ export default function GuruPenilaianSiswaPage() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const res = await fetch("/api/guru/penilaian-siswa");
+        setLoading(true);
+        const url = mapelParam
+          ? `/api/guru/penilaian-siswa?mapel=${encodeURIComponent(mapelParam)}`
+          : "/api/guru/penilaian-siswa";
+        const res = await fetch(url);
         const data = await res.json();
         if (data.success) {
           setClasses(data.classes || []);
@@ -166,30 +179,14 @@ export default function GuruPenilaianSiswaPage() {
             setSelectedStudent(data.students[0]);
           }
         }
-      } catch {
-        // Fallback demo data
-        const demoClasses = [
-          { id: "kelas-8a", nama: "Kelas 8-A", deskripsi: "Matematika SMP Kelas 8 Unggulan" },
-          { id: "kelas-8b", nama: "Kelas 8-B", deskripsi: "Matematika SMP Kelas 8 Reguler A" },
-          { id: "kelas-8c", nama: "Kelas 8-C", deskripsi: "Matematika SMP Kelas 8 Reguler B" },
-          { id: "kelas-9a", nama: "Kelas 9-A", deskripsi: "Matematika SMP Kelas 9 Unggulan" },
-        ];
-        const demoStudents: StudentItem[] = [
-          { id: "st-1", nama: "Ahmad Raihan", initials: "AR", email: "ahmad@sekolah.sch.id", nisn: "00849201", kelasId: "kelas-8a", namaKelas: "Kelas 8-A", skorRataRata: 85, streakHari: 14, poinXP: 1450, lencanaCount: 6, statusRemedial: "Tuntas" },
-          { id: "st-2", nama: "Budi Santoso", initials: "BS", email: "budi@sekolah.sch.id", nisn: "00849214", kelasId: "kelas-8a", namaKelas: "Kelas 8-A", skorRataRata: 62, streakHari: 5, poinXP: 920, lencanaCount: 3, statusRemedial: "Perlu Remedial" },
-          { id: "st-3", nama: "Citra Dewi", initials: "CD", email: "citra@sekolah.sch.id", nisn: "00849227", kelasId: "kelas-8b", namaKelas: "Kelas 8-B", skorRataRata: 90, streakHari: 21, poinXP: 1890, lencanaCount: 8, statusRemedial: "Tuntas" },
-          { id: "st-4", nama: "Dina Aulia", initials: "DA", email: "dina@sekolah.sch.id", nisn: "00849240", kelasId: "kelas-8b", namaKelas: "Kelas 8-B", skorRataRata: 78, streakHari: 9, poinXP: 1100, lencanaCount: 5, statusRemedial: "Tuntas" },
-          { id: "st-5", nama: "Eko Prasetyo", initials: "EP", email: "eko@sekolah.sch.id", nisn: "00849253", kelasId: "kelas-8c", namaKelas: "Kelas 8-C", skorRataRata: 68, streakHari: 4, poinXP: 850, lencanaCount: 2, statusRemedial: "Perlu Remedial" },
-        ];
-        setClasses(demoClasses);
-        setStudents(demoStudents);
-        setSelectedStudent(demoStudents[0]);
+      } catch (err) {
+        console.error("Gagal memuat penilaian siswa:", err);
       } finally {
         setLoading(false);
       }
     }
     fetchData();
-  }, []);
+  }, [mapelParam]);
 
   const filteredStudents = students.filter((st) => {
     const matchClass = selectedClassId === "all" || st.kelasId === selectedClassId;
@@ -204,7 +201,7 @@ export default function GuruPenilaianSiswaPage() {
     <GuruLayout>
       <div className="space-y-6 max-w-7xl mx-auto font-sans pb-12">
         {/* PAGE HEADER BAR */}
-        <div className="bg-gradient-to-r from-[#0F172A] via-slate-900 to-[#0F172A] text-white p-6 sm:p-8 rounded-3xl shadow-xl border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="bg-[#090D16] text-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-black">
               <GraduationCap className="w-4 h-4" />
@@ -228,6 +225,29 @@ export default function GuruPenilaianSiswaPage() {
             </Link>
           </div>
         </div>
+
+        {/* ACTIVE MAPEL FILTER BANNER */}
+        {mapelParam && (
+          <div className="bg-blue-50 border border-blue-200 text-blue-900 rounded-2xl p-4 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <BookOpen className="w-5 h-5 text-blue-600 shrink-0" />
+              <div>
+                <span className="text-xs font-black">
+                  Filter Nilai Mata Pelajaran: {mapelParam}
+                </span>
+                <p className="text-[11px] text-blue-700 font-medium">
+                  Menampilkan nilai dan sesi ujian siswa khusus mata pelajaran {mapelParam} dari Pengaturan Kelas Aktif.
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/guru/penilaian-siswa"
+              className="px-3 py-1.5 rounded-xl bg-white text-blue-900 hover:bg-blue-100 text-xs font-bold transition border border-blue-300 shrink-0"
+            >
+              Reset Filter Mapel
+            </Link>
+          </div>
+        )}
 
         {/* ======================================================== */}
         {/* LANGKAH 1: PILIHAN BUTTON KELAS GRID                      */}
@@ -373,7 +393,7 @@ export default function GuruPenilaianSiswaPage() {
             {selectedStudent ? (
               <div className="space-y-6">
                 {/* Student Summary Top Card */}
-                <div className="bg-gradient-to-r from-slate-900 to-[#0F172A] text-white p-5 rounded-2xl border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-md">
+                <div className="bg-[#090D16] text-white p-5 rounded-2xl border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
                   <div className="flex items-center gap-3.5">
                     <div className="w-12 h-12 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center text-base font-black shadow-md shrink-0">
                       {selectedStudent.initials}
@@ -551,7 +571,7 @@ export default function GuruPenilaianSiswaPage() {
                 {/* CATEGORY 3: STREAK BELAJAR */}
                 {activeCategory === "streak" && (
                   <div className="space-y-4 animate-in fade-in">
-                    <div className="p-6 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 text-white space-y-3 shadow-md">
+                    <div className="p-6 rounded-2xl bg-[#090D16] border border-amber-500/30 text-white space-y-3 shadow-sm">
                       <div className="flex items-center gap-3">
                         <Flame className="w-8 h-8 fill-white text-white" />
                         <div>
@@ -696,5 +716,19 @@ export default function GuruPenilaianSiswaPage() {
         )}
       </div>
     </GuruLayout>
+  );
+}
+
+export default function GuruPenilaianSiswaPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-500 font-bold text-xs">
+          Memuat penilaian siswa...
+        </div>
+      }
+    >
+      <PenilaianSiswaInner />
+    </Suspense>
   );
 }

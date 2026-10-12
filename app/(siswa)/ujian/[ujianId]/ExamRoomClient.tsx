@@ -753,7 +753,7 @@ export default function ExamRoomClient({
               </div>
 
               {/* Notice Resmi Ujian */}
-              <div className="p-5 rounded-2xl bg-gradient-to-r from-blue-50/80 to-indigo-50/50 border border-blue-200 text-left flex items-start gap-3.5 shadow-2xs">
+              <div className="p-5 rounded-2xl bg-blue-50/60 border border-blue-200 text-left flex items-start gap-3.5 shadow-2xs">
                 <ShieldCheck className="w-5 h-5 text-blue-700 shrink-0 mt-0.5" />
                 <div className="space-y-1">
                   <h4 className="text-xs font-black text-blue-950 uppercase tracking-wider">
@@ -1377,7 +1377,7 @@ export default function ExamRoomClient({
                     )}
 
                     {/* Kotak Pembahasan & Analisis Konsep */}
-                    <div className="mt-4 p-4.5 sm:p-5 rounded-2xl bg-gradient-to-r from-blue-50/80 via-indigo-50/50 to-slate-50 border-l-4 border-l-indigo-600 border border-indigo-100 shadow-2xs space-y-2">
+                    <div className="mt-4 p-4.5 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200 shadow-2xs space-y-2">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 text-indigo-900 font-black text-xs sm:text-sm">
                           <Lightbulb className="w-4 h-4 text-amber-500 shrink-0" />
@@ -1452,7 +1452,7 @@ export default function ExamRoomClient({
         tag: "MTK",
         badgeColor: "bg-indigo-600 text-white",
         lightBg: "bg-indigo-50 border-indigo-200 text-indigo-700",
-        barGradient: "from-indigo-600 via-indigo-500 to-sky-400",
+        barColor: "bg-indigo-600",
       };
     }
     if (m.includes("indonesia")) {
@@ -1460,7 +1460,7 @@ export default function ExamRoomClient({
         tag: "IND",
         badgeColor: "bg-emerald-600 text-white",
         lightBg: "bg-emerald-50 border-emerald-200 text-emerald-700",
-        barGradient: "from-emerald-600 via-teal-500 to-cyan-400",
+        barColor: "bg-emerald-600",
       };
     }
     if (m.includes("inggris") || m.includes("english")) {
@@ -1468,14 +1468,14 @@ export default function ExamRoomClient({
         tag: "ENG",
         badgeColor: "bg-sky-600 text-white",
         lightBg: "bg-sky-50 border-sky-200 text-sky-700",
-        barGradient: "from-sky-600 via-blue-500 to-indigo-400",
+        barColor: "bg-sky-600",
       };
     }
     return {
       tag: "EXAM",
       badgeColor: "bg-slate-900 text-white",
       lightBg: "bg-slate-100 border-slate-200 text-slate-700",
-      barGradient: "from-slate-800 via-slate-700 to-slate-500",
+      barColor: "bg-slate-900",
     };
   };
 
@@ -1574,7 +1574,7 @@ export default function ExamRoomClient({
             {/* Kumpulkan Ujian Button */}
             <button
               onClick={() => setIsConfirmModalOpen(true)}
-              className="px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold text-xs flex items-center gap-1.5 transition shadow-xs hover:shadow-sm cursor-pointer shrink-0"
+              className="px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center gap-1.5 transition shadow-xs hover:shadow-sm cursor-pointer shrink-0"
             >
               <Send className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Kumpulkan Ujian</span>
@@ -1623,9 +1623,9 @@ export default function ExamRoomClient({
         <div className="lg:col-span-7 flex flex-col space-y-6">
           {currentQuestion ? (
             <div className="rounded-3xl p-6 sm:p-8 bg-white border border-slate-200/90 shadow-[0_4px_24px_-4px_rgba(15,23,42,0.06)] flex-1 flex flex-col justify-between relative overflow-hidden">
-              {/* Top Accent Gradient Line */}
+              {/* Top Accent Solid Line */}
               <div
-                className={`absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r ${subjectMeta.barGradient}`}
+                className={`absolute top-0 left-0 right-0 h-1 ${subjectMeta.barColor}`}
               />
 
               <div className="space-y-6 flex-1 flex flex-col">
@@ -1762,7 +1762,7 @@ export default function ExamRoomClient({
                   ) : (
                     <button
                       onClick={() => setIsConfirmModalOpen(true)}
-                      className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold text-xs flex items-center gap-1.5 transition shadow-sm cursor-pointer shrink-0"
+                      className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center gap-1.5 transition shadow-sm cursor-pointer shrink-0"
                     >
                       <span className="hidden sm:inline">Selesai & Kumpulkan</span>
                       <span className="sm:hidden">Selesai</span>
@@ -1854,7 +1854,7 @@ export default function ExamRoomClient({
               </div>
               <div className="h-2 rounded-full bg-slate-100 overflow-hidden p-0.5 border border-slate-200/60">
                 <div
-                  className="h-full bg-gradient-to-r from-indigo-500 to-emerald-500 rounded-full transition-all duration-300"
+                  className="h-full bg-indigo-600 rounded-full transition-all duration-300"
                   style={{
                     width: `${(answeredCount / (initialQuestions.length || 1)) * 100}%`,
                   }}
@@ -1866,7 +1866,7 @@ export default function ExamRoomClient({
           {/* Card Bantuan Sokratik (Di Bawah Card Nomor Ujian, Simetris dengan Card Soal) */}
           <div
             id="sokratik-card"
-            className="rounded-3xl p-5 sm:p-6 bg-gradient-to-br from-amber-50/90 via-orange-50/30 to-white border border-amber-200/90 shadow-[0_4px_24px_-4px_rgba(245,158,11,0.12)] flex-1 flex flex-col justify-between space-y-4 transition-all duration-200"
+            className="rounded-3xl p-5 sm:p-6 bg-amber-50/40 border border-amber-200/90 shadow-sm flex-1 flex flex-col justify-between space-y-4 transition-all duration-200"
           >
             {!isSocraticDrawerOpen ? (
               <div className="flex-1 flex flex-col justify-between space-y-4">

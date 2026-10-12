@@ -154,8 +154,8 @@ export default function AdminExamControlWidget() {
 
   return (
     <div className="bg-white rounded-3xl border border-slate-200/90 p-6 sm:p-7 shadow-xs space-y-6 relative overflow-hidden">
-      {/* Top Accent Gradient */}
-      <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-amber-500" />
+      {/* Top Accent Architectural Line */}
+      <div className="absolute top-0 left-0 right-0 h-1 bg-slate-900" />
 
       {/* Floating Toast Notification */}
       {toastMessage && (
@@ -173,10 +173,6 @@ export default function AdminExamControlWidget() {
       {/* Header Section */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
         <div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-800 text-[11px] font-black uppercase tracking-wider mb-1.5">
-            <Shield className="w-3.5 h-3.5 text-blue-600" />
-            <span>Otoritas Master Admin Sekolah</span>
-          </div>
           <h2 className="text-xl font-black text-[#0F172A] tracking-tight">
             Kontrol Jadwal & Akses Ujian Siswa (2 Master Card)
           </h2>
@@ -195,7 +191,7 @@ export default function AdminExamControlWidget() {
       {/* 2 MASTER CARDS FOR ADMIN */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* ================= CARD 1: KONTROL ULANGAN SISWA ================= */}
-        <div className="rounded-3xl border border-indigo-200/80 bg-gradient-to-b from-indigo-50/40 to-white p-6 shadow-xs flex flex-col justify-between space-y-5">
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xs flex flex-col justify-between space-y-5">
           <div className="space-y-4">
             {/* Header Card */}
             <div className="flex items-start justify-between gap-3">
@@ -345,7 +341,7 @@ export default function AdminExamControlWidget() {
         </div>
 
         {/* ================= CARD 2: KONTROL UJIAN RESMI SISWA ================= */}
-        <div className="rounded-3xl border border-slate-300 bg-gradient-to-b from-slate-50 to-white p-6 shadow-xs flex flex-col justify-between space-y-5">
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xs flex flex-col justify-between space-y-5">
           <div className="space-y-4">
             {/* Header Card */}
             <div className="flex items-start justify-between gap-3">

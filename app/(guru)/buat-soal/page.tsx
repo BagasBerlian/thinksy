@@ -155,8 +155,7 @@ export default function AIQuestionGeneratorPage() {
 
       <div className="mx-auto max-w-7xl px-4 sm:px-6 pt-6 space-y-6">
         {/* Title Card */}
-        <div className="rounded-3xl bg-gradient-to-r from-[#0F172A] via-slate-800 to-indigo-950 p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="rounded-3xl bg-[#090D16] border border-slate-800 p-6 sm:p-8 text-white shadow-sm relative overflow-hidden">
           <div className="relative space-y-2">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 text-blue-200 text-xs font-bold border border-blue-400/30">
               <Bot className="w-4 h-4 text-amber-300" />

@@ -394,14 +394,14 @@ export default function GeneralAiChat({ studentName }: GeneralAiChatProps) {
               {isSidebarOpen ? <PanelLeftClose className="w-5 h-5" /> : <PanelLeftOpen className="w-5 h-5" />}
             </button>
 
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center shadow-xs">
+            <div className="w-9 h-9 rounded-xl bg-[#090D16] border border-slate-700 text-white flex items-center justify-center shadow-xs">
               <BrainCircuit className="w-5 h-5 text-amber-400" />
             </div>
 
             <div>
               <h3 className="text-sm font-extrabold text-[#0F172A] flex items-center gap-2">
                 <span>Thinksy AI Study Assistant</span>
-                <span className="text-[10px] font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-2.5 py-0.5 rounded-full shadow-2xs">
+                <span className="text-[10px] font-mono font-bold bg-slate-900 text-amber-400 border border-slate-700 px-2.5 py-0.5 rounded-full shadow-2xs">
                   Gemini 3.1 Flash Lite
                 </span>
               </h3>

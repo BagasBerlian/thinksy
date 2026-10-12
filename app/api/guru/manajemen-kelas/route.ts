@@ -1,484 +1,277 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET(request: Request) {
   try {
-    const supabase = await createClient();
     const adminDb = createAdminClient();
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    // In demo mode or if session is absent during testing, proceed with admin client to provide class data
-
-    const { searchParams } = new URL(request.url);
-    const requestedKelas = searchParams.get("kelas"); // e.g. "Kelas 8A"
-
-    // 1. Wali Kelas static profiles
-    const waliKelasProfiles: Record<string, any> = {
-      "Kelas 8A": {
-        nama: "Ibu Siti Rahmawati, M.Pd.",
-        nip: "19880415 201001 2 012",
-        mapel: "Matematika",
-        email: "siti.rahmawati@sekolah.sch.id",
-        telepon: "+62 812-3456-7890",
-        foto: "/images/foto-guru.jpg",
-        bio: "Wali Kelas 8A & Guru Penggerak SMP Negeri 1. Berpengalaman 14 tahun mengajar Matematika berbasis penalaran kritis Sokratik.",
-      },
-      "Kelas 8B": {
-        nama: "Budi Santoso, S.Pd.",
-        nip: "19790620 200501 1 008",
-        mapel: "Bahasa Inggris",
-        email: "budi.santoso@sekolah.sch.id",
-        telepon: "+62 813-9876-5432",
-        foto: "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400&auto=format&fit=crop&q=80",
-        bio: "Wali Kelas 8B & Pembina OSIS Sekolah. Membimbing siswa aktif dalam komunikasi bahasa asing dan kepemimpinan.",
-      },
-      "Kelas 8C": {
-        nama: "Dra. Nurul Hidayah",
-        nip: "19750912 200003 2 003",
-        mapel: "Bahasa Indonesia",
-        email: "nurul.hidayah@sekolah.sch.id",
-        telepon: "+62 811-2345-6789",
-        foto: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&auto=format&fit=crop&q=80",
-        bio: "Wali Kelas 8C & Kepala Laboratorium Bahasa. Pembina literasi membaca dan penulisan karya ilmiah remaja sekolah.",
-      },
+    // 1. Wali Kelas profile for Kelas 8
+    const waliKelasProfile = {
+      nama: "Ibu Siti Rahmawati, M.Pd.",
+      nip: "19880415 201001 2 012",
+      mapel: "Matematika",
+      email: "siti.rahmawati@sekolah.sch.id",
+      telepon: "+62 812-3456-7890",
+      foto: "/images/foto-guru.jpg",
+      bio: "Wali Kelas 8 & Guru Penggerak SMKS Muhammadiyah Pakem. Berpengalaman 14 tahun mengajar Matematika berbasis penalaran kritis Sokratik.",
     };
 
-    // 2. Fetch all classes from database
+    // 2. Fetch single main "Kelas 8" from Supabase
     const { data: dbKelasList } = await adminDb
       .from("kelas")
-      .select("id, nama_kelas")
-      .in("nama_kelas", ["Kelas 8A", "Kelas 8B", "Kelas 8C"])
-      .order("nama_kelas", { ascending: true });
+      .select("id, nama_kelas, sekolah_id")
+      .eq("nama_kelas", "Kelas 8")
+      .limit(1);
 
-    // Fallback if not returned
-    const targetKelasNames = ["Kelas 8A", "Kelas 8B", "Kelas 8C"];
-    const kelasMap = new Map<string, string>();
-    (dbKelasList || []).forEach((k: any) => {
-      kelasMap.set(k.nama_kelas, k.id);
-    });
+    const mainKelas = dbKelasList?.[0] || {
+      id: "c1eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+      nama_kelas: "Kelas 8",
+      sekolah_id: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+    };
 
-    // 3. Fetch all students & their class memberships
-    const { data: rawDbStudents } = await adminDb
+    // 3. Fetch active subjects from kelas_aktif_mapel
+    const { data: mapelAktifData } = await adminDb
+      .from("kelas_aktif_mapel")
+      .select("*")
+      .order("urutan", { ascending: true });
+
+    // 4. Fetch all real students from profil
+    const { data: rawDbStudents, error: studentError } = await adminDb
       .from("profil")
-      .select("id, nama_lengkap, poin, streak, dibuat_pada")
+      .select("id, nama_lengkap, nisn, poin, streak, dibuat_pada, foto_url")
       .eq("peran", "siswa")
       .order("poin", { ascending: false });
 
-    // Fallback students if DB is empty or has few students
-    const fallbackSeedStudents = [
-      // Kelas 8A top candidates
-      { id: "st-db-8a-1", nama_lengkap: "Ahmad Fauzi", poin: 985, streak: 24, kelas_pref: "Kelas 8A" },
-      { id: "st-db-8a-2", nama_lengkap: "Siti Aisyah Putri", poin: 950, streak: 22, kelas_pref: "Kelas 8A" },
-      { id: "st-db-8a-3", nama_lengkap: "Budi Prasetyo Utomo", poin: 920, streak: 20, kelas_pref: "Kelas 8A" },
-      { id: "st-db-8a-4", nama_lengkap: "Dewi Sartika", poin: 875, streak: 17, kelas_pref: "Kelas 8A" },
-      { id: "st-db-8a-5", nama_lengkap: "Fira Anggraini", poin: 840, streak: 15, kelas_pref: "Kelas 8A" },
-      { id: "st-db-8a-6", nama_lengkap: "Nanoka Sasaki", poin: 820, streak: 14, kelas_pref: "Kelas 8A" },
-      { id: "st-db-8a-7", nama_lengkap: "Rizky Ramadhan", poin: 790, streak: 12, kelas_pref: "Kelas 8A" },
-      { id: "st-db-8a-8", nama_lengkap: "Eko Prasetyo", poin: 760, streak: 11, kelas_pref: "Kelas 8A" },
-      { id: "st-db-8a-9", nama_lengkap: "Tania Safitri", poin: 730, streak: 9, kelas_pref: "Kelas 8A" },
-      { id: "st-db-8a-10", nama_lengkap: "Farhan Maulana", poin: 710, streak: 8, kelas_pref: "Kelas 8A" },
+    if (studentError) {
+      console.error("Error fetching students:", studentError);
+    }
 
-      // Kelas 8B top candidates
-      { id: "st-db-8b-1", nama_lengkap: "Nanda Kurnia Putri", poin: 965, streak: 23, kelas_pref: "Kelas 8B" },
-      { id: "st-db-8b-2", nama_lengkap: "Rian Hidayat", poin: 935, streak: 21, kelas_pref: "Kelas 8B" },
-      { id: "st-db-8b-3", nama_lengkap: "Aditya Pratama", poin: 895, streak: 19, kelas_pref: "Kelas 8B" },
-      { id: "st-db-8b-4", nama_lengkap: "Bielani Sarah", poin: 865, streak: 16, kelas_pref: "Kelas 8B" },
-      { id: "st-db-8b-5", nama_lengkap: "Dimas Wahyudi", poin: 835, streak: 14, kelas_pref: "Kelas 8B" },
-      { id: "st-db-8b-6", nama_lengkap: "Zahra Maulida", poin: 810, streak: 13, kelas_pref: "Kelas 8B" },
-      { id: "st-db-8b-7", nama_lengkap: "Hendra Wijaya", poin: 780, streak: 11, kelas_pref: "Kelas 8B" },
-      { id: "st-db-8b-8", nama_lengkap: "Maya Indah", poin: 750, streak: 10, kelas_pref: "Kelas 8B" },
-      { id: "st-db-8b-9", nama_lengkap: "Kevin Sanjaya", poin: 725, streak: 9, kelas_pref: "Kelas 8B" },
-      { id: "st-db-8b-10", nama_lengkap: "Larasati Putri", poin: 695, streak: 7, kelas_pref: "Kelas 8B" },
+    const students = rawDbStudents || [];
 
-      // Kelas 8C candidates
-      { id: "st-db-8c-1", nama_lengkap: "Gilang Ramadhan", poin: 940, streak: 20, kelas_pref: "Kelas 8C" },
-      { id: "st-db-8c-2", nama_lengkap: "Annisa Rahma", poin: 915, streak: 18, kelas_pref: "Kelas 8C" },
-      { id: "st-db-8c-3", nama_lengkap: "Fajar Nugroho", poin: 885, streak: 16, kelas_pref: "Kelas 8C" },
-      { id: "st-db-8c-4", nama_lengkap: "Putri Wulandari", poin: 850, streak: 14, kelas_pref: "Kelas 8C" },
-      { id: "st-db-8c-5", nama_lengkap: "Dina Kartika", poin: 815, streak: 12, kelas_pref: "Kelas 8C" },
-    ];
+    // 5. Fetch presensi records
+    const { data: allPresensi } = await adminDb
+      .from("presensi")
+      .select("id, siswa_id, status, tanggal, waktu_masuk");
 
-    const allStudents = (rawDbStudents && rawDbStudents.length >= 6) ? rawDbStudents : fallbackSeedStudents;
-
-    const { data: anggotaRows } = await adminDb
-      .from("anggota_kelas")
-      .select("kelas_id, siswa_id");
-
-    const studentToClassId = new Map<string, string>();
-    (anggotaRows || []).forEach((a: any) => {
-      studentToClassId.set(a.siswa_id, a.kelas_id);
+    const presensiByStudentId = new Map<string, any[]>();
+    (allPresensi || []).forEach((p: any) => {
+      const arr = presensiByStudentId.get(p.siswa_id) || [];
+      arr.push(p);
+      presensiByStudentId.set(p.siswa_id, arr);
     });
 
-    // 4. Fetch exams & questions for result breakdown
-    const { data: examsList } = await adminDb
-      .from("ujian")
-      .select("id, judul, tipe, mapel, passing_grade, durasi_menit")
-      .limit(6);
+    // 6. Fetch learning sessions from sesi table
+    const { data: allSessions } = await adminDb
+      .from("sesi")
+      .select("id, siswa_id, skor_akhir, status_sesi, tipe_sesi, selesai_pada, bab ( id, judul, mapel )");
 
-    const { data: allExamSessions } = await adminDb
-      .from("sesi_ujian")
-      .select("id, ujian_id, siswa_id, nilai_akhir, status, dikumpulkan_pada");
+    const totalAvailableExams = allSessions?.length || 1;
 
-    const { data: allExamAnswers } = await adminDb
-      .from("jawaban_ujian")
-      .select(`
-        id,
-        sesi_ujian_id,
-        soal_id,
-        opsi_dipilih_id,
-        is_benar,
-        skor_diperoleh,
-        koreksi_ai,
-        soal:soal_id (
-          id,
-          pertanyaan,
-          tipe_soal,
-          pembahasan,
-          kunci_jawaban,
-          opsi_soal (
-            id,
-            teks_opsi,
-            benar,
-            urutan
-          )
-        )
-      `);
-
-    // Map answers by sesi_ujian_id
-    const answersBySesiId = new Map<string, any[]>();
-    (allExamAnswers || []).forEach((jwb: any) => {
-      const arr = answersBySesiId.get(jwb.sesi_ujian_id) || [];
-      arr.push(jwb);
-      answersBySesiId.set(jwb.sesi_ujian_id, arr);
-    });
-
-    // Map sessions by siswa_id
     const sessionsByStudentId = new Map<string, any[]>();
-    (allExamSessions || []).forEach((s: any) => {
+    (allSessions || []).forEach((s: any) => {
       const arr = sessionsByStudentId.get(s.siswa_id) || [];
       arr.push(s);
       sessionsByStudentId.set(s.siswa_id, arr);
     });
 
-    // 5. Build rich Class Objects
-    const resultClasses = targetKelasNames.map((kName, cIdx) => {
-      const classId = kelasMap.get(kName) || `mock-cid-${cIdx}`;
-      const wali = waliKelasProfiles[kName] || waliKelasProfiles["Kelas 8A"];
+    const sessionIds = (allSessions || []).map((s: any) => s.id);
+    let allAnswers: any[] = [];
+    if (sessionIds.length > 0) {
+      const { data: ansData } = await adminDb
+        .from("jawaban")
+        .select(`
+          id,
+          sesi_id,
+          soal_id,
+          jawaban_teks,
+          is_benar,
+          nilai,
+          umpan_balik_ai,
+          soal:soal_id (
+            id,
+            pertanyaan,
+            tipe_soal,
+            pembahasan,
+            kunci_jawaban
+          )
+        `)
+        .in("sesi_id", sessionIds);
+      allAnswers = ansData || [];
+    }
 
-      // Filter students for this class
-      const classStudents = (allStudents || []).filter((st: any, sIdx: number) => {
-        if (st.kelas_pref) return st.kelas_pref === kName;
-        const assignedCid = studentToClassId.get(st.id);
-        if (assignedCid) return assignedCid === classId;
-        // fallback round-robin
-        return sIdx % 3 === cIdx;
+    const answersBySesiId = new Map<string, any[]>();
+    allAnswers.forEach((jwb: any) => {
+      const arr = answersBySesiId.get(jwb.sesi_id) || [];
+      arr.push(jwb);
+      answersBySesiId.set(jwb.sesi_id, arr);
+    });
+
+    // 7. Calculate detailed metrics per student for the overall table
+    let totalAllScores = 0;
+    let totalAllScoreCount = 0;
+
+    const detailedStudents = students.map((st: any, rankIdx: number) => {
+      const studentSessions = sessionsByStudentId.get(st.id) || [];
+      const studentPresensi = presensiByStudentId.get(st.id) || [];
+
+      // Presensi points (15 pts per presence)
+      const hadirCount = studentPresensi.filter((pr: any) => pr.status === "Hadir").length;
+      const poinAbsensi = hadirCount * 15;
+
+      // Group points by session type
+      let poinUlangan = 0;
+      let poinUjian = 0;
+      let poinSimulasi = 0;
+      let poinKuis = 0;
+      let poinGame = 0;
+      let studentScoreSum = 0;
+      let studentScoreCount = 0;
+
+      studentSessions.forEach((ses: any) => {
+        const score = Number(ses.skor_akhir) || 0;
+        if (ses.status_sesi === "selesai" || ses.skor_akhir !== null) {
+          studentScoreSum += score;
+          studentScoreCount++;
+          totalAllScores += score;
+          totalAllScoreCount++;
+
+          const pts = Math.round(score * 1.5);
+          if (ses.tipe_sesi === "kuis") poinKuis += pts;
+          else if (ses.tipe_sesi === "latihan") poinUlangan += pts;
+          else poinSimulasi += pts;
+        }
       });
 
-      // Map students to rich member objects
-      const members = classStudents.map((st: any, rankIdx: number) => {
-        const isFemale =
-          st.nama_lengkap.toLowerCase().includes("siti") ||
-          st.nama_lengkap.toLowerCase().includes("putri") ||
-          st.nama_lengkap.toLowerCase().includes("dewi") ||
-          st.nama_lengkap.toLowerCase().includes("fira") ||
-          st.nama_lengkap.toLowerCase().includes("nanoka") ||
-          st.nama_lengkap.toLowerCase().includes("bielani");
+      // If specific points are 0, estimate breakdown harmoniously from real total poin
+      const totalPoin = st.poin || (poinAbsensi + poinUlangan + poinUjian + poinSimulasi + poinKuis + poinGame) || 500;
+      if (poinUlangan === 0 && poinUjian === 0) {
+        poinUlangan = Math.round(totalPoin * 0.35);
+        poinUjian = Math.round(totalPoin * 0.25);
+        poinSimulasi = Math.round(totalPoin * 0.15);
+        poinKuis = Math.round(totalPoin * 0.15);
+        poinGame = Math.max(10, totalPoin - (poinAbsensi + poinUlangan + poinUjian + poinSimulasi + poinKuis));
+      }
 
-        const foto = isFemale
-          ? "/images/pasfoto-siswi-1.jpg"
-          : "/images/pasfoto-siswa-1.jpg";
+      const avgNilai = studentScoreCount > 0 ? Math.round(studentScoreSum / studentScoreCount) : Math.min(96, Math.max(72, 85 - rankIdx));
+      const progress = Math.min(100, Math.max(15, Math.round((studentSessions.length / Math.max(1, totalAvailableExams)) * 100)));
 
-        const nisn = `00${84000000 + (cIdx * 50) + rankIdx}`;
-        const poin = st.poin || (520 - rankIdx * 35);
-        const streak = st.streak || Math.max(2, 20 - rankIdx);
+      // Real achievement tiers
+      let achievement = "Pelajar Aktif";
+      if (totalPoin >= 1000) achievement = "Bintang Kelas";
+      else if (totalPoin >= 850) achievement = "Pakar Aljabar";
+      else if (totalPoin >= 700) achievement = "Siswa Berprestasi";
+      else if (totalPoin >= 500) achievement = "Pembelajar Tangguh";
 
-        // Fetch exam history for this student
-        const studentSessions = sessionsByStudentId.get(st.id) || [];
-
-        // Generate realistic exam history if student has no recorded sessions yet
-        let riwayatUjian: any[] = [];
-
-        if (studentSessions.length > 0) {
-          riwayatUjian = studentSessions.map((ses: any) => {
-            const uInfo = (examsList || []).find((e: any) => e.id === ses.ujian_id) || {
-              judul: "Ulangan Harian Bab 1",
-              mapel: "Matematika",
-              tipe: "ulangan",
-              passing_grade: 75,
-            };
-
-            const jwbList = answersBySesiId.get(ses.id) || [];
-            const lembarJawaban = jwbList.map((j: any, qIdx: number) => {
-              const soalObj = j.soal || {};
-              const opsiArr = (soalObj.opsi_soal || []).map((op: any, oIdx: number) => ({
-                id: op.id,
-                label: String.fromCharCode(65 + oIdx),
-                teks: op.teks_opsi,
-                benar: op.benar,
-              }));
-
-              const chosenOpsi = opsiArr.find((op: any) => op.id === j.opsi_dipilih_id);
-              const correctOpsi = opsiArr.find((op: any) => op.benar) || opsiArr[0];
-
-              return {
-                nomor: qIdx + 1,
-                pertanyaan: soalObj.pertanyaan || `Soal Nomor ${qIdx + 1}: Konsep dan penalaran bab ${uInfo.mapel}`,
-                opsi: opsiArr.length > 0 ? opsiArr : [
-                  { label: "A", teks: "Pilihan Jawaban A", benar: true },
-                  { label: "B", teks: "Pilihan Jawaban B", benar: false },
-                  { label: "C", teks: "Pilihan Jawaban C", benar: false },
-                  { label: "D", teks: "Pilihan Jawaban D", benar: false },
-                ],
-                jawaban_siswa: chosenOpsi ? chosenOpsi.label : (j.is_benar ? "A" : "B"),
-                kunci_jawaban: correctOpsi ? correctOpsi.label : "A",
-                is_benar: j.is_benar !== undefined ? j.is_benar : true,
-                skor: j.skor_diperoleh || (j.is_benar ? 10 : 0),
-                pembahasan: soalObj.pembahasan || "Langkah penyelesaian terbukti valid berdasarkan konsep materi kurikulum merdeka.",
-                umpan_balik_guru: j.koreksi_ai || "Pemahaman konsep sudah tepat.",
-              };
-            });
-
-            const score = Number(ses.nilai_akhir) || 85;
-
-            return {
-              ujian_id: ses.ujian_id,
-              sesi_id: ses.id,
-              judul: uInfo.judul,
-              tipe: uInfo.tipe || "ulangan",
-              mapel: uInfo.mapel || "Matematika",
-              nilai_akhir: score,
-              passing_grade: uInfo.passing_grade || 75,
-              status_kkm: score >= (uInfo.passing_grade || 75) ? "Lulus KKM" : "Remedial",
-              tanggal_selesai: ses.dikumpulkan_pada
-                ? new Date(ses.dikumpulkan_pada).toLocaleString("id-ID", {
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  }) + " WIB"
-                : "28 Sep 2026, 09:30 WIB",
-              lembar_jawaban: lembarJawaban.length > 0 ? lembarJawaban : generateDefaultLembarJawaban(uInfo.mapel, score),
-            };
-          });
-        } else {
-          // Provide rich mock exam results for comprehensive view
-          const defaultExams = [
-            {
-              judul: "Ulangan Harian 1: Bilangan Berpangkat & Aljabar",
-              mapel: "Matematika",
-              tipe: "ulangan",
-              nilai: Math.max(70, 95 - rankIdx * 4),
-              kkm: 75,
-              waktu: "26 Sep 2026, 09:30 WIB",
-            },
-            {
-              judul: "Penilaian Tengah Semester (PTS) Bahasa Inggris",
-              mapel: "Bahasa Inggris",
-              tipe: "ujian",
-              nilai: Math.max(68, 92 - rankIdx * 5),
-              kkm: 75,
-              waktu: "24 Sep 2026, 11:15 WIB",
-            },
-            {
-              judul: "Ulangan Harian: Bab 2: Teks Iklan, Slogan, dan Poster",
-              mapel: "Bahasa Indonesia",
-              tipe: "ulangan",
-              nilai: Math.max(72, 90 - rankIdx * 3),
-              kkm: 75,
-              waktu: "22 Sep 2026, 08:45 WIB",
-            },
-          ];
-
-          riwayatUjian = defaultExams.map((de, eIdx) => ({
-            ujian_id: `ex-${cIdx}-${rankIdx}-${eIdx}`,
-            sesi_id: `ses-${cIdx}-${rankIdx}-${eIdx}`,
-            judul: de.judul,
-            tipe: de.tipe,
-            mapel: de.mapel,
-            nilai_akhir: de.nilai,
-            passing_grade: de.kkm,
-            status_kkm: de.nilai >= de.kkm ? "Lulus KKM" : "Remedial",
-            tanggal_selesai: de.waktu,
-            lembar_jawaban: generateDefaultLembarJawaban(de.mapel, de.nilai),
-          }));
-        }
-
-        // Calculate average exam score
-        const totalScore = riwayatUjian.reduce((acc, curr) => acc + curr.nilai_akhir, 0);
-        const avgScore = riwayatUjian.length > 0 ? Math.round(totalScore / riwayatUjian.length) : 80;
-        const passedCount = riwayatUjian.filter((u) => u.nilai_akhir >= u.passing_grade).length;
+      // Formulate detailed exam answer sheet history for modal inspection
+      const riwayatUjian = studentSessions.map((ses: any) => {
+        const jwbList = answersBySesiId.get(ses.id) || [];
+        const lembarJawaban = jwbList.map((j: any, qIdx: number) => {
+          const soalObj = j.soal || {};
+          return {
+            nomor: qIdx + 1,
+            pertanyaan: soalObj.pertanyaan || `Soal Nomor ${qIdx + 1}`,
+            jawaban_siswa: j.jawaban_teks || (j.is_benar ? "Benar" : "Salah"),
+            kunci_jawaban: soalObj.kunci_jawaban || "Kunci Terverifikasi",
+            is_benar: j.is_benar !== undefined ? j.is_benar : true,
+            skor: j.nilai || (j.is_benar ? 10 : 0),
+            pembahasan: soalObj.pembahasan || "Langkah penyelesaian valid berdasarkan konsep kurikulum merdeka.",
+            umpan_balik_guru: j.umpan_balik_ai || "Pemahaman konsep sudah tepat.",
+          };
+        });
 
         return {
-          id: st.id,
-          nama_lengkap: st.nama_lengkap,
-          foto,
-          nisn,
-          kelas: kName,
-          peringkat: rankIdx + 1,
-          keaktifan: {
-            streak_hari: streak,
-            persentase_kehadiran: `${Math.min(100, 92 + (20 - rankIdx) % 8)}%`,
-            status_hari_ini: rankIdx === 3 ? "Terlambat (10 Menit)" : rankIdx === 5 ? "Belum Absen" : "Hadir Tepat Waktu",
-            waktu_absen_hari_ini: rankIdx === 3 ? "07:35 WIB" : rankIdx === 5 ? null : "07:05 WIB",
-          },
-          poin_belajar: poin,
-          nilai_ulangan_ujian: {
-            rata_rata: avgScore,
-            total_dikerjakan: riwayatUjian.length,
-            lulus_kkm_count: passedCount,
-            status_kelulusan: avgScore >= 75 ? "Lulus KKM (Sangat Baik)" : "Perlu Intervensi",
-          },
-          riwayat_ujian: riwayatUjian,
+          ujian_id: ses.id,
+          sesi_id: ses.id,
+          judul: ses.bab?.judul || "Sesi Pembelajaran",
+          mapel: ses.bab?.mapel || "Matematika",
+          tipe: ses.tipe_sesi || "kuis",
+          passing_grade: 75,
+          nilai: Number(ses.skor_akhir) || avgNilai,
+          status: ses.status_sesi || "selesai",
+          tanggal: ses.selesai_pada ? new Date(ses.selesai_pada).toLocaleDateString("id-ID") : new Date().toISOString(),
+          lembar_jawaban: lembarJawaban,
         };
       });
 
-      // Calculate class averages
-      const totalScoresAll = members.reduce((acc, m) => acc + m.nilai_ulangan_ujian.rata_rata, 0);
-      const classAvgScore = members.length > 0 ? Math.round(totalScoresAll / members.length) : 82;
+      const isFemale =
+        st.nama_lengkap.toLowerCase().includes("siti") ||
+        st.nama_lengkap.toLowerCase().includes("putri") ||
+        st.nama_lengkap.toLowerCase().includes("dewi") ||
+        st.nama_lengkap.toLowerCase().includes("fira") ||
+        st.nama_lengkap.toLowerCase().includes("nanoka") ||
+        st.nama_lengkap.toLowerCase().includes("nadela") ||
+        st.nama_lengkap.toLowerCase().includes("sarah") ||
+        st.nama_lengkap.toLowerCase().includes("amanda") ||
+        st.nama_lengkap.toLowerCase().includes("bielani");
+
+      const foto = isFemale
+        ? "/images/pasfoto-siswi-1.jpg"
+        : "/images/pasfoto-siswa-1.jpg";
 
       return {
-        id: classId,
-        nama_kelas: kName,
-        wali_kelas: wali,
-        total_siswa: members.length,
-        avg_score: classAvgScore,
-        avg_kehadiran: "97.4%",
-        anggota_siswa: members,
+        id: st.id,
+        nama_lengkap: st.nama_lengkap,
+        nisn: st.nisn || `0089${100000 + rankIdx}`,
+        kelas: "Kelas 8",
+        poin_absensi: poinAbsensi,
+        poin_kuis: poinKuis,
+        poin_game: poinGame,
+        poin_simulasi: poinSimulasi,
+        poin_ulangan: poinUlangan,
+        poin_ujian: poinUjian,
+        total_poin: totalPoin,
+        nilai: avgNilai,
+        progress: progress,
+        achievement: achievement,
+        streak: st.streak || Math.max(2, 14 - rankIdx),
+        aktivitas_siswa_lainnya: studentPresensi[0]?.waktu_masuk || st.dibuat_pada || "Baru saja",
+        status_keaktifan: "Aktif Belajar",
+        foto: st.foto_url || foto,
+        riwayat_ujian: riwayatUjian,
+        total_kehadiran: hadirCount || 5,
+        persentase_kehadiran: "97.5%",
       };
     });
 
-    if (requestedKelas) {
-      const single = resultClasses.find((c) => c.nama_kelas === requestedKelas);
-      if (single) {
-        return NextResponse.json({ kelas: single });
-      }
-    }
+    const averageScoreOverall = totalAllScoreCount > 0 ? Math.round(totalAllScores / totalAllScoreCount) : 83;
+
+    // Single unified class object for "Kelas 8"
+    const primaryClass = {
+      id: mainKelas.id,
+      nama_kelas: "Kelas 8",
+      sekolah: "SMKS Muhammadiyah Pakem",
+      wali_kelas: waliKelasProfile,
+      total_siswa: detailedStudents.length,
+      rata_rata_kehadiran: "97.5%",
+      rata_rata_nilai: averageScoreOverall,
+      siswa: detailedStudents,
+    };
+
+    const formattedMapelAktif = (mapelAktifData || []).map((m: any) => ({
+      id: m.id,
+      nama_mapel: m.nama_mapel,
+      kode_mapel: m.kode_mapel || m.kode || "MAPEL-8",
+      is_active: m.is_active !== undefined ? Boolean(m.is_active) : Boolean(m.is_aktif),
+      deskripsi: m.deskripsi,
+      ikon: m.ikon,
+      warna: m.warna,
+      urutan: m.urutan,
+      guru_pengampu: m.guru_pengampu || "Ibu Siti Rahmawati, M.Pd.",
+      rata_rata_nilai: averageScoreOverall,
+    }));
 
     return NextResponse.json({
       success: true,
-      kelas_list: resultClasses,
+      kelas_utama: primaryClass,
+      kelas_list: [primaryClass], // Only single "Kelas 8"
+      hasil_keseluruhan_siswa: detailedStudents,
+      mapel_aktif: formattedMapelAktif,
     });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error("Error in GET /api/guru/manajemen-kelas:", err);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
-}
-
-function generateDefaultLembarJawaban(mapel: string, score: number) {
-  const isMath = mapel.toLowerCase().includes("matematika");
-  const isEnglish = mapel.toLowerCase().includes("inggris");
-
-  const qBankMath = [
-    {
-      q: "Bentuk sederhana dari (2³ × 2⁴) / 2² adalah...",
-      opts: ["2⁵ = 32", "2⁶ = 64", "2⁴ = 16", "2⁷ = 128"],
-      key: "A",
-      expl: "Menggunakan sifat eksponen: 2^(3+4-2) = 2^5 = 32.",
-    },
-    {
-      q: "Nilai x yang memenuhi persamaan 3x + 5 = 20 adalah...",
-      opts: ["x = 5", "x = 4", "x = 6", "x = 3"],
-      key: "A",
-      expl: "3x = 20 - 5 = 15 -> x = 15/3 = 5.",
-    },
-    {
-      q: "Himpunan penyelesaian dari sistem persamaan x + y = 7 dan x - y = 3 adalah...",
-      opts: ["(5, 2)", "(4, 3)", "(6, 1)", "(7, 0)"],
-      key: "A",
-      expl: "Eliminasi menjumlahkan kedua persamaan: 2x = 10 -> x = 5, y = 2.",
-    },
-    {
-      q: "Sebuah fungsi f(x) = 2x - 3. Nilai dari f(4) adalah...",
-      opts: ["5", "8", "11", "3"],
-      key: "A",
-      expl: "f(4) = 2(4) - 3 = 8 - 3 = 5.",
-    },
-    {
-      q: "Gradien garis dengan persamaan y = 4x - 7 adalah...",
-      opts: ["4", "-4", "7", "-7"],
-      key: "A",
-      expl: "Bentuk umum y = mx + c, maka nilai gradien m = 4.",
-    },
-  ];
-
-  const qBankGeneral = [
-    {
-      q: isEnglish
-        ? "Which of the following is an expression of congratulating someone?"
-        : "Unsur pokok yang wajib dicantumkan dalam teks iklan komersial adalah...",
-      opts: isEnglish
-        ? ["Congratulations on winning the contest!", "I disagree with you.", "I am sorry to hear that.", "Excuse me, where is the lab?"]
-        : ["Nama produk dan keunggulan persuasif", "Daftar riwayat hidup pembuat", "Penjelasan rumus ilmiah", "Daftar pustaka acuan"],
-      key: "A",
-      expl: isEnglish
-        ? "'Congratulations on winning the contest!' is used to express compliment and congratulation."
-        : "Iklan komersial bertujuan mengajak konsumen, sehingga wajib menonjolkan nama dan keunggulan produk.",
-    },
-    {
-      q: isEnglish
-        ? "Budi: 'I passed the exam with grade A!' - Siti: '...' "
-        : "Kalimat slogan yang tepat untuk mengampanyekan hemat energi di sekolah adalah...",
-      opts: isEnglish
-        ? ["That is fantastic! Well done!", "You must take medicine.", "What time is it now?", "I am going to market."]
-        : ["Matikan lampu saat tidak digunakan, selamatkan bumi!", "Beli makanan enak di kantin.", "Jangan lupa tidur siang.", "Sepatu harus selalu bersih."],
-      key: "A",
-      expl: isEnglish
-        ? "A response expressing joy and praise for someone's achievement."
-        : "Slogan hemat energi harus memuat ajakan langsung menghemat listrik dan dampaknya bagi lingkungan.",
-    },
-    {
-      q: isEnglish
-        ? "What is the main purpose of an announcement text?"
-        : "Ciri utama bahasa dalam poster publik adalah...",
-      opts: isEnglish
-        ? ["To inform people about something that will happen.", "To tell a funny fiction story.", "To describe a tourist place in detail.", "To give instruction on cooking food."]
-        : ["Singkat, padat, menarik, dan mudah dipahami", "Bertele-tele dan menggunakan bahasa ilmiah asing", "Hanya terdiri dari deretan angka", "Memuat dialog drama panjang"],
-      key: "A",
-      expl: isEnglish
-        ? "Announcement functions to give information publicly about events or activities."
-        : "Poster didesain untuk dibaca sekilas di tempat umum sehingga bahasanya harus singkat dan memikat.",
-    },
-    {
-      q: isEnglish
-        ? "Complete the sentence: 'She ... to the library every Wednesday.'"
-        : "Perbedaan utama antara fakta dan opini dalam artikel ilmiah populer adalah...",
-      opts: isEnglish
-        ? ["goes", "go", "went", "is go"]
-        : ["Fakta dapat dibuktikan kebenarannya secara objektif", "Opini selalu berupa angka statistik", "Fakta berasal dari khayalan penulis", "Opini tidak boleh diperdebatkan"],
-      key: "A",
-      expl: isEnglish
-        ? "Simple present tense with subject 'She' uses verb + es (goes)."
-        : "Fakta berlandaskan data nyata yang dapat diuji validitasnya, sedangkan opini berakar dari penilaian subjektif.",
-    },
-  ];
-
-  const sourceBank = isMath ? qBankMath : qBankGeneral;
-  const numWrong = score < 80 ? 2 : score < 90 ? 1 : 0;
-
-  return sourceBank.map((item, idx) => {
-    const isThisCorrect = idx >= numWrong;
-    const studentChoice = isThisCorrect ? item.key : (item.key === "A" ? "B" : "A");
-
-    return {
-      nomor: idx + 1,
-      pertanyaan: item.q,
-      opsi: item.opts.map((op, oIdx) => ({
-        label: String.fromCharCode(65 + oIdx),
-        teks: op,
-        benar: String.fromCharCode(65 + oIdx) === item.key,
-      })),
-      jawaban_siswa: studentChoice,
-      kunci_jawaban: item.key,
-      is_benar: isThisCorrect,
-      skor: isThisCorrect ? 25 : 0,
-      pembahasan: item.expl,
-      umpan_balik_guru: isThisCorrect
-        ? "Analisis penalaran siswa sangat tepat dan logis."
-        : "Perlu mengulang materi konsep kunci pada bagian ini.",
-    };
-  });
 }

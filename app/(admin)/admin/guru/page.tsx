@@ -330,7 +330,7 @@ export default function AdminGuruPage() {
               <div className="divide-y divide-slate-50">
                 {guruFiltered.map((g) => (
                   <div key={g.id} className="px-5 py-4 flex items-center gap-4 hover:bg-slate-50/50 transition">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center font-extrabold text-xs shrink-0 shadow-xs">
+                    <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-700 text-white flex items-center justify-center font-extrabold text-xs shrink-0 shadow-xs">
                       {g.initials}
                     </div>
                     <div className="flex-1 min-w-0">

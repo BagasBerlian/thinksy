@@ -32,7 +32,7 @@ const ROLES: RoleOption[] = [
     badge: "👑 Sistem",
     desc: "Multi-tenant, lisensi & analitik biaya AI",
     icon: Crown,
-    color: "from-amber-500 to-orange-600 border-amber-400 text-amber-500",
+    color: "border-amber-400 text-amber-600",
     path: "/super",
   },
   {
@@ -41,7 +41,7 @@ const ROLES: RoleOption[] = [
     badge: "🏫 Sekolah",
     desc: "Kelola Guru, Siswa, Kelas & Profil",
     icon: School,
-    color: "from-blue-600 to-indigo-600 border-blue-400 text-blue-500",
+    color: "border-blue-400 text-blue-600",
     path: "/admin",
   },
   {
@@ -50,7 +50,7 @@ const ROLES: RoleOption[] = [
     badge: "👨‍🏫 Guru",
     desc: "Buat soal, pantau kelas & koreksi esai",
     icon: UserCheck,
-    color: "from-emerald-500 to-teal-600 border-emerald-400 text-emerald-500",
+    color: "border-emerald-400 text-emerald-600",
     path: "/guru",
   },
   {
@@ -59,7 +59,7 @@ const ROLES: RoleOption[] = [
     badge: "🎓 Siswa",
     desc: "Materi, Tutor AI, Kuis & Jurnal Belajar",
     icon: GraduationCap,
-    color: "from-violet-500 to-purple-600 border-violet-400 text-purple-500",
+    color: "border-slate-400 text-slate-700",
     path: "/",
   },
 ];

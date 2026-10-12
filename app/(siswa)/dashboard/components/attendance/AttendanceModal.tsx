@@ -241,7 +241,7 @@ export default function AttendanceModal({
 
         {/* Video Viewport / Clean Checkmark Saving State */}
         {isSubmitting ? (
-          <div className="relative rounded-2xl overflow-hidden bg-gradient-to-b from-emerald-50/60 via-white to-slate-50 aspect-[4/3] flex flex-col items-center justify-center p-6 text-center border border-emerald-200/80 shadow-sm space-y-4 animate-in fade-in zoom-in-95 duration-200 select-none">
+          <div className="relative rounded-2xl overflow-hidden bg-white aspect-[4/3] flex flex-col items-center justify-center p-6 text-center border border-emerald-200 shadow-sm space-y-4 animate-in fade-in zoom-in-95 duration-200 select-none">
             <div className="relative flex items-center justify-center">
               <div className="w-20 h-20 rounded-full bg-emerald-100 border-2 border-emerald-300 text-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/15">
                 <CheckCircle2 className="w-10 h-10 text-emerald-600 animate-in zoom-in-50 duration-300" />

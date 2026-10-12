@@ -17,7 +17,6 @@ import {
   ArrowUpDown,
   Download,
   Calendar,
-  Sparkles,
   ChevronRight,
   Maximize2,
   Minimize2,
@@ -243,7 +242,7 @@ export default function RealtimeAttendanceNormalScreen({
         >
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-bold uppercase tracking-wider opacity-80">Tepat Waktu</span>
-            <Sparkles className="w-4 h-4 text-blue-600" />
+            <CheckCircle2 className="w-4 h-4 opacity-75" />
           </div>
           <div className="text-2xl font-black mt-1">{stats.totalOnTime}</div>
           <div className="text-[10px] opacity-80 mt-0.5">+10 Poin Reward</div>
@@ -287,7 +286,7 @@ export default function RealtimeAttendanceNormalScreen({
         {/* Class Filter Tabs */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
           <span className="text-xs font-black text-slate-500 uppercase tracking-wider mr-1 shrink-0">Kelas:</span>
-          {["all", "Kelas 8A", "Kelas 8B", "Kelas 8C"].map((c) => (
+          {["all", "Kelas 8"].map((c) => (
             <button
               key={c}
               type="button"
@@ -420,8 +419,8 @@ export default function RealtimeAttendanceNormalScreen({
 
                       {/* Points & Streak Row */}
                       <div className="flex items-center gap-2 mt-1">
-                        <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-amber-700 bg-amber-50/80 px-2 py-0.5 rounded-md border border-amber-200/60">
-                          <Sparkles className="w-3 h-3 text-amber-500" />
+                        <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-zinc-700 bg-zinc-100 px-2 py-0.5 border border-zinc-300">
+                          <Award className="w-3 h-3 text-zinc-700" />
                           <span>{st.poin_belajar} Poin</span>
                         </span>
 
@@ -498,20 +497,20 @@ export default function RealtimeAttendanceNormalScreen({
       {selectedPhotoZoom && (
         <div
           onClick={() => setSelectedPhotoZoom(null)}
-          className="fixed inset-0 z-60 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in"
+          className="fixed inset-0 z-60 bg-black/80 flex items-center justify-center p-4 animate-in fade-in"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-3xl p-6 max-w-sm w-full space-y-4 shadow-2xl border border-slate-200 text-center relative"
+            className="bg-white border border-zinc-950 p-5 max-w-sm w-full space-y-3 shadow-none text-center relative font-mono"
           >
             <button
               onClick={() => setSelectedPhotoZoom(null)}
-              className="absolute top-4 right-4 p-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 cursor-pointer"
+              className="absolute top-3.5 right-3.5 p-1 text-zinc-400 hover:text-zinc-900 cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
 
-            <div className="relative w-48 h-56 mx-auto rounded-2xl overflow-hidden border border-slate-200 shadow-md">
+            <div className="relative w-48 h-56 mx-auto overflow-hidden border border-zinc-950">
               <Image
                 src={selectedPhotoZoom.foto}
                 alt={selectedPhotoZoom.nama_lengkap}
@@ -522,22 +521,22 @@ export default function RealtimeAttendanceNormalScreen({
             </div>
 
             <div>
-              <h3 className="text-base font-black text-[#0F172A]">{selectedPhotoZoom.nama_lengkap}</h3>
-              <p className="text-xs text-slate-500 font-medium mt-0.5">{selectedPhotoZoom.kelas} • Peringkat #{selectedPhotoZoom.peringkat}</p>
+              <h3 className="text-sm font-bold text-zinc-950 uppercase">{selectedPhotoZoom.nama_lengkap}</h3>
+              <p className="text-[10px] text-zinc-500 mt-0.5">{selectedPhotoZoom.kelas} • Peringkat #{selectedPhotoZoom.peringkat}</p>
             </div>
 
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1">
+            <div className="p-2.5 bg-zinc-50 border border-zinc-200 text-xs space-y-1">
               <div className="flex justify-between font-bold">
-                <span className="text-slate-500">Jam Presensi:</span>
-                <span className="text-[#0F172A]">{selectedPhotoZoom.waktu_absen || "Belum Absen"}</span>
+                <span className="text-zinc-500">Jam Presensi:</span>
+                <span className="text-zinc-950">{selectedPhotoZoom.waktu_absen || "Belum Absen"}</span>
               </div>
               <div className="flex justify-between font-bold">
-                <span className="text-slate-500">Status Kehadiran:</span>
-                <span className="text-emerald-700">{selectedPhotoZoom.status_kehadiran}</span>
+                <span className="text-zinc-500">Status Kehadiran:</span>
+                <span className="text-zinc-950">{selectedPhotoZoom.status_kehadiran}</span>
               </div>
               <div className="flex justify-between font-bold">
-                <span className="text-slate-500">Poin Belajar:</span>
-                <span className="text-amber-700">{selectedPhotoZoom.poin_belajar} Poin</span>
+                <span className="text-zinc-500">Poin Belajar:</span>
+                <span className="text-zinc-950">{selectedPhotoZoom.poin_belajar} Poin</span>
               </div>
             </div>
           </div>

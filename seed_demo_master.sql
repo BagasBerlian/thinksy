@@ -7,17 +7,20 @@
 INSERT INTO sekolah (id, nama, npsn, alamat, motto, deskripsi, bg_image_url, links)
 VALUES (
   'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-  'SMP Negeri 1 Nusantara',
-  '20402099',
-  'Jl. Pendidikan No. 1, Nusantara',
-  'Sekolah Unggul Berbasis Teknologi Pembelajaran AI',
-  'SMP Negeri 1 Nusantara adalah sekolah percontohan digital yang menerapkan pembelajaran mandiri berbasis AI Sokratik dan supervisi guru aktif.',
-  '/images/smk-muh1-playen.jpg',
-  '[{"label": "Portal Sekolah", "url": "https://sekolah.sch.id", "icon": "Globe"}]'::jsonb
+  'SMKS Muhammadiyah Pakem',
+  '20401318',
+  'Jl. Pakem - Turi No.23, Area Sawah, Pakembinangun, Kec. Pakem, Kab. Sleman, D.I. Yogyakarta 55582',
+  'Pusat Keunggulan & Pesantren Vokasi • Bahagia Bersama',
+  'SMKS Muhammadiyah Pakem (MUPA) merupakan Sekolah Pusat Keunggulan dan Pesantren Vokasi yang berkomitmen mencetak generasi muda berakhlak mulia, terampil, mandiri, dan menguasai keahlian industri masa depan.',
+  '/images/smk-muh-pakem-gedung.jpg',
+  '[{"label": "Website Resmi", "url": "https://smkmuhpakem.sch.id", "icon": "Globe"}, {"label": "Portal PPDB", "url": "https://smkmuhpakem.sch.id/ppdb/", "icon": "ExternalLink"}, {"label": "Instagram", "url": "https://www.instagram.com/smkmuhpakem/?hl=id", "icon": "Instagram"}]'::jsonb
 )
 ON CONFLICT (id) DO UPDATE SET
   nama = EXCLUDED.nama,
-  motto = EXCLUDED.motto;
+  motto = EXCLUDED.motto,
+  deskripsi = EXCLUDED.deskripsi,
+  bg_image_url = EXCLUDED.bg_image_url,
+  links = EXCLUDED.links;
 
 -- 2. KELAS
 INSERT INTO kelas (id, sekolah_id, nama_kelas, dibuat_pada)

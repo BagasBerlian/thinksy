@@ -129,13 +129,6 @@ export default function StudentNavbar({
       href: "/belajar",
     },
     {
-      id: "Ruang Ujian",
-      label: "Ruang Ujian",
-      icon: Award,
-      isActive: isUjianActive,
-      href: "/ujian",
-    },
-    {
       id: "Peringkat",
       label: "Peringkat",
       icon: Trophy,

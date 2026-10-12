@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import {
   Award,
@@ -12,20 +12,31 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
-  ExternalLink,
   ChevronRight,
   ShieldCheck,
   Eye,
   Sliders,
-  Sparkles,
+  Plus,
   Key,
   Copy,
   Check,
   Edit2,
   BookOpen,
-  PlusCircle,
+  Search,
+  Filter,
+  Sparkles,
+  RefreshCw,
+  X,
 } from "lucide-react";
 import { useRealtimeDashboard } from "@/hooks/useRealtimeDashboard";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from "@/components/ui/table";
 
 export interface ExamControlItem {
   id: string;
@@ -103,8 +114,9 @@ const DEFAULT_EXAMS: ExamControlItem[] = [
 
 export default function AkuLulusControlWidget() {
   const [exams, setExams] = useState<ExamControlItem[]>(DEFAULT_EXAMS);
-  const [selectedMapelUlangan, setSelectedMapelUlangan] = useState<string>("Matematika");
-  const [selectedMapelUjian, setSelectedMapelUjian] = useState<string>("Matematika");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [selectedTypeFilter, setSelectedTypeFilter] = useState<"semua" | "ulangan" | "ujian">("semua");
+  const [selectedMapelFilter, setSelectedMapelFilter] = useState<string>("semua");
 
   const [loadingIds, setLoadingIds] = useState<Record<string, boolean>>({});
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -209,8 +221,8 @@ export default function AkuLulusControlWidget() {
         const label = item.tipe === "ulangan" ? "Ulangan Harian" : "Ujian PTS";
         showToast(
           nextStatus === "dipublikasi"
-            ? `✅ Akses ${label} (${item.mapel}) DIBUKA (ON)! Siswa sekarang bisa mengakses soal.`
-            : `🔒 Akses ${label} (${item.mapel}) DITUTUP (OFF)! Card siswa terkunci.`
+            ? `✅ Akses ${label} (${item.mapel}) DIBUKA (ON)! Siswa dapat mulai mengerjakan.`
+            : `🔒 Akses ${label} (${item.mapel}) DITUTUP (OFF)! Akses siswa dinonaktifkan.`
         );
       } else {
         setExams((prev) =>
@@ -267,7 +279,7 @@ export default function AkuLulusControlWidget() {
           ujianId: examId,
           token: trimmed,
         });
-        showToast(`🔑 Token berhasil diubah menjadi: ${trimmed}`);
+        showToast(`🔑 Token akses berhasil diubah menjadi [${trimmed}]!`);
         setEditingTokenExamId(null);
       } else {
         alert("Gagal menyimpan token baru.");
@@ -296,7 +308,7 @@ export default function AkuLulusControlWidget() {
       const res = await fetch("/api/guru/ujian", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ujianId: examId, durasiMenit: tempDurationValue }),
+        body: JSON.stringify({ ujianId: examId, durasi_menit: tempDurationValue }),
       });
 
       if (res.ok) {
@@ -326,551 +338,432 @@ export default function AkuLulusControlWidget() {
     }, 4500);
   };
 
-  // Ulangan & Ujian Lists
-  const ulanganList = exams.filter((e) => e.tipe === "ulangan");
-  const ujianList = exams.filter((e) => e.tipe === "ujian");
+  // Filtered list
+  const filteredExams = useMemo(() => {
+    return exams.filter((e) => {
+      // Type filter
+      if (selectedTypeFilter !== "semua" && e.tipe !== selectedTypeFilter) {
+        return false;
+      }
+      // Mapel filter
+      if (selectedMapelFilter !== "semua" && e.mapel !== selectedMapelFilter) {
+        return false;
+      }
+      // Search query
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchJudul = e.judul.toLowerCase().includes(q);
+        const matchMapel = e.mapel.toLowerCase().includes(q);
+        const matchToken = e.token?.toLowerCase().includes(q);
+        if (!matchJudul && !matchMapel && !matchToken) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [exams, selectedTypeFilter, selectedMapelFilter, searchQuery]);
 
-  const currentUlangan =
-    ulanganList.find((e) => e.mapel === selectedMapelUlangan) || ulanganList[0] || null;
-  const isUlanganAnyActive = ulanganList.some((e) => e.status === "dipublikasi");
-
-  const currentUjian =
-    ujianList.find((e) => e.mapel === selectedMapelUjian) || ujianList[0] || null;
-  const isUjianAnyActive = ujianList.some((e) => e.status === "dipublikasi");
+  const activeCount = exams.filter((e) => e.status === "dipublikasi").length;
+  const closedCount = exams.filter((e) => e.status !== "dipublikasi").length;
+  const ulanganCount = exams.filter((e) => e.tipe === "ulangan").length;
+  const ujianCount = exams.filter((e) => e.tipe === "ujian").length;
 
   return (
-    <div className="bg-white rounded-3xl border border-slate-200/90 p-6 sm:p-7 shadow-xs space-y-6 relative overflow-hidden">
-      {/* Top Gradient Accent Bar */}
-      <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-indigo-500 via-sky-500 to-emerald-500" />
-
+    <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-7 space-y-5 shadow-xs font-sans">
       {/* Floating Toast Notification */}
       {toastMessage && (
-        <div className="p-3.5 rounded-2xl bg-slate-900 text-white text-xs font-bold flex items-center justify-between shadow-xl border border-slate-700 animate-in fade-in slide-in-from-top duration-200">
+        <div className="p-3 bg-slate-900 text-white text-xs font-medium rounded-2xl flex items-center justify-between shadow-md border border-slate-800 animate-in fade-in duration-150">
           <span className="leading-relaxed">{toastMessage}</span>
           <button
             onClick={() => setToastMessage(null)}
-            className="text-slate-400 hover:text-white ml-3 text-xs cursor-pointer"
+            className="text-slate-400 hover:text-white ml-3 text-xs cursor-pointer p-1"
           >
-            ✕
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
       )}
 
-      {/* Header Section */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* Header & Quick Action Row */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
         <div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 text-[11px] font-black uppercase tracking-wider mb-1.5">
-            <Sliders className="w-3.5 h-3.5 text-indigo-600" />
-            <span>Kontrol Real-Time Asesmen (AKU LULUS)</span>
-          </div>
-          <h2 className="text-xl font-black text-[#0F172A] tracking-tight">
-            Kontrol Asesmen Siswa (Ulangan & Ujian)
-          </h2>
-          <p className="text-xs text-slate-500 font-medium leading-relaxed mt-0.5 max-w-2xl">
-            Kelola kode token siswa per mata pelajaran, pantau status aktivasi dari Admin/Guru, dan rekayasa soal ujian baru untuk diintegrasikan ke dashboard siswa.
+          <h3 className="text-lg font-bold text-slate-900">
+            Daftar Kontrol Asesmen Siswa (Ulangan & Ujian)
+          </h3>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Atur status buka/tutup akses pengerjaan, perbarui token sesi, dan kelola alokasi waktu ujian per mata pelajaran.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <Link
             href="/guru/ujian"
-            className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-[#0F172A] text-xs font-extrabold flex items-center gap-1.5 transition shrink-0 border border-slate-200 cursor-pointer shadow-2xs"
+            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition border border-slate-200 cursor-pointer"
           >
-            <BookOpen className="w-3.5 h-3.5 text-slate-500" />
+            <BookOpen className="w-3.5 h-3.5 text-slate-600" />
             <span>Bank Soal</span>
           </Link>
+          <button
+            type="button"
+            onClick={loadExams}
+            title="Muat ulang status ujian dari server"
+            className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition border border-slate-200 cursor-pointer"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
 
-      {/* STRICTLY 2 MASTER CARDS GRID */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* ================= CARD 1: ULANGAN HARIAN ================= */}
-        <div className="rounded-3xl border border-indigo-100 bg-gradient-to-b from-indigo-50/30 to-white p-6 shadow-xs flex flex-col justify-between space-y-5">
-          <div className="space-y-4">
-            {/* Card Header */}
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-bold shadow-xs">
-                  <FileText className="w-6 h-6" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-black text-base text-[#0F172A]">Ulangan Harian</h3>
-                    <span className="px-2 py-0.5 rounded-lg bg-indigo-100 text-indigo-800 text-[10px] font-black uppercase">
-                      Card 1 Siswa
-                    </span>
-                  </div>
-                  <p className="text-[11px] font-semibold text-slate-500">
-                    Evaluasi Formatif Terjadwal • Sokratik AI
-                  </p>
-                </div>
-              </div>
-
-              {/* Status Badge */}
-              {isUlanganAnyActive ? (
-                <span className="px-3 py-1 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-800 text-[10px] font-black uppercase flex items-center gap-1.5 shadow-2xs">
-                  <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
-                  <span>Akses Siswa: ON</span>
-                </span>
-              ) : (
-                <span className="px-3 py-1 rounded-full bg-slate-200 border border-slate-300 text-slate-700 text-[10px] font-bold uppercase flex items-center gap-1.5 shadow-2xs">
-                  <Lock className="w-3 h-3 text-slate-500" />
-                  <span>Akses Siswa: OFF</span>
-                </span>
-              )}
-            </div>
-
-            {/* Subject Selector Tabs */}
-            <div className="space-y-1.5">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-                Pilih Mata Pelajaran Ulangan:
-              </span>
-              <div className="flex items-center gap-1.5 bg-slate-100/90 p-1 rounded-2xl">
-                {["Matematika", "Bahasa Indonesia", "Bahasa Inggris"].map((m) => {
-                  const examItem = ulanganList.find((e) => e.mapel === m);
-                  const isSelected = selectedMapelUlangan === m;
-                  const isOpen = examItem?.status === "dipublikasi";
-
-                  return (
-                    <button
-                      key={m}
-                      type="button"
-                      onClick={() => setSelectedMapelUlangan(m)}
-                      className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                        isSelected
-                          ? "bg-white text-indigo-700 shadow-xs"
-                          : "text-slate-600 hover:text-slate-900"
-                      }`}
-                    >
-                      <span
-                        className={`w-2 h-2 rounded-full ${
-                          isOpen ? "bg-emerald-500" : "bg-slate-300"
-                        }`}
-                      />
-                      <span className="truncate">{m}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Active Subject Detail Box */}
-            {currentUlangan && (
-              <div className="bg-white rounded-2xl p-4 border border-indigo-100/80 shadow-2xs space-y-3.5">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <span className="text-[10px] font-black uppercase text-indigo-600 tracking-wider">
-                      {currentUlangan.mapel}
-                    </span>
-                    <h4 className="text-sm font-extrabold text-[#0F172A] leading-snug">
-                      {currentUlangan.judul}
-                    </h4>
-                  </div>
-
-                  {/* Toggle Button for Guru */}
-                  <button
-                    type="button"
-                    onClick={() => handleToggle(currentUlangan)}
-                    disabled={loadingIds[currentUlangan.id]}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 cursor-pointer shrink-0 shadow-2xs ${
-                      currentUlangan.status === "dipublikasi"
-                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
-                        : "bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200"
-                    }`}
-                  >
-                    {loadingIds[currentUlangan.id] ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : currentUlangan.status === "dipublikasi" ? (
-                      <>
-                        <Unlock className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Status: ON</span>
-                      </>
-                    ) : (
-                      <>
-                        <Lock className="w-3.5 h-3.5 text-slate-400" />
-                        <span>Status: OFF</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                {/* Token Box & Duration */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-slate-100">
-                  {/* Token Row */}
-                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-slate-500 flex items-center gap-1">
-                        <Key className="w-3 h-3 text-amber-500" /> Token Siswa:
-                      </span>
-                      {editingTokenExamId !== currentUlangan.id && (
-                        <button
-                          type="button"
-                          onClick={() => startEditingToken(currentUlangan)}
-                          className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-0.5 cursor-pointer"
-                        >
-                          <Edit2 className="w-2.5 h-2.5" /> Ubah
-                        </button>
-                      )}
-                    </div>
-
-                    {editingTokenExamId === currentUlangan.id ? (
-                      <div className="flex items-center gap-1 pt-1">
-                        <input
-                          type="text"
-                          value={tempTokenValue}
-                          onChange={(e) => setTempTokenValue(e.target.value.toUpperCase())}
-                          className="w-full px-2 py-1 text-xs font-mono font-black uppercase rounded-lg border border-indigo-400 bg-white"
-                          autoFocus
-                        />
-                        <button
-                          type="button"
-                          onClick={() => saveTokenEdit(currentUlangan.id)}
-                          disabled={isSavingToken}
-                          className="px-2 py-1 rounded-lg bg-indigo-600 text-white text-[10px] font-bold"
-                        >
-                          Simpan
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-between pt-0.5">
-                        <span className="font-mono font-black text-sm tracking-wider text-[#0F172A]">
-                          {currentUlangan.token || "BELUM DISET"}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleCopyToken(currentUlangan.id, currentUlangan.token || "")
-                          }
-                          className="px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-600 hover:text-indigo-600 text-[10px] font-bold flex items-center gap-1 cursor-pointer"
-                        >
-                          {copiedTokenId === currentUlangan.id ? (
-                            <Check className="w-3 h-3 text-emerald-600" />
-                          ) : (
-                            <Copy className="w-3 h-3" />
-                          )}
-                          <span>Salin</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Duration Row */}
-                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-slate-500 flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-slate-400" /> Durasi Ujian:
-                      </span>
-                      {editingDurationExamId !== currentUlangan.id && (
-                        <button
-                          type="button"
-                          onClick={() => startEditingDuration(currentUlangan)}
-                          className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-0.5 cursor-pointer"
-                        >
-                          <Edit2 className="w-2.5 h-2.5" /> Ubah
-                        </button>
-                      )}
-                    </div>
-
-                    {editingDurationExamId === currentUlangan.id ? (
-                      <div className="flex items-center gap-1 pt-1">
-                        <input
-                          type="number"
-                          value={tempDurationValue}
-                          onChange={(e) => setTempDurationValue(Number(e.target.value))}
-                          className="w-full px-2 py-1 text-xs font-bold rounded-lg border border-indigo-400 bg-white"
-                          min={5}
-                          max={240}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => saveDurationEdit(currentUlangan.id)}
-                          disabled={isSavingDuration}
-                          className="px-2 py-1 rounded-lg bg-indigo-600 text-white text-[10px] font-bold"
-                        >
-                          Simpan
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="pt-0.5 flex items-center justify-between">
-                        <span className="font-extrabold text-sm text-[#0F172A]">
-                          {currentUlangan.durasi_menit} Menit
-                        </span>
-                        <span className="text-[10px] font-bold text-slate-400">
-                          KKM {currentUlangan.passing_grade}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Action Buttons: Rekayasa Soal & Live Monitor */}
-          <div className="pt-3 border-t border-indigo-100 flex flex-col sm:flex-row items-center gap-2.5">
-            <Link
-              href={`/guru/ujian/create?tipe=ulangan&mapel=${encodeURIComponent(
-                selectedMapelUlangan
-              )}`}
-              className="w-full sm:flex-1 py-3 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black flex items-center justify-center gap-2 transition cursor-pointer shadow-xs"
-            >
-              <Sparkles className="w-4 h-4 text-amber-300" />
-              <span>Rekayasa & Buat Soal Ulangan</span>
-            </Link>
-
-            <Link
-              href={`/guru/ujian/${currentUlangan?.id || ""}/live`}
-              className="w-full sm:w-auto py-3 px-4 rounded-2xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
-            >
-              <Radio className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Live Monitor</span>
-            </Link>
-          </div>
+      {/* Filter Toolbar: Search, Type Tabs & Mapel Filter */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-0.5">
+        {/* Type Filter Tabs */}
+        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-full border border-slate-200/80 w-fit">
+          <button
+            type="button"
+            onClick={() => setSelectedTypeFilter("semua")}
+            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${
+              selectedTypeFilter === "semua"
+                ? "bg-white text-[#1967D2] shadow-xs font-bold"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            Semua ({exams.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedTypeFilter("ulangan")}
+            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${
+              selectedTypeFilter === "ulangan"
+                ? "bg-white text-[#1967D2] shadow-xs font-bold"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            Ulangan Harian ({ulanganCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedTypeFilter("ujian")}
+            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${
+              selectedTypeFilter === "ujian"
+                ? "bg-white text-[#1967D2] shadow-xs font-bold"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            Ujian PTS ({ujianCount})
+          </button>
         </div>
 
-        {/* ================= CARD 2: UJIAN RESMI (PTS) ================= */}
-        <div className="rounded-3xl border border-slate-200 bg-gradient-to-b from-slate-50/50 to-white p-6 shadow-xs flex flex-col justify-between space-y-5">
-          <div className="space-y-4">
-            {/* Card Header */}
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-2xl bg-[#0F172A] text-white flex items-center justify-center font-bold shadow-xs">
-                  <Clock className="w-6 h-6 text-amber-400" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-black text-base text-[#0F172A]">Ujian Resmi (PTS)</h3>
-                    <span className="px-2 py-0.5 rounded-lg bg-slate-200 text-slate-800 text-[10px] font-black uppercase">
-                      Card 2 Siswa
-                    </span>
-                  </div>
-                  <p className="text-[11px] font-semibold text-slate-500">
-                    Asesmen Sumatif Terstandar • Sokratik AI
-                  </p>
-                </div>
-              </div>
+        {/* Search & Subject Filter */}
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          {/* Mapel Dropdown */}
+          <select
+            value={selectedMapelFilter}
+            onChange={(e) => setSelectedMapelFilter(e.target.value)}
+            className="text-xs bg-slate-50 border border-slate-200 rounded-full px-3.5 py-1.5 font-medium text-slate-700 focus:outline-none focus:bg-white focus:border-[#1967D2] cursor-pointer"
+          >
+            <option value="semua">Semua Mata Pelajaran</option>
+            <option value="Matematika">Matematika</option>
+            <option value="Bahasa Indonesia">Bahasa Indonesia</option>
+            <option value="Bahasa Inggris">Bahasa Inggris</option>
+          </select>
 
-              {/* Status Badge */}
-              {isUjianAnyActive ? (
-                <span className="px-3 py-1 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-800 text-[10px] font-black uppercase flex items-center gap-1.5 shadow-2xs">
-                  <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
-                  <span>Akses Siswa: ON</span>
-                </span>
-              ) : (
-                <span className="px-3 py-1 rounded-full bg-slate-200 border border-slate-300 text-slate-700 text-[10px] font-bold uppercase flex items-center gap-1.5 shadow-2xs">
-                  <Lock className="w-3 h-3 text-slate-500" />
-                  <span>Akses Siswa: OFF</span>
-                </span>
-              )}
-            </div>
-
-            {/* Subject Selector Tabs */}
-            <div className="space-y-1.5">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-                Pilih Mata Pelajaran Ujian PTS:
-              </span>
-              <div className="flex items-center gap-1.5 bg-slate-100/90 p-1 rounded-2xl">
-                {["Matematika", "Bahasa Indonesia", "Bahasa Inggris"].map((m) => {
-                  const examItem = ujianList.find((e) => e.mapel === m);
-                  const isSelected = selectedMapelUjian === m;
-                  const isOpen = examItem?.status === "dipublikasi";
-
-                  return (
-                    <button
-                      key={m}
-                      type="button"
-                      onClick={() => setSelectedMapelUjian(m)}
-                      className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                        isSelected
-                          ? "bg-white text-blue-900 shadow-xs"
-                          : "text-slate-600 hover:text-slate-900"
-                      }`}
-                    >
-                      <span
-                        className={`w-2 h-2 rounded-full ${
-                          isOpen ? "bg-emerald-500" : "bg-slate-300"
-                        }`}
-                      />
-                      <span className="truncate">{m}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Active Subject Detail Box */}
-            {currentUjian && (
-              <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs space-y-3.5">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <span className="text-[10px] font-black uppercase text-blue-700 tracking-wider">
-                      {currentUjian.mapel}
-                    </span>
-                    <h4 className="text-sm font-extrabold text-[#0F172A] leading-snug">
-                      {currentUjian.judul}
-                    </h4>
-                  </div>
-
-                  {/* Toggle Button for Guru */}
-                  <button
-                    type="button"
-                    onClick={() => handleToggle(currentUjian)}
-                    disabled={loadingIds[currentUjian.id]}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 cursor-pointer shrink-0 shadow-2xs ${
-                      currentUjian.status === "dipublikasi"
-                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
-                        : "bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200"
-                    }`}
-                  >
-                    {loadingIds[currentUjian.id] ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : currentUjian.status === "dipublikasi" ? (
-                      <>
-                        <Unlock className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Status: ON</span>
-                      </>
-                    ) : (
-                      <>
-                        <Lock className="w-3.5 h-3.5 text-slate-400" />
-                        <span>Status: OFF</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                {/* Token Box & Duration */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-slate-100">
-                  {/* Token Row */}
-                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-slate-500 flex items-center gap-1">
-                        <Key className="w-3 h-3 text-amber-500" /> Token Siswa:
-                      </span>
-                      {editingTokenExamId !== currentUjian.id && (
-                        <button
-                          type="button"
-                          onClick={() => startEditingToken(currentUjian)}
-                          className="text-[10px] font-bold text-blue-700 hover:text-blue-900 flex items-center gap-0.5 cursor-pointer"
-                        >
-                          <Edit2 className="w-2.5 h-2.5" /> Ubah
-                        </button>
-                      )}
-                    </div>
-
-                    {editingTokenExamId === currentUjian.id ? (
-                      <div className="flex items-center gap-1 pt-1">
-                        <input
-                          type="text"
-                          value={tempTokenValue}
-                          onChange={(e) => setTempTokenValue(e.target.value.toUpperCase())}
-                          className="w-full px-2 py-1 text-xs font-mono font-black uppercase rounded-lg border border-blue-400 bg-white"
-                          autoFocus
-                        />
-                        <button
-                          type="button"
-                          onClick={() => saveTokenEdit(currentUjian.id)}
-                          disabled={isSavingToken}
-                          className="px-2 py-1 rounded-lg bg-blue-600 text-white text-[10px] font-bold"
-                        >
-                          Simpan
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-between pt-0.5">
-                        <span className="font-mono font-black text-sm tracking-wider text-[#0F172A]">
-                          {currentUjian.token || "BELUM DISET"}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleCopyToken(currentUjian.id, currentUjian.token || "")
-                          }
-                          className="px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-600 hover:text-blue-700 text-[10px] font-bold flex items-center gap-1 cursor-pointer"
-                        >
-                          {copiedTokenId === currentUjian.id ? (
-                            <Check className="w-3 h-3 text-emerald-600" />
-                          ) : (
-                            <Copy className="w-3 h-3" />
-                          )}
-                          <span>Salin</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Duration Row */}
-                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-slate-500 flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-slate-400" /> Durasi Ujian:
-                      </span>
-                      {editingDurationExamId !== currentUjian.id && (
-                        <button
-                          type="button"
-                          onClick={() => startEditingDuration(currentUjian)}
-                          className="text-[10px] font-bold text-blue-700 hover:text-blue-900 flex items-center gap-0.5 cursor-pointer"
-                        >
-                          <Edit2 className="w-2.5 h-2.5" /> Ubah
-                        </button>
-                      )}
-                    </div>
-
-                    {editingDurationExamId === currentUjian.id ? (
-                      <div className="flex items-center gap-1 pt-1">
-                        <input
-                          type="number"
-                          value={tempDurationValue}
-                          onChange={(e) => setTempDurationValue(Number(e.target.value))}
-                          className="w-full px-2 py-1 text-xs font-bold rounded-lg border border-blue-400 bg-white"
-                          min={5}
-                          max={240}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => saveDurationEdit(currentUjian.id)}
-                          disabled={isSavingDuration}
-                          className="px-2 py-1 rounded-lg bg-blue-600 text-white text-[10px] font-bold"
-                        >
-                          Simpan
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="pt-0.5 flex items-center justify-between">
-                        <span className="font-extrabold text-sm text-[#0F172A]">
-                          {currentUjian.durasi_menit} Menit
-                        </span>
-                        <span className="text-[10px] font-bold text-slate-400">
-                          KKM {currentUjian.passing_grade}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
+          {/* Search Box */}
+          <div className="relative w-full sm:w-56">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Cari judul / token..."
+              className="w-full text-xs pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-full font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#1967D2]"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-3 h-3" />
+              </button>
             )}
           </div>
-
-          {/* Action Buttons: Rekayasa Soal & Live Monitor */}
-          <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-center gap-2.5">
-            <Link
-              href={`/guru/ujian/create?tipe=ujian&mapel=${encodeURIComponent(
-                selectedMapelUjian
-              )}`}
-              className="w-full sm:flex-1 py-3 px-4 rounded-2xl bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-black flex items-center justify-center gap-2 transition cursor-pointer shadow-xs"
-            >
-              <Sparkles className="w-4 h-4 text-amber-400" />
-              <span>Rekayasa & Buat Soal PTS</span>
-            </Link>
-
-            <Link
-              href={`/guru/ujian/${currentUjian?.id || ""}/live`}
-              className="w-full sm:w-auto py-3 px-4 rounded-2xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
-            >
-              <Radio className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Live Monitor</span>
-            </Link>
-          </div>
         </div>
+      </div>
+
+      {/* Summary Status Badges */}
+      <div className="flex items-center gap-2 text-xs">
+        <span className="text-[11px] font-medium text-slate-500">Status Akses:</span>
+        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-semibold">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+          <span>{activeCount} Akses Terbuka (ON)</span>
+        </span>
+        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 text-[11px] font-semibold">
+          <Lock className="w-2.5 h-2.5 text-slate-500" />
+          <span>{closedCount} Akses Ditutup (OFF)</span>
+        </span>
+      </div>
+
+      {/* Standard Shadcn/UI Table with Thin Outer Border and Light Grey Header */}
+      <div className="rounded-lg border border-slate-200 overflow-hidden bg-white shadow-2xs">
+        <Table>
+          <TableHeader className="bg-slate-50 border-b border-slate-200">
+            <TableRow>
+              <TableHead className="px-4 py-3 text-left font-semibold text-slate-700 text-xs">
+                Mata Pelajaran & Judul Asesmen
+              </TableHead>
+              <TableHead className="px-4 py-3 text-left font-semibold text-slate-700 text-xs">
+                Kategori
+              </TableHead>
+              <TableHead className="px-4 py-3 text-left font-semibold text-slate-700 text-xs">
+                Durasi & KKM
+              </TableHead>
+              <TableHead className="px-4 py-3 text-left font-semibold text-slate-700 text-xs">
+                Token Siswa
+              </TableHead>
+              <TableHead className="px-4 py-3 text-left font-semibold text-slate-700 text-xs">
+                Status Akses Siswa
+              </TableHead>
+              <TableHead className="px-4 py-3 text-right font-semibold text-slate-700 text-xs">
+                Aksi & Kontrol
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+
+          <TableBody className="divide-y divide-slate-100">
+            {filteredExams.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="px-4 py-8 text-center text-xs text-slate-500">
+                  Tidak ada data ujian atau ulangan yang cocok dengan kriteria pencarian.
+                </TableCell>
+              </TableRow>
+            ) : (
+              filteredExams.map((exam) => {
+                const isOpen = exam.status === "dipublikasi";
+                const isEditingToken = editingTokenExamId === exam.id;
+                const isEditingDuration = editingDurationExamId === exam.id;
+                const isLoading = loadingIds[exam.id];
+
+                return (
+                  <TableRow
+                    key={exam.id}
+                    className="hover:bg-slate-50/70 transition-colors"
+                  >
+                    {/* 1. Mata Pelajaran & Judul */}
+                    <TableCell className="px-4 py-3 align-middle">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200/80">
+                            {exam.mapel}
+                          </span>
+                        </div>
+                        <div className="text-xs font-semibold text-slate-900 leading-snug">
+                          {exam.judul}
+                        </div>
+                      </div>
+                    </TableCell>
+
+                    {/* 2. Kategori Badge */}
+                    <TableCell className="px-4 py-3 align-middle">
+                      {exam.tipe === "ulangan" ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200/80">
+                          <FileText className="w-3 h-3 text-blue-600" />
+                          <span>Ulangan Formatif</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200/80">
+                          <Clock className="w-3 h-3 text-amber-600" />
+                          <span>Ujian Sumatif (PTS)</span>
+                        </span>
+                      )}
+                    </TableCell>
+
+                    {/* 3. Durasi & KKM */}
+                    <TableCell className="px-4 py-3 align-middle">
+                      {isEditingDuration ? (
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            min={5}
+                            max={240}
+                            value={tempDurationValue}
+                            onChange={(e) => setTempDurationValue(Number(e.target.value))}
+                            className="w-16 px-1.5 py-0.5 text-xs font-semibold border border-slate-300 rounded bg-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            autoFocus
+                          />
+                          <button
+                            type="button"
+                            onClick={() => saveDurationEdit(exam.id)}
+                            disabled={isSavingDuration}
+                            className="px-2 py-0.5 bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-bold rounded cursor-pointer disabled:opacity-50"
+                          >
+                            OK
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingDurationExamId(null)}
+                            className="text-slate-400 hover:text-slate-600 text-[10px] p-0.5 cursor-pointer"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-semibold text-slate-900 text-xs">
+                              {exam.durasi_menit} Menit
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => startEditingDuration(exam)}
+                              className="text-slate-400 hover:text-blue-600 transition cursor-pointer p-0.5"
+                              title="Ubah alokasi durasi pengerjaan"
+                            >
+                              <Edit2 className="w-2.5 h-2.5" />
+                            </button>
+                          </div>
+                          <span className="text-[10px] text-slate-500 font-medium block">
+                            Standar KKM: {exam.passing_grade}
+                          </span>
+                        </div>
+                      )}
+                    </TableCell>
+
+                    {/* 4. Token Siswa */}
+                    <TableCell className="px-4 py-3 align-middle">
+                      {isEditingToken ? (
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="text"
+                            value={tempTokenValue}
+                            onChange={(e) => setTempTokenValue(e.target.value.toUpperCase())}
+                            className="w-24 px-1.5 py-0.5 text-xs font-mono font-bold uppercase border border-slate-300 rounded bg-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            autoFocus
+                          />
+                          <button
+                            type="button"
+                            onClick={() => saveTokenEdit(exam.id)}
+                            disabled={isSavingToken}
+                            className="px-2 py-0.5 bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-bold rounded cursor-pointer disabled:opacity-50"
+                          >
+                            OK
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingTokenExamId(null)}
+                            className="text-slate-400 hover:text-slate-600 text-[10px] p-0.5 cursor-pointer"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono font-bold text-xs text-slate-800 bg-slate-50 px-2 py-1 rounded border border-slate-200">
+                            {exam.token || "BELUM DISET"}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyToken(exam.id, exam.token || "")}
+                            className="p-1 rounded text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition cursor-pointer border border-transparent hover:border-slate-200"
+                            title="Salin token ke clipboard"
+                          >
+                            {copiedTokenId === exam.id ? (
+                              <Check className="w-3.5 h-3.5 text-emerald-600" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => startEditingToken(exam)}
+                            className="p-1 rounded text-slate-400 hover:text-blue-600 hover:bg-slate-100 transition cursor-pointer border border-transparent hover:border-slate-200"
+                            title="Ubah token ujian"
+                          >
+                            <Edit2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      )}
+                    </TableCell>
+
+                    {/* 5. Status Akses Siswa & Toggle Button */}
+                    <TableCell className="px-4 py-3 align-middle">
+                      <div className="flex items-center gap-2">
+                        {isOpen ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <span>Akses: ON</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                            <Lock className="w-3 h-3 text-slate-400" />
+                            <span>Akses: OFF</span>
+                          </span>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => handleToggle(exam)}
+                          disabled={isLoading}
+                          className={`px-3 py-1.5 rounded-xl text-[11px] font-semibold transition flex items-center gap-1 cursor-pointer border ${
+                            isOpen
+                              ? "bg-white hover:bg-rose-50 text-slate-700 hover:text-rose-700 border-slate-200 hover:border-rose-200"
+                              : "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-2xs"
+                          }`}
+                        >
+                          {isLoading ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : isOpen ? (
+                            <>
+                              <Lock className="w-3 h-3 text-slate-400" />
+                              <span>Tutup</span>
+                            </>
+                          ) : (
+                            <>
+                              <Unlock className="w-3 h-3" />
+                              <span>Buka</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </TableCell>
+
+                    {/* 6. Aksi & Kontrol */}
+                    <TableCell className="px-4 py-3 text-right align-middle">
+                      <div className="inline-flex items-center gap-1.5">
+                        <Link
+                          href={`/guru/ujian/${exam.id}/live`}
+                          className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-[#1967D2] text-xs font-semibold border border-slate-200 hover:border-blue-200 transition inline-flex items-center gap-1 cursor-pointer"
+                        >
+                          <Radio className="w-3.5 h-3.5 text-[#1967D2]" />
+                          <span>Monitor</span>
+                        </Link>
+
+                        <Link
+                          href={`/guru/ujian/create?tipe=${exam.tipe}&mapel=${encodeURIComponent(
+                            exam.mapel
+                          )}`}
+                          className="px-3 py-1.5 rounded-xl bg-[#1967D2] hover:bg-blue-700 text-white text-xs font-semibold transition inline-flex items-center gap-1 cursor-pointer shadow-xs"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Soal</span>
+                        </Link>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Footer Helper */}
+      <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] text-slate-500">
+        <span className="flex items-center gap-1">
+          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+          <span>Setiap perubahan status atau token disinkronkan langsung ke dashboard siswa tanpa perlu muat ulang halaman.</span>
+        </span>
+        <span className="font-medium text-slate-400">
+          Menampilkan {filteredExams.length} dari {exams.length} asesmen
+        </span>
       </div>
     </div>
   );

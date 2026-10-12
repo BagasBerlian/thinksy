@@ -132,11 +132,8 @@ export default function AdminSekolahDashboardPage() {
   return (
     <AdminLayout>
       <div className="space-y-8">
-        {/* 1. HERO HEADER WITH GRADIENT */}
-        <div className="relative rounded-3xl bg-gradient-to-br from-[#0F172A] via-[#1E293B] to-[#0F172A] p-6 sm:p-8 overflow-hidden border border-slate-700/50">
-          <div className="absolute top-0 right-0 w-80 h-80 bg-blue-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3" />
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-amber-500/5 rounded-full blur-3xl translate-y-1/2 -translate-x-1/3" />
-
+        {/* 1. HERO HEADER */}
+        <div className="relative rounded-3xl bg-[#090D16] p-6 sm:p-8 overflow-hidden border border-slate-800 text-white shadow-sm">
           <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-6">
             <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-2">
@@ -308,7 +305,7 @@ export default function AdminSekolahDashboardPage() {
                       key={idx}
                       className="px-5 py-4 flex items-center gap-4 hover:bg-slate-50/50 transition group"
                     >
-                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center font-extrabold text-xs shrink-0 shadow-sm group-hover:scale-105 transition-transform duration-300">
+                      <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-700 text-white flex items-center justify-center font-extrabold text-xs shrink-0 shadow-sm group-hover:scale-105 transition-transform duration-300">
                         {t.initials}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -334,14 +331,9 @@ export default function AdminSekolahDashboardPage() {
             </div>
 
             {/* CTA Banner */}
-            <div className="relative rounded-2xl bg-gradient-to-r from-[#0F172A] via-[#1E293B] to-[#0F172A] p-6 overflow-hidden border border-slate-700/50">
-              <div className="absolute top-0 right-0 w-40 h-40 bg-amber-500/10 rounded-full blur-3xl" />
+            <div className="relative rounded-2xl bg-[#090D16] p-6 overflow-hidden border border-slate-800 text-white shadow-sm">
               <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="space-y-2 max-w-md">
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 text-xs font-bold">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    Manajemen Terintegrasi
-                  </div>
                   <h3 className="text-xl font-extrabold text-white tracking-tight">
                     Sinkronisasi Data Akademik
                   </h3>
@@ -364,7 +356,7 @@ export default function AdminSekolahDashboardPage() {
           <div className="lg:col-span-4 space-y-6">
             {/* Profil Sekolah Card */}
             <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-              <div className="h-24 bg-gradient-to-br from-[#0F172A] via-[#1E293B] to-[#334155] relative flex items-center justify-center">
+              <div className="h-24 bg-[#090D16] border-b border-slate-800 relative flex items-center justify-center">
                 <div className="w-14 h-14 rounded-2xl bg-white text-[#0F172A] flex items-center justify-center font-extrabold shadow-xl z-10 border-4 border-white">
                   <Building className="w-7 h-7 text-[#0F172A]" />
                 </div>
@@ -414,7 +406,7 @@ export default function AdminSekolahDashboardPage() {
             </div>
 
             {/* Tips Admin Card */}
-            <div className="relative p-5 rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 overflow-hidden">
+            <div className="relative p-5 rounded-2xl bg-amber-50/50 border border-amber-200 overflow-hidden">
               <div className="relative space-y-2">
                 <div className="flex items-center gap-2 font-extrabold text-xs text-amber-900">
                   <Lightbulb className="w-4 h-4 text-amber-600" />

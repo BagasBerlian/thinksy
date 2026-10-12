@@ -1,0 +1,35 @@
+[
+  {
+    "id": "misi-default-1",
+    "judul": "Selesaikan 1 Latihan Mandiri SPLDV",
+    "deskripsi": "Kerjakan minimal 1 latihan soal Bab 4 di menu Latihan Siswa hari ini.",
+    "kategori": "akademik",
+    "target_max": 1,
+    "poin_hadiah": 50,
+    "aktif": true,
+    "dibuat_pada": "2026-10-09T04:48:51.957Z",
+    "total_klaim": 28
+  },
+  {
+    "id": "misi-default-2",
+    "judul": "Diskusi Konsep Bersama AI Sokratik",
+    "deskripsi": "Ajukan minimal 2 pertanyaan dan diskusikan langkah penyelesaian soal dengan AI Tutor.",
+    "kategori": "sokratik",
+    "target_max": 2,
+    "poin_hadiah": 35,
+    "aktif": true,
+    "dibuat_pada": "2026-10-09T04:48:51.957Z",
+    "total_klaim": 24
+  },
+  {
+    "id": "misi-default-3",
+    "judul": "Presensi Pagi Tepat Waktu (<07:15 WIB)",
+    "deskripsi": "Lakukan selfie verifikasi kehadiran sebelum jam batas terlambat.",
+    "kategori": "presensi",
+    "target_max": 1,
+    "poin_hadiah": 25,
+    "aktif": true,
+    "dibuat_pada": "2026-10-09T04:48:51.957Z",
+    "total_klaim": 31
+  }
+]

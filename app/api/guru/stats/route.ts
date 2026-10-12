@@ -131,7 +131,7 @@ export async function GET() {
           strugglingStudentsList.push({
             id,
             name: info.name,
-            class: "Kelas 8A",
+            class: "Kelas 8",
             score: avg,
             topic: "Pemfaktoran Persamaan Kuadrat & Aljabar",
             status: avg < 60 ? "Butuh Bimbingan Sokratik" : "Butuh Remedial",

@@ -10,7 +10,6 @@ import {
   AlertCircle,
   X,
   Bell,
-  Sparkles,
   Info,
   RotateCcw,
 } from "lucide-react";
@@ -126,56 +125,56 @@ export default function GuruAttendanceDeadlineModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden text-slate-900 max-h-[92vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/60 animate-in fade-in duration-100 font-mono text-zinc-900">
+      <div className="relative w-full max-w-2xl bg-white border border-zinc-950 shadow-none overflow-hidden max-h-[92vh] flex flex-col">
         {/* Header */}
-        <div className="p-6 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-[#0F172A] text-amber-400 flex items-center justify-center font-black shadow-md">
-              <Clock className="w-6 h-6" />
+        <div className="p-4 border-b border-zinc-200 bg-zinc-50 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 bg-zinc-950 text-white flex items-center justify-center font-bold">
+              <Clock className="w-4 h-4" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-900 border border-blue-200">
-                  KONTROL ABSENSI SEKOLAH
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.2 bg-zinc-200 text-zinc-800 border border-zinc-300">
+                  Kontrol Absensi
                 </span>
-                <span className="text-[10px] font-bold text-slate-400">
-                  Sinkronisasi Otomatis Supabase
+                <span className="text-[10px] text-zinc-500">
+                  Database Realtime
                 </span>
               </div>
-              <h2 className="text-lg font-black text-[#0F172A] mt-0.5">
+              <h2 className="text-sm font-bold text-zinc-950 uppercase tracking-tight mt-0.5">
                 Pengaturan Waktu & Tenggat Absensi Siswa
               </h2>
-              <p className="text-xs text-slate-500 font-medium">
-                Tentukan jam batas akhir presensi harian serta otomatis siarkan notifikasi tenggat ke seluruh siswa.
+              <p className="text-[11px] text-zinc-500">
+                Tentukan jam batas akhir presensi harian dan siarkan ke seluruh siswa.
               </p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="p-2.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-400 hover:text-slate-700 transition cursor-pointer"
+            className="p-1 text-zinc-400 hover:text-zinc-900 transition cursor-pointer"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSave} className="p-6 overflow-y-auto space-y-6 flex-1">
+        <form onSubmit={handleSave} className="p-4 overflow-y-auto space-y-4 flex-1">
           {isLoading ? (
-            <div className="py-12 flex flex-col items-center justify-center gap-2 text-slate-400">
-              <Loader2 className="w-6 h-6 animate-spin text-amber-500" />
+            <div className="py-12 flex flex-col items-center justify-center gap-2 text-zinc-500">
+              <Loader2 className="w-5 h-5 animate-spin" />
               <span className="text-xs font-bold">Memuat konfigurasi absensi...</span>
             </div>
           ) : (
             <>
               {needsReconfig && (
-                <div className="p-4 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 flex items-start gap-3">
-                  <RotateCcw className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                <div className="p-3 bg-zinc-100 border border-zinc-400 text-zinc-900 flex items-start gap-2.5">
+                  <RotateCcw className="w-4 h-4 text-zinc-700 shrink-0 mt-0.5" />
                   <div className="space-y-0.5 text-xs">
-                    <div className="font-black">Setelan Sementara Kemarin Telah Berakhir</div>
-                    <p className="font-medium text-amber-800">
-                      Karena sebelumnya disetel sebagai <strong>"Sementara"</strong>, Anda perlu mengatur ulang jam tenggat presensi hari ini.
+                    <div className="font-bold uppercase text-[11px]">Setelan Sementara Telah Berakhir</div>
+                    <p className="text-zinc-600">
+                      Karena sebelumnya disetel sebagai <strong>"Sementara"</strong>, atur ulang jam tenggat presensi hari ini.
                     </p>
                   </div>
                 </div>
@@ -183,53 +182,51 @@ export default function GuruAttendanceDeadlineModal({
 
               {statusMessage && (
                 <div
-                  className={`p-3.5 rounded-2xl text-xs font-extrabold flex items-center gap-2 ${
+                  className={`p-2.5 text-xs font-bold flex items-center gap-2 border ${
                     statusMessage.isError
-                      ? "bg-rose-50 border border-rose-200 text-rose-800"
-                      : "bg-emerald-50 border border-emerald-200 text-emerald-800"
+                      ? "bg-red-50 border-red-300 text-red-800"
+                      : "bg-zinc-100 border-zinc-950 text-zinc-950"
                   }`}
                 >
                   {statusMessage.isError ? (
-                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
                   ) : (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <CheckCircle2 className="w-4 h-4 text-zinc-900 shrink-0" />
                   )}
                   <span>{statusMessage.text}</span>
                 </div>
               )}
 
               {/* 1. Mode Stelan: Sementara vs Selamanya */}
-              <div className="space-y-2">
-                <label className="text-xs font-black text-slate-800 flex items-center justify-between">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-zinc-900 flex items-center justify-between">
                   <span>1. Masa Berlaku Pengaturan</span>
-                  <span className="text-[10px] text-slate-400">Pilih Mode</span>
+                  <span className="text-[10px] text-zinc-400">Pilih Mode</span>
                 </label>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   {/* Option: Sementara */}
                   <div
                     onClick={() => setMode("sementara")}
-                    className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-start gap-3 ${
+                    className={`p-3 border transition cursor-pointer flex items-start gap-2.5 ${
                       mode === "sementara"
-                        ? "bg-amber-50/70 border-amber-400 ring-2 ring-amber-400/40 shadow-xs"
-                        : "bg-white hover:bg-slate-50 border-slate-200"
+                        ? "bg-zinc-100 border-zinc-950"
+                        : "bg-white hover:bg-zinc-50 border-zinc-300"
                     }`}
                   >
-                    <div
-                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 ${
-                        mode === "sementara"
-                          ? "border-amber-600 bg-amber-600 text-white"
-                          : "border-slate-300"
-                      }`}
-                    >
-                      {mode === "sementara" && <div className="w-2 h-2 rounded-full bg-white" />}
-                    </div>
+                    <input
+                      type="radio"
+                      name="deadline_mode"
+                      checked={mode === "sementara"}
+                      onChange={() => setMode("sementara")}
+                      className="mt-0.5 accent-zinc-950"
+                    />
                     <div>
-                      <div className="text-xs font-black text-[#0F172A] flex items-center gap-1.5">
-                        <span>Sementara (Hari Ini Saja)</span>
+                      <div className="text-xs font-bold text-zinc-950">
+                        Sementara (Hari Ini Saja)
                       </div>
-                      <p className="text-[11px] text-slate-500 font-medium mt-1 leading-relaxed">
-                        Hanya berlaku hari ini ({todayStr}). Besok guru harus mengatur ulang jam tenggat absen siswa.
+                      <p className="text-[10px] text-zinc-600 mt-0.5 leading-normal">
+                        Hanya berlaku hari ini ({todayStr}). Besok kembali ke default.
                       </p>
                     </div>
                   </div>
@@ -237,27 +234,25 @@ export default function GuruAttendanceDeadlineModal({
                   {/* Option: Selamanya */}
                   <div
                     onClick={() => setMode("selamanya")}
-                    className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-start gap-3 ${
+                    className={`p-3 border transition cursor-pointer flex items-start gap-2.5 ${
                       mode === "selamanya"
-                        ? "bg-emerald-50/70 border-emerald-400 ring-2 ring-emerald-400/40 shadow-xs"
-                        : "bg-white hover:bg-slate-50 border-slate-200"
+                        ? "bg-zinc-100 border-zinc-950"
+                        : "bg-white hover:bg-zinc-50 border-zinc-300"
                     }`}
                   >
-                    <div
-                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 ${
-                        mode === "selamanya"
-                          ? "border-emerald-600 bg-emerald-600 text-white"
-                          : "border-slate-300"
-                      }`}
-                    >
-                      {mode === "selamanya" && <div className="w-2 h-2 rounded-full bg-white" />}
-                    </div>
+                    <input
+                      type="radio"
+                      name="deadline_mode"
+                      checked={mode === "selamanya"}
+                      onChange={() => setMode("selamanya")}
+                      className="mt-0.5 accent-zinc-950"
+                    />
                     <div>
-                      <div className="text-xs font-black text-[#0F172A] flex items-center gap-1.5">
-                        <span>Selamanya (Senin s/d Jumat)</span>
+                      <div className="text-xs font-bold text-zinc-950">
+                        Selamanya (Senin - Jumat)
                       </div>
-                      <p className="text-[11px] text-slate-500 font-medium mt-1 leading-relaxed">
-                        Otomatis berlaku permanen setiap hari Senin hingga Jumat. Tidak perlu atur ulang setiap hari.
+                      <p className="text-[10px] text-zinc-600 mt-0.5 leading-normal">
+                        Berlaku permanen setiap hari kerja. Tidak perlu diulang.
                       </p>
                     </div>
                   </div>
@@ -265,15 +260,15 @@ export default function GuruAttendanceDeadlineModal({
               </div>
 
               {/* 2. Jadwal Jam Tenggat Per Hari (Senin - Jumat) */}
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-black text-slate-800">
+                  <label className="text-xs font-bold text-zinc-900">
                     2. Jam Batas Akhir (Tenggat) Absen Setiap Hari
                   </label>
-                  <span className="text-[11px] font-bold text-slate-400">Format 24 Jam (WIB)</span>
+                  <span className="text-[10px] text-zinc-500 font-mono">Format 24 Jam WIB</span>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                   {[
                     { key: "senin", label: "Senin" },
                     { key: "selasa", label: "Selasa" },
@@ -283,9 +278,9 @@ export default function GuruAttendanceDeadlineModal({
                   ].map((day) => (
                     <div
                       key={day.key}
-                      className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1.5 text-center"
+                      className="p-2.5 bg-zinc-50 border border-zinc-200 space-y-1 text-center"
                     >
-                      <div className="text-[11px] font-black text-slate-700">{day.label}</div>
+                      <div className="text-[11px] font-bold text-zinc-800 uppercase">{day.label}</div>
                       <input
                         type="time"
                         value={(schedule as any)[day.key]}
@@ -296,21 +291,21 @@ export default function GuruAttendanceDeadlineModal({
                           }))
                         }
                         required
-                        className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded-xl text-xs font-mono font-bold text-center text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-1.5 py-1 bg-white border border-zinc-300 text-xs font-mono font-bold text-center text-zinc-900 focus:outline-none focus:border-zinc-950"
                       />
-                      <div className="text-[9px] text-slate-400 font-semibold">Tenggat Tutup</div>
+                      <div className="text-[9px] text-zinc-400">Tenggat Tutup</div>
                     </div>
                   ))}
                 </div>
               </div>
 
               {/* 3. Parameter Pendukung: Jam Masuk & Terlambat */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-1">
-                  <label className="text-xs font-black text-slate-800 flex items-center justify-between">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                <div className="p-2.5 bg-zinc-50 border border-zinc-200 space-y-1">
+                  <label className="text-xs font-bold text-zinc-900 flex items-center justify-between">
                     <span>Jam Buka Presensi (Masuk)</span>
-                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                      Tepat Waktu (+10 Poin)
+                    <span className="text-[9px] font-bold px-1.5 py-0.2 bg-zinc-200 text-zinc-800 border border-zinc-300">
+                      +10 Poin
                     </span>
                   </label>
                   <input
@@ -318,15 +313,15 @@ export default function GuruAttendanceDeadlineModal({
                     value={jamMasuk}
                     onChange={(e) => setJamMasuk(e.target.value)}
                     required
-                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-2 py-1.5 bg-white border border-zinc-300 text-xs font-mono font-bold text-zinc-900 focus:outline-none focus:border-zinc-950"
                   />
                 </div>
 
-                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-1">
-                  <label className="text-xs font-black text-slate-800 flex items-center justify-between">
+                <div className="p-2.5 bg-zinc-50 border border-zinc-200 space-y-1">
+                  <label className="text-xs font-bold text-zinc-900 flex items-center justify-between">
                     <span>Mulai Terhitung Terlambat</span>
-                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
-                      Terlambat (+3 Poin)
+                    <span className="text-[9px] font-bold px-1.5 py-0.2 bg-zinc-200 text-zinc-800 border border-zinc-300">
+                      +3 Poin
                     </span>
                   </label>
                   <input
@@ -334,42 +329,42 @@ export default function GuruAttendanceDeadlineModal({
                     value={jamTerlambat}
                     onChange={(e) => setJamTerlambat(e.target.value)}
                     required
-                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    className="w-full px-2 py-1.5 bg-white border border-zinc-300 text-xs font-mono font-bold text-zinc-900 focus:outline-none focus:border-zinc-950"
                   />
                 </div>
               </div>
 
               {/* 4. Checkbox Siarkan Notifikasi Otomatis ke Siswa */}
-              <div className="p-4 rounded-2xl bg-blue-50/70 border border-blue-200/80 space-y-2">
-                <label className="flex items-start gap-3 cursor-pointer">
+              <div className="p-3 bg-zinc-50 border border-zinc-200 space-y-2">
+                <label className="flex items-start gap-2.5 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={broadcastNotif}
                     onChange={(e) => setBroadcastNotif(e.target.checked)}
-                    className="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500 mt-0.5 cursor-pointer"
+                    className="w-4 h-4 accent-zinc-950 mt-0.5 cursor-pointer"
                   />
                   <div>
-                    <div className="text-xs font-black text-blue-950 flex items-center gap-1.5">
-                      <Bell className="w-3.5 h-3.5 text-blue-600" />
-                      <span>Otomatis Kirim Notifikasi Tenggat ke Seluruh Siswa di Database</span>
+                    <div className="text-xs font-bold text-zinc-950 flex items-center gap-1.5">
+                      <Bell className="w-3.5 h-3.5 text-zinc-700" />
+                      <span>Otomatis Kirim Notifikasi Tenggat ke Seluruh Siswa</span>
                     </div>
-                    <p className="text-[11px] text-blue-800/90 font-medium mt-0.5">
-                      Di setiap akun siswa yang terdaftar di Supabase akan muncul notifikasi waktu batas akhir presensi hari ini.
+                    <p className="text-[10px] text-zinc-600 mt-0.5">
+                      Setiap akun siswa di database menerima notifikasi waktu batas akhir presensi hari ini.
                     </p>
                   </div>
                 </label>
 
                 {/* Preview Notifikasi Siswa */}
                 {broadcastNotif && (
-                  <div className="mt-2.5 p-3 rounded-xl bg-white border border-blue-200 text-left space-y-1 shadow-2xs">
-                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                      Pratinjau Notifikasi di Layar Siswa:
+                  <div className="p-2.5 bg-white border border-zinc-300 text-left space-y-1">
+                    <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                      Pratinjau Notifikasi Siswa:
                     </div>
-                    <div className="text-xs font-black text-[#0F172A] flex items-center gap-1.5">
-                      <span>⏰ Batas Presensi Hari Ini Ditutup Pukul {schedule.senin} WIB</span>
+                    <div className="text-xs font-bold text-zinc-950">
+                      Batas Presensi Hari Ini Ditutup Pukul {schedule.senin} WIB
                     </div>
-                    <p className="text-[11px] text-slate-600 font-medium">
-                      Pemberitahuan Guru: Batas akhir presensi kehadiran siswa hari ini telah ditetapkan hingga pukul {schedule.senin} WIB ({mode === "sementara" ? "Pengaturan Sementara Hari Ini" : "Jadwal Tetap Senin s/d Jumat"}). Harap segera lakukan absensi kehadiran dan selfie sebelum waktu habis!
+                    <p className="text-[10px] text-zinc-600">
+                      Pemberitahuan Guru: Batas akhir presensi kehadiran siswa hari ini telah ditetapkan hingga pukul {schedule.senin} WIB ({mode === "sementara" ? "Pengaturan Sementara" : "Jadwal Tetap"}).
                     </p>
                   </div>
                 )}
@@ -382,7 +377,7 @@ export default function GuruAttendanceDeadlineModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition cursor-pointer"
+              className="flex-1 py-2 border border-zinc-300 bg-white hover:bg-zinc-100 text-zinc-700 text-xs font-bold transition cursor-pointer"
             >
               Batal
             </button>
@@ -390,16 +385,16 @@ export default function GuruAttendanceDeadlineModal({
             <button
               type="submit"
               disabled={isSaving || isLoading}
-              className="flex-2 py-3 rounded-2xl bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-extrabold transition shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              className="flex-2 py-2 bg-zinc-950 hover:bg-zinc-800 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
               {isSaving ? (
-                <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
               ) : (
-                <Save className="w-4 h-4 text-amber-400" />
+                <Save className="w-3.5 h-3.5" />
               )}
               <span>
                 {isSaving
-                  ? "Menyimpan & Menyiarkan Notifikasi..."
+                  ? "Menyimpan..."
                   : `Simpan Pengaturan Absensi (${mode === "sementara" ? "Sementara" : "Selamanya"})`}
               </span>
             </button>

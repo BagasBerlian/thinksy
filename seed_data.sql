@@ -2,19 +2,26 @@
 -- SEED DATA MATEMATIKA THINKSY (BAB, MATERI, SOAL, OPSI)
 -- ============================================================================
 
--- 1. SEED SEKOLAH DUMMY (SMK MUHAMMADIYAH 1 PLAYEN) JIKA BELUM ADA
+-- 1. SEED SEKOLAH DUMMY (SMKS MUHAMMADIYAH PAKEM) JIKA BELUM ADA
 INSERT INTO sekolah (id, nama, npsn, alamat, motto, deskripsi, bg_image_url, links)
 VALUES (
     'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-    'SMK Muhammadiyah 1 Playen',
-    '20402099',
-    'Jl. Logandeng No. 1, Playen, Gunungkidul, D.I. Yogyakarta',
-    'Pusat Keunggulan • Unggul, Terampil, Berkarakter & Berdaya Saing Global',
-    'SMK Muhammadiyah 1 Playen (Muspla) adalah Sekolah Pusat Keunggulan yang berkomitmen mencetak generasi muda yang cerdas, beriman, dan menguasai teknologi serta keahlian industri masa depan.',
-    '/images/smk-muh1-playen.jpg',
-    '[{"label": "Website Resmi", "url": "https://smkmuh1playen.sch.id", "icon": "Globe"}]'::jsonb
+    'SMKS Muhammadiyah Pakem',
+    '20401318',
+    'Jl. Pakem - Turi No.23, Area Sawah, Pakembinangun, Kec. Pakem, Kab. Sleman, D.I. Yogyakarta 55582',
+    'Pusat Keunggulan & Pesantren Vokasi • Bahagia Bersama',
+    'SMKS Muhammadiyah Pakem (MUPA) merupakan Sekolah Pusat Keunggulan dan Pesantren Vokasi yang berkomitmen mencetak generasi muda berakhlak mulia, terampil, mandiri, dan menguasai keahlian industri masa depan.',
+    '/images/smk-muh-pakem-gedung.jpg',
+    '[{"label": "Website Resmi", "url": "https://smkmuhpakem.sch.id", "icon": "Globe"}, {"label": "Portal PPDB", "url": "https://smkmuhpakem.sch.id/ppdb/", "icon": "ExternalLink"}, {"label": "Instagram", "url": "https://www.instagram.com/smkmuhpakem/?hl=id", "icon": "Instagram"}]'::jsonb
 )
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET
+    nama = EXCLUDED.nama,
+    npsn = EXCLUDED.npsn,
+    alamat = EXCLUDED.alamat,
+    motto = EXCLUDED.motto,
+    deskripsi = EXCLUDED.deskripsi,
+    bg_image_url = EXCLUDED.bg_image_url,
+    links = EXCLUDED.links;
 
 -- 2. SEED BAB
 INSERT INTO bab (id, sekolah_id, judul, deskripsi, urutan, dibuat_pada)

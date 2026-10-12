@@ -81,54 +81,54 @@ export default function AttendanceLimitConfigModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-200 text-slate-900">
-      <div className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-100 text-zinc-900">
+      <div className="relative w-full max-w-md bg-white border border-zinc-950 shadow-none overflow-hidden font-mono">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-400 hover:text-slate-700 transition cursor-pointer"
+          className="absolute top-3.5 right-3.5 p-1 text-zinc-400 hover:text-zinc-900 transition cursor-pointer"
         >
-          <X className="w-5 h-5" />
+          <X className="w-4 h-4" />
         </button>
 
         {/* Top Header */}
-        <div className="p-6 border-b border-slate-100 bg-slate-50/50">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-[#0F172A] text-amber-400 flex items-center justify-center font-black shadow-xs">
-              <Clock className="w-6 h-6" />
+        <div className="p-4 border-b border-zinc-200 bg-zinc-50">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 bg-zinc-950 text-white flex items-center justify-center font-bold">
+              <Clock className="w-4 h-4" />
             </div>
             <div>
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                KONTROL WAKTU SEKOLAH
+              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+                Kontrol Waktu Sekolah
               </span>
-              <h3 className="text-base font-black text-[#0F172A]">
+              <h3 className="text-sm font-bold text-zinc-950 uppercase tracking-tight">
                 Atur Batas Waktu Presensi
               </h3>
-              <p className="text-[11px] text-slate-500 font-medium">
-                {sekolahNama || "Sinkronisasi Realtime Supabase"}
+              <p className="text-[10px] text-zinc-500">
+                {sekolahNama || "Sinkronisasi Realtime Database"}
               </p>
             </div>
           </div>
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSave} className="p-6 space-y-4">
+        <form onSubmit={handleSave} className="p-4 space-y-3">
           {isLoading ? (
-            <div className="py-8 flex items-center justify-center gap-2 text-xs text-slate-400">
+            <div className="py-8 flex items-center justify-center gap-2 text-xs text-zinc-500">
               <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Memuat data dari database...</span>
+              <span>Memuat data konfigurasi...</span>
             </div>
           ) : (
             <>
               {statusMessage && (
                 <div
-                  className={`p-3.5 rounded-2xl text-xs font-bold flex items-center gap-2 ${
+                  className={`p-2.5 text-xs font-bold flex items-center gap-2 border ${
                     statusMessage.includes("berhasil")
-                      ? "bg-emerald-50 border border-emerald-200 text-emerald-800"
-                      : "bg-red-50 border border-red-200 text-red-800"
+                      ? "bg-zinc-100 border-zinc-950 text-zinc-950"
+                      : "bg-red-50 border-red-300 text-red-800"
                   }`}
                 >
                   {statusMessage.includes("berhasil") ? (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <CheckCircle2 className="w-4 h-4 text-zinc-900 shrink-0" />
                   ) : (
                     <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
                   )}
@@ -136,16 +136,16 @@ export default function AttendanceLimitConfigModal({
                 </div>
               )}
 
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 {/* 1. Jam Masuk (Tepat Waktu) */}
-                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1">
-                  <label className="text-xs font-black text-slate-800 flex items-center justify-between">
+                <div className="p-2.5 bg-zinc-50 border border-zinc-200 space-y-1">
+                  <label className="text-xs font-bold text-zinc-900 flex items-center justify-between">
                     <span>1. Jam Masuk (Tepat Waktu)</span>
-                    <span className="text-[10px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full font-bold">
+                    <span className="text-[10px] text-zinc-800 bg-zinc-200 px-1.5 py-0.2 border border-zinc-300 font-bold">
                       +10 Poin Reward
                     </span>
                   </label>
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-[10px] text-zinc-500">
                     Siswa presensi sebelum jam ini tercatat Hadir Tepat Waktu.
                   </p>
                   <input
@@ -153,19 +153,19 @@ export default function AttendanceLimitConfigModal({
                     value={jamMasuk}
                     onChange={(e) => setJamMasuk(e.target.value)}
                     required
-                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-sm font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-2.5 py-1.5 bg-white border border-zinc-300 text-xs font-mono font-bold text-zinc-900 focus:outline-none focus:border-zinc-950"
                   />
                 </div>
 
                 {/* 2. Jam Terlambat */}
-                <div className="p-3.5 rounded-2xl bg-amber-50/50 border border-amber-200/80 space-y-1">
-                  <label className="text-xs font-black text-amber-900 flex items-center justify-between">
+                <div className="p-2.5 bg-zinc-50 border border-zinc-200 space-y-1">
+                  <label className="text-xs font-bold text-zinc-900 flex items-center justify-between">
                     <span>2. Jam Terlambat</span>
-                    <span className="text-[10px] text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full font-bold">
+                    <span className="text-[10px] text-zinc-800 bg-zinc-200 px-1.5 py-0.2 border border-zinc-300 font-bold">
                       +3 Poin Reward
                     </span>
                   </label>
-                  <p className="text-[11px] text-amber-700/80">
+                  <p className="text-[10px] text-zinc-500">
                     Siswa presensi antara Jam Masuk dan Jam Tutup tercatat Terlambat.
                   </p>
                   <input
@@ -173,19 +173,19 @@ export default function AttendanceLimitConfigModal({
                     value={jamTerlambat}
                     onChange={(e) => setJamTerlambat(e.target.value)}
                     required
-                    className="w-full px-3 py-2 bg-white border border-amber-300 rounded-xl text-sm font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    className="w-full px-2.5 py-1.5 bg-white border border-zinc-300 text-xs font-mono font-bold text-zinc-900 focus:outline-none focus:border-zinc-950"
                   />
                 </div>
 
                 {/* 3. Jam Tutup Presensi (Alpha) */}
-                <div className="p-3.5 rounded-2xl bg-rose-50/50 border border-rose-200/80 space-y-1">
-                  <label className="text-xs font-black text-rose-900 flex items-center justify-between">
+                <div className="p-2.5 bg-zinc-50 border border-zinc-200 space-y-1">
+                  <label className="text-xs font-bold text-zinc-900 flex items-center justify-between">
                     <span>3. Jam Tutup Presensi</span>
-                    <span className="text-[10px] text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full font-bold">
+                    <span className="text-[10px] text-red-700 bg-red-50 px-1.5 py-0.2 border border-red-200 font-bold">
                       Status Alpha (Terkunci)
                     </span>
                   </label>
-                  <p className="text-[11px] text-rose-700/80">
+                  <p className="text-[10px] text-zinc-500">
                     Setelah jam ini, formulir presensi siswa dikunci otomatis dengan status Alpha.
                   </p>
                   <input
@@ -193,28 +193,28 @@ export default function AttendanceLimitConfigModal({
                     value={jamTutup}
                     onChange={(e) => setJamTutup(e.target.value)}
                     required
-                    className="w-full px-3 py-2 bg-white border border-rose-300 rounded-xl text-sm font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                    className="w-full px-2.5 py-1.5 bg-white border border-zinc-300 text-xs font-mono font-bold text-zinc-900 focus:outline-none focus:border-zinc-950"
                   />
                 </div>
               </div>
 
-              <div className="pt-2 flex items-center gap-2">
+              <div className="pt-1 flex items-center gap-2">
                 <button
                   type="button"
                   onClick={onClose}
-                  className="flex-1 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition cursor-pointer"
+                  className="flex-1 py-2 border border-zinc-300 bg-white hover:bg-zinc-100 text-zinc-700 text-xs font-bold transition cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="flex-1 py-3 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-extrabold transition shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="flex-1 py-2 bg-zinc-950 hover:bg-zinc-800 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
                   {isSaving ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
                   ) : (
-                    <Save className="w-4 h-4 text-amber-400" />
+                    <Save className="w-3.5 h-3.5" />
                   )}
                   <span>Simpan Perubahan</span>
                 </button>

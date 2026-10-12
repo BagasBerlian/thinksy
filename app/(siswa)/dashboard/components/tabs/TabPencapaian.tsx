@@ -271,7 +271,7 @@ export default function TabPencapaian({
       title: "Bintang Akademik",
       desc: "Mengumpulkan 1.500+ Poin Belajar dan menyelesaikan minimal 10 sesi kuis/ujian.",
       tier: "Diamond",
-      tierColor: "from-purple-500 via-pink-500 to-indigo-600 border-purple-300 text-purple-950 bg-purple-50",
+      tierColor: "border-sky-300 text-sky-950 bg-sky-50",
       icon: "📜",
       rewardPoints: 500,
       isUnlocked: learningPoints >= 1500 && completedQuizCount >= 10,
@@ -329,7 +329,7 @@ export default function TabPencapaian({
   };
 
   return (
-    <main className="mx-auto max-w-7xl px-4 sm:px-6 pt-10 sm:pt-14 space-y-8 animate-in fade-in duration-200 pb-16">
+    <div className="mx-auto max-w-7xl px-4 sm:px-6 pt-1 sm:pt-2 space-y-8 animate-in fade-in duration-200 pb-16">
       {/* 1. HEADER */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
@@ -496,7 +496,7 @@ export default function TabPencapaian({
             <div
               className={`relative rounded-xl p-4 sm:p-5 flex flex-col justify-between h-full space-y-4 border ${
                 badge.isUnlocked
-                  ? "bg-gradient-to-b from-white via-[#FAF8F5] to-[#F7F4EE] border-amber-900/15"
+                  ? "bg-[#FAF8F5] border-amber-900/15"
                   : "bg-white/80 border-slate-200/80"
               }`}
             >
@@ -587,7 +587,7 @@ export default function TabPencapaian({
             </button>
 
             {/* Certificate Frame */}
-            <div className="relative rounded-2xl p-6 sm:p-8 border-2 border-amber-900/20 bg-gradient-to-b from-[#FCFBF8] via-[#FAF7F2] to-[#F5F1E8] shadow-inner text-center space-y-5">
+            <div className="relative rounded-2xl p-6 sm:p-8 border-2 border-amber-900/20 bg-[#FAF8F5] shadow-inner text-center space-y-5">
               <CornerFlourish position="tl" />
               <CornerFlourish position="tr" />
               <CornerFlourish position="bl" />
@@ -714,6 +714,6 @@ export default function TabPencapaian({
           </div>
         </div>
       )}
-    </main>
+    </div>
   );
 }

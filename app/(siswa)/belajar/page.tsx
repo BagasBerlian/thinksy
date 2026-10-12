@@ -60,7 +60,7 @@ export default async function BelajarPage({
 
   const rawKelas = (profil as any)?.anggota_kelas?.[0]?.kelas;
   const userGrade = rawKelas?.tingkat || 8;
-  const namaKelas = rawKelas?.nama || "Kelas 8A";
+  const namaKelas = rawKelas?.nama_kelas || rawKelas?.nama || "Kelas 8";
 
   // 2. Fetch School Data
   let sekolahData = null;
@@ -100,15 +100,15 @@ export default async function BelajarPage({
   if (!sekolahData) {
     sekolahData = {
       id: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
-      nama: "SMK Muhammadiyah Pakem",
-      npsn: "20402099",
-      alamat: "Jl. Pakem - Turi No.23, Area Sawah, Pakembinangun, Kec. Pakem, Kab. Sleman, D.I. Yogyakarta",
+      nama: "SMKS Muhammadiyah Pakem",
+      npsn: "20401318",
+      alamat: "Jl. Pakem - Turi No.23, Area Sawah, Pakembinangun, Kec. Pakem, Kab. Sleman, D.I. Yogyakarta 55582",
       motto: "Pusat Keunggulan & Pesantren Vokasi • Bahagia Bersama",
-      deskripsi: "SMK Muhammadiyah Pakem (MUPA) merupakan Sekolah Pusat Keunggulan dan Sekolah yang mengusung konsep Pesantren Vokasi dengan jurusan unggulan berstandar industri dan teknologi modern.",
-      bg_image_url: "/images/smk-muh-pakem.png",
+      deskripsi: "SMKS Muhammadiyah Pakem (MUPA) merupakan Sekolah Pusat Keunggulan dan Pesantren Vokasi yang berkomitmen mencetak generasi muda berakhlak mulia, terampil, mandiri, dan menguasai keahlian industri masa depan.",
+      bg_image_url: "/images/smk-muh-pakem-gedung.jpg",
       links: [
-        { label: "Website Resmi", url: "https://smkmuhpakem.sch.id/#", icon: "Globe" },
-        { label: "Portal SPMB", url: "https://smkmuhpakem.sch.id/ppdb/", icon: "ExternalLink" },
+        { label: "Website Resmi", url: "https://smkmuhpakem.sch.id", icon: "Globe" },
+        { label: "Portal PPDB", url: "https://smkmuhpakem.sch.id/ppdb/", icon: "ExternalLink" },
         { label: "Instagram", url: "https://www.instagram.com/smkmuhpakem/?hl=id", icon: "Instagram" },
       ],
       jam_masuk: "07:00:00",
@@ -194,54 +194,8 @@ export default async function BelajarPage({
     };
   });
 
-  // 6. Fetch Exams & Ulangan Sessions (same unified data source as Home)
-  let examsData: any[] = [];
-  const { data: dbExams } = await adminSupabase
-    .from("ujian")
-    .select(`
-      id,
-      judul,
-      deskripsi,
-      mapel,
-      durasi_menit,
-      passing_grade,
-      waktu_mulai,
-      waktu_berakhir,
-      status,
-      tipe,
-      token,
-      bab_id
-    `)
-    .order("waktu_mulai", { ascending: false });
-
-  let userExamSessions: Record<string, any> = {};
-  if (user) {
-    const { data: sesiList } = await adminSupabase
-      .from("sesi_ujian")
-      .select("id, ujian_id, status, nilai_akhir")
-      .eq("siswa_id", user.id);
-
-    if (sesiList) {
-      sesiList.forEach((s: any) => {
-        userExamSessions[s.ujian_id] = s;
-      });
-    }
-  }
-
-  if (dbExams && dbExams.length > 0) {
-    examsData = dbExams.map((e: any) => {
-      const s = userExamSessions[e.id];
-      return {
-        ...e,
-        tipe: e.tipe || "ulangan",
-        token: e.token || "12345",
-        sessionStatus: s?.status || "belum_mulai",
-        score: s?.nilai_akhir ?? null,
-        sesiId: s?.id,
-        bab_id: e.bab_id || null,
-      };
-    });
-  }
+  // 6. Ujian dan Ulangan dinonaktifkan sesuai instruksi
+  const examsData: any[] = [];
 
   return (
     <Suspense

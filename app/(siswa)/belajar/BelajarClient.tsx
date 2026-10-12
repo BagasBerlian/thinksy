@@ -578,20 +578,20 @@ export default function BelajarClient({
                     <button
                       key={sub.id}
                       onClick={() => handleSubjectSelect(sub.id)}
-                      className={`w-full text-left p-3.5 rounded-lg border transition-all cursor-pointer flex items-center justify-between gap-3 ${isActive
-                        ? "bg-blue-50/70 text-blue-950 border-blue-200 border-l-4 border-l-blue-600 shadow-2xs font-semibold"
+                      className={`w-full text-left p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${isActive
+                        ? "bg-blue-50 text-blue-700 border-blue-200 border-l-4 border-l-blue-600 shadow-2xs font-bold"
                         : "bg-white hover:bg-slate-50 text-slate-700 border-slate-200 hover:border-slate-300 font-medium"
                         }`}
                     >
                       <div>
                         <div
-                          className={`text-sm font-semibold ${isActive ? "text-blue-950 font-bold" : "text-slate-900"
+                          className={`text-sm ${isActive ? "text-blue-900 font-bold" : "text-slate-900 font-semibold"
                             }`}
                         >
                           {sub.name}
                         </div>
                         <div
-                          className={`text-xs mt-0.5 ${isActive ? "text-blue-700/80 font-medium" : "text-slate-500 font-normal"
+                          className={`text-xs mt-0.5 ${isActive ? "text-blue-700 font-medium" : "text-slate-500 font-normal"
                             }`}
                         >
                           {count} Bab Pembelajaran
@@ -629,8 +629,8 @@ export default function BelajarClient({
                 <button
                   onClick={() => setSelectedSemester(1)}
                   className={`px-3.5 py-1.5 rounded-md text-xs transition-colors cursor-pointer ${selectedSemester === 1
-                    ? "bg-white text-blue-700 font-bold border border-slate-200 shadow-xs"
-                    : "text-slate-600 hover:text-slate-900 font-medium"
+                    ? "bg-blue-600 text-white font-bold shadow-xs"
+                    : "text-slate-600 hover:text-blue-700 font-medium"
                     }`}
                 >
                   Semester 1 (Ganjil)
@@ -638,8 +638,8 @@ export default function BelajarClient({
                 <button
                   onClick={() => setSelectedSemester(2)}
                   className={`px-3.5 py-1.5 rounded-md text-xs transition-colors cursor-pointer ${selectedSemester === 2
-                    ? "bg-white text-blue-700 font-bold border border-slate-200 shadow-xs"
-                    : "text-slate-600 hover:text-slate-900 font-medium"
+                    ? "bg-blue-600 text-white font-bold shadow-xs"
+                    : "text-slate-600 hover:text-blue-700 font-medium"
                     }`}
                 >
                   Semester 2 (Genap)
@@ -661,7 +661,7 @@ export default function BelajarClient({
                 </p>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {paginatedChapters.map((bab, idx) => {
                   const itemNumber = startIndex + idx + 1;
                   const materiList = bab.materi || [];
@@ -791,25 +791,33 @@ export default function BelajarClient({
                             Modul materi digital tersedia di halaman buku ajar.
                           </div>
                         ) : (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
                             {materiList.map((m: any, mIdx: number) => {
                               const subNumber = mIdx + 1;
                               return (
                                 <Link
                                   key={m.id}
                                   href={`/bab/${bab.id}?materiId=${m.id}&view=pdf`}
-                                  className="p-2.5 rounded-lg bg-slate-50 hover:bg-blue-50/50 border border-slate-200/80 hover:border-blue-200 text-xs transition-colors flex items-center justify-between gap-2 cursor-pointer group"
+                                  className="p-3 rounded-xl bg-white hover:bg-slate-50 border border-slate-200/90 hover:border-blue-300 hover:shadow-xs transition duration-150 flex flex-col justify-between gap-2.5 cursor-pointer group active:scale-[0.99]"
                                 >
-                                  <div className="flex items-center gap-2 min-w-0">
-                                    <span className="w-5 h-5 rounded bg-blue-50 text-blue-700 text-[10px] font-bold flex items-center justify-center shrink-0 border border-blue-100">
+                                  <div className="flex items-start gap-2.5 min-w-0">
+                                    <span className="w-6 h-6 rounded-lg bg-blue-50 group-hover:bg-blue-600 text-blue-700 group-hover:text-white text-[11px] font-bold flex items-center justify-center shrink-0 border border-blue-200/80 group-hover:border-blue-600 transition-colors shadow-2xs">
                                       {subNumber}
                                     </span>
-                                    <span className="text-slate-800 group-hover:text-blue-900 font-medium truncate">
-                                      {m.judul}
-                                    </span>
+                                    <div className="min-w-0 flex-1">
+                                      <h5 className="text-xs font-semibold text-slate-800 group-hover:text-blue-700 line-clamp-2 leading-snug transition-colors">
+                                        {m.judul}
+                                      </h5>
+                                    </div>
                                   </div>
 
-                                  <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-600 shrink-0 transition-transform group-hover:translate-x-0.5" />
+                                  <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-[10px] text-slate-400 group-hover:text-blue-600 transition-colors">
+                                    <span className="flex items-center gap-1.5 font-medium">
+                                      <BookOpen className="w-3 h-3 text-slate-400 group-hover:text-blue-600 transition-colors" />
+                                      <span>Buka Materi</span>
+                                    </span>
+                                    <ChevronRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-blue-600 shrink-0 transition-transform group-hover:translate-x-0.5" />
+                                  </div>
                                 </Link>
                               );
                             })}
@@ -943,11 +951,11 @@ export default function BelajarClient({
                                 <button
                                   type="button"
                                   onClick={() => handleOpenTokenModal(matchingExam)}
-                                  className="w-full sm:w-auto px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-black flex items-center justify-center gap-2 transition cursor-pointer shadow-xs active:scale-98"
+                                  className="w-full sm:w-auto px-6 py-2.5 sm:px-7 sm:py-3 rounded-xl bg-gradient-to-r from-amber-500 via-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs sm:text-sm font-black uppercase tracking-wider flex items-center justify-center gap-2.5 transition-all duration-200 cursor-pointer shadow-md shadow-amber-500/25 hover:shadow-lg hover:shadow-orange-500/35 ring-2 ring-amber-400/40 hover:ring-amber-400 active:scale-98 group"
                                 >
-                                  <PlayCircle className="w-4 h-4 text-white" />
+                                  <PlayCircle className="w-4.5 h-4.5 text-white animate-pulse shrink-0" />
                                   <span>Lanjutkan Pengerjaan</span>
-                                  <ChevronRight className="w-4 h-4" />
+                                  <ChevronRight className="w-4 h-4 text-amber-100 group-hover:translate-x-1 transition-transform shrink-0" />
                                 </button>
                               ) : (
                                 <button

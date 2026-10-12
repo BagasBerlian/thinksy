@@ -186,6 +186,19 @@ export default function DaftarUjianClient({
     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, []);
 
+  // Auto-open modal if specified in URL query (?tab=ulangan or ?tab=ujian)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get("tab");
+      if (tab === "ulangan") {
+        setSelectedCategoryModal("ulangan");
+      } else if (tab === "ujian") {
+        setSelectedCategoryModal("ujian");
+      }
+    }
+  }, []);
+
   const toggleBrowserFullscreen = async () => {
     try {
       if (!document.fullscreenElement) {
@@ -313,15 +326,15 @@ export default function DaftarUjianClient({
   const handleDownloadPdfSummary = () => {
     const content = `
 =============================================================================
-DINAS PENDIDIKAN PROVINSI DKI JAKARTA
-${(sekolahData?.nama || "SMP LABSCHOOL JAKARTA").toUpperCase()}
-NPSN: ${sekolahData?.npsn || "20100412"} • AKREDITASI A
+MAJELIS PENDIDIKAN DASAR DAN MENENGAH PWM D.I. YOGYAKARTA
+${(sekolahData?.nama || "SMKS MUHAMMADIYAH PAKEM").toUpperCase()}
+NPSN: ${sekolahData?.npsn || "20401318"} • SEKOLAH PUSAT KEUNGGULAN
 =============================================================================
 SURAT EDARAN & JADWAL RESMI PENILAIAN TENGAH SEMESTER (PTS) & FORMATIF
 Tahun Ajaran: ${userProfile.tahun_ajaran || "2026/2027"}
 Nama Siswa  : ${userProfile.nama_lengkap}
 NISN        : ${userProfile.nisn || "0089218291"}
-Kelas       : ${userProfile.nama_kelas || "Kelas 8A"}
+Kelas       : ${userProfile.nama_kelas || "Kelas 8"}
 =============================================================================
 JADWAL ASESMEN:
 1. Senin, 22 Sep 2026 | 07.30 - 09.00 WIB | Matematika Terpadu (PTS) | Lab CBT 1 | KKM 75
@@ -707,13 +720,13 @@ Dr. Hendra Wijaya, M.Pd.
                     </div>
                     <div>
                       <h2 className="text-xs uppercase tracking-wider text-slate-500 font-bold">
-                        Dinas Pendidikan Provinsi DKI Jakarta
+                        Majelis Dikdasmen & PNF PWM D.I. Yogyakarta
                       </h2>
                       <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-tight leading-tight">
-                        {sekolahData?.nama || "SMP LABSCHOOL JAKARTA"}
+                        {sekolahData?.nama || "SMKS Muhammadiyah Pakem"}
                       </h1>
                       <p className="text-[10px] text-slate-600">
-                        {sekolahData?.alamat || "Jl. Pemuda Kompleks Rawamangun, Pulo Gadung, Jakarta Timur"} • NPSN: {sekolahData?.npsn || "20100412"} • Akreditasi A
+                        {sekolahData?.alamat || "Jl. Pakem - Turi No.23, Area Sawah, Pakembinangun, Kec. Pakem, Kab. Sleman, D.I. Yogyakarta 55582"} • NPSN: {sekolahData?.npsn || "20401318"} • Sekolah Pusat Keunggulan
                       </p>
                     </div>
                   </div>
@@ -732,7 +745,7 @@ Dr. Hendra Wijaya, M.Pd.
                   Jadwal Resmi Penilaian Tengah Semester (PTS) & Asesmen Formatif
                 </h3>
                 <p className="text-[11px] font-semibold text-slate-600">
-                  Tahun Ajaran 2026/2027 • Tingkat {userProfile.tingkat_kelas || 8} ({userProfile.nama_kelas || "Kelas 8A"})
+                  Tahun Ajaran 2026/2027 • Tingkat {userProfile.tingkat_kelas || 8} ({userProfile.nama_kelas || "Kelas 8"})
                 </p>
                 <p className="text-[10px] font-mono text-slate-500">
                   Nomor Surat: 421.3/089/SMP-LS/PTS-I/2026

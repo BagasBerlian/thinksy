@@ -146,7 +146,7 @@ export async function POST(request: Request) {
           chat_id: chatId,
           penulis_id: user.id,
           nama_penulis: namaPenulis,
-          kelas_penulis: "Kelas 8A",
+          kelas_penulis: "Kelas 8",
           konten: konten.trim(),
         })
         .select()
@@ -177,7 +177,7 @@ export async function POST(request: Request) {
           chat_id: chatId,
           penulis_id: user.id,
           nama_penulis: namaPenulis,
-          kelas_penulis: "Kelas 8A",
+          kelas_penulis: "Kelas 8",
           konten: konten.trim(),
           dibuat_pada: new Date().toISOString(),
         },
@@ -251,7 +251,7 @@ export async function POST(request: Request) {
         sekolah_id: sekolahId,
         penulis_id: user.id,
         nama_penulis: namaPenulis,
-        kelas_penulis: "Kelas 8A",
+        kelas_penulis: "Kelas 8",
         konten: konten.trim(),
         minat_kategori: minat_kategori || "Umum",
         jumlah_suka: 0,

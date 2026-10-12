@@ -4,311 +4,365 @@ import { useState } from "react";
 import Image from "next/image";
 import {
   Award,
-  Sparkles,
   BookOpen,
   Mail,
   Phone,
-  Calendar,
-  Clock,
   CheckCircle2,
-  Users,
-  GraduationCap,
-  Briefcase,
   ShieldCheck,
-  ChevronRight,
-  TrendingUp,
-  MapPin,
-  ExternalLink,
   Edit3,
+  X,
 } from "lucide-react";
 
 interface CardGuruProfileProps {
   onOpenSettings?: () => void;
+  onClose?: () => void;
 }
 
-export default function CardGuruProfile({ onOpenSettings }: CardGuruProfileProps) {
+export default function CardGuruProfile({ onOpenSettings, onClose }: CardGuruProfileProps) {
   const [activeTab, setActiveTab] = useState<"ringkasan" | "kompetensi" | "jadwal">("ringkasan");
 
   const guruData = {
     nama: "Ibu Siti Rahmawati, M.Pd.",
     gelar: "M.Pd. (Magister Pendidikan Matematika)",
     foto: "/images/foto-guru.jpg",
-    jabatan: "Guru Penggerak Matematika & Wali Kelas 8A",
+    jabatan: "Guru Penggerak Matematika & Wali Kelas 8",
     umur: "38 Tahun (Lahir: 15 April 1988)",
     nip: "19880415 201001 2 012",
     nuptk: "4147 7666 6821 0032",
-    sekolah: "SMP Negeri 1 (Sekolah Penggerak)",
+    sekolah: "SMKS Muhammadiyah Pakem (Sekolah Pusat Keunggulan)",
     pendidikan: "S2 Pendidikan Matematika — Universitas Negeri Yogyakarta (UNY)",
     pengalaman: "14 Tahun Pengabdian",
     statusKepegawaian: "PNS / Penata Tk. I (Gol. III/d)",
     statusSertifikasi: "Pendidik Profesional Tersertifikasi (Kemendikbudristek)",
-    email: "siti.rahmawati@sekolah.sch.id",
+    email: "siti.rahmawati@smkmuhpakem.sch.id",
     telepon: "+62 812-3456-7890",
-    mapel: "Matematika Fase D (Kelas 8A, 8B, 8C)",
-    rombelBinaan: "Kelas 8A & Kelas 8B",
+    mapel: "Matematika Fase D (Kelas 8)",
+    rombelBinaan: "Kelas 8",
     totalSiswa: "62 Siswa Binaan (93 Total Siswa)",
     bebanMengajar: "24 Jam Pelajaran (JP) / Minggu",
     indeksKepuasan: "98.4%",
     motto:
-      "Mendidik dengan metode dialog Sokratik Kurikulum Merdeka. Membimbing siswa menemukan logika matematika secara mandiri, kritis, dan berkarakter Profil Pelajar Pancasila.",
+      "Mendidik dengan dialog terarah. Membimbing siswa menemukan logika matematika secara terstruktur, kritis, dan berkarakter.",
   };
 
   return (
-    <div className="relative rounded-3xl bg-white border border-slate-200/90 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden">
-      {/* Decorative Top Accent Bar */}
-      <div className="h-2 bg-gradient-to-r from-amber-500 via-indigo-600 to-blue-600 w-full" />
+    <div className="relative bg-white border border-slate-200/90 rounded-3xl shadow-sm text-slate-900 font-sans overflow-hidden">
+      {/* Dossier Header */}
+      <div className="bg-gradient-to-r from-blue-700 via-indigo-800 to-slate-900 text-white px-5 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-xl bg-white/15 backdrop-blur-md text-white flex items-center justify-center font-bold text-xs border border-white/20">
+            GR
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] uppercase tracking-wider text-blue-200 font-bold">
+                PROFIL PENDIDIK
+              </span>
+              <span className="text-white/40 text-xs">•</span>
+              <span className="text-[11px] text-white/90">
+                Data Kepegawaian & Akademik
+              </span>
+            </div>
+            <p className="text-xs text-blue-100 font-medium mt-0.5">
+              SMKS Muhammadiyah Pakem
+            </p>
+          </div>
+        </div>
 
-      {/* Main Container */}
-      <div className="p-6 sm:p-8 space-y-6">
-        {/* Top Profile Header Section */}
-        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 pb-6 border-b border-slate-100">
-          {/* Avatar & Identitas Guru */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
-            {/* Foto Guru dengan Verified Ring */}
+        <div className="flex items-center gap-2">
+          {onOpenSettings && (
+            <button
+              type="button"
+              onClick={onOpenSettings}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-semibold border border-white/20 transition cursor-pointer"
+            >
+              <Edit3 className="w-3.5 h-3.5 text-blue-200" />
+              <span>Kelola Akun</span>
+            </button>
+          )}
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 rounded-full text-white/70 hover:text-white hover:bg-white/20 transition cursor-pointer"
+              title="Tutup Kartu"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Main Body Dossier */}
+      <div className="p-5 space-y-5">
+        {/* Profile Identity Bar */}
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
             <div className="relative shrink-0">
-              <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden border-2 border-amber-400/80 shadow-lg relative bg-slate-100 group">
+              <div className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-slate-200 relative bg-slate-100 shadow-xs">
                 <Image
                   src={guruData.foto}
                   alt={guruData.nama}
                   fill
-                  sizes="120px"
-                  className="object-cover object-top group-hover:scale-105 transition-transform duration-300"
+                  sizes="100px"
+                  className="object-cover object-top"
                   priority
                 />
               </div>
-              {/* Badge Official Guru */}
-              <div className="absolute -bottom-2 -right-2 bg-emerald-500 text-white p-1.5 rounded-xl shadow-md border-2 border-white flex items-center justify-center" title="Guru Terverifikasi Resmi">
-                <ShieldCheck className="w-4 h-4" />
+              <div
+                className="absolute -bottom-1 -right-1 bg-emerald-500 text-white p-1 rounded-full border-2 border-white flex items-center justify-center text-[10px] shadow-xs"
+                title="Pendidik Terverifikasi"
+              >
+                <ShieldCheck className="w-3 h-3" />
               </div>
             </div>
 
-            {/* Nama, Jabatan, Badges */}
-            <div className="space-y-1.5 min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-800 text-[11px] font-black border border-amber-200">
-                  <Award className="w-3.5 h-3.5 text-amber-600" />
-                  Guru Penggerak Angkatan 5
+            <div className="space-y-1.5">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-blue-50 text-[#1967D2] text-[10px] font-semibold rounded-full border border-blue-200">
+                  Guru Penggerak
                 </span>
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 text-blue-800 text-[11px] font-bold border border-blue-200">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" />
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-emerald-50 text-emerald-700 text-[10px] font-semibold rounded-full border border-emerald-200">
                   PNS Bersertifikat
                 </span>
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-purple-50 text-purple-800 text-[11px] font-bold border border-purple-200">
-                  Wali Kelas 8A
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-indigo-50 text-indigo-700 text-[10px] font-semibold rounded-full border border-indigo-200">
+                  Wali Kelas 8
                 </span>
               </div>
 
-              <h2 className="text-2xl sm:text-3xl font-black text-[#0F172A] tracking-tight">
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
                 {guruData.nama}
               </h2>
 
-              <p className="text-sm font-bold text-slate-600 flex items-center gap-2 flex-wrap">
-                <span className="text-indigo-600 font-extrabold">{guruData.jabatan}</span>
+              <p className="text-xs font-medium text-slate-600 flex items-center gap-2 flex-wrap">
+                <span className="text-slate-900 font-bold">{guruData.jabatan}</span>
                 <span className="text-slate-300">•</span>
                 <span className="text-slate-500">{guruData.sekolah}</span>
               </p>
 
-              <div className="flex items-center gap-4 text-xs font-semibold text-slate-500 pt-0.5 flex-wrap">
-                <span className="flex items-center gap-1.5 text-slate-700 font-bold bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200">
-                  <Clock className="w-3.5 h-3.5 text-amber-600" />
-                  Umur: {guruData.umur}
-                </span>
-                <span className="flex items-center gap-1.5 text-slate-700 font-bold bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200">
-                  <Briefcase className="w-3.5 h-3.5 text-blue-600" />
+              <div className="flex items-center gap-2 text-xs text-slate-500 pt-0.5 flex-wrap">
+                <span className="bg-slate-50 px-2.5 py-0.5 rounded-full border border-slate-200 text-[11px] font-medium">
                   NIP: {guruData.nip}
                 </span>
-                <span className="flex items-center gap-1.5 text-slate-700 font-bold bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200">
-                  <GraduationCap className="w-3.5 h-3.5 text-emerald-600" />
-                  {guruData.pengalaman}
+                <span className="bg-slate-50 px-2.5 py-0.5 rounded-full border border-slate-200 text-[11px] font-medium">
+                  NUPTK: {guruData.nuptk}
+                </span>
+                <span className="bg-slate-50 px-2.5 py-0.5 rounded-full border border-slate-200 text-[11px] font-medium">
+                  Masa Kerja: {guruData.pengalaman}
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Quick Action Button */}
-          {onOpenSettings && (
-            <button
-              onClick={onOpenSettings}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-black transition cursor-pointer shadow-sm hover:shadow shrink-0"
-            >
-              <Edit3 className="w-4 h-4 text-amber-400" />
-              <span>Kelola Profil Guru</span>
-            </button>
-          )}
+          {/* Quick Metrics Bento Box */}
+          <div className="flex md:flex-col items-center md:items-end justify-between w-full md:w-auto gap-2 p-3 bg-slate-50 rounded-2xl border border-slate-200/80">
+            <div className="text-left md:text-right">
+              <div className="text-[10px] uppercase font-bold text-slate-400">
+                Indeks Kinerja
+              </div>
+              <div className="text-base font-bold text-emerald-600">
+                {guruData.indeksKepuasan}
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-[10px] uppercase font-bold text-slate-400">
+                Beban Mengajar
+              </div>
+              <div className="text-xs font-semibold text-slate-900 bg-white px-2.5 py-1 rounded-xl border border-slate-200 shadow-2xs">
+                {guruData.bebanMengajar}
+              </div>
+            </div>
+          </div>
         </div>
 
-
-        {/* Tab Navigation for Detailed Biodata */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+        {/* Segmented Control Tabs */}
+        <div className="space-y-3.5">
+          <div className="flex bg-slate-100 p-1 rounded-2xl gap-1 text-xs font-semibold">
             <button
+              type="button"
               onClick={() => setActiveTab("ringkasan")}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition cursor-pointer ${
+              className={`px-3.5 py-2 rounded-xl transition cursor-pointer ${
                 activeTab === "ringkasan"
-                  ? "bg-[#0F172A] text-white shadow-xs"
-                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                  ? "bg-white text-[#1967D2] shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              Biodata & Jabatan Lengkap
+              Biodata & Kepegawaian
             </button>
             <button
+              type="button"
               onClick={() => setActiveTab("kompetensi")}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition cursor-pointer ${
+              className={`px-3.5 py-2 rounded-xl transition cursor-pointer ${
                 activeTab === "kompetensi"
-                  ? "bg-[#0F172A] text-white shadow-xs"
-                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                  ? "bg-white text-[#1967D2] shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              Sertifikasi & Riwayat Pendidikan
+              Kompetensi & Sertifikasi
             </button>
             <button
+              type="button"
               onClick={() => setActiveTab("jadwal")}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition cursor-pointer ${
+              className={`px-3.5 py-2 rounded-xl transition cursor-pointer ${
                 activeTab === "jadwal"
-                  ? "bg-[#0F172A] text-white shadow-xs"
-                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                  ? "bg-white text-[#1967D2] shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
               }`}
             >
               Kontak & Penugasan
             </button>
           </div>
 
-          {/* Tab 1: Biodata & Jabatan */}
+          {/* TAB 1: BIODATA & KEPEGAWAIAN */}
           {activeTab === "ringkasan" && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in duration-150">
-              <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-100 space-y-3">
-                <div className="text-xs font-black text-slate-400 uppercase tracking-wider">
-                  Informasi Kepegawaian & Posisi
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              <div className="p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/80 space-y-2">
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  Informasi Pegawai
                 </div>
-                <div className="space-y-2 text-xs">
+                <div className="space-y-1.5 text-xs">
                   <div className="flex justify-between py-1 border-b border-slate-200/60">
-                    <span className="text-slate-500 font-bold">Jabatan Utama:</span>
-                    <span className="font-extrabold text-[#0F172A]">{guruData.jabatan}</span>
+                    <span className="text-slate-500">Status Kepegawaian</span>
+                    <span className="font-semibold text-slate-900">{guruData.statusKepegawaian}</span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-slate-200/60">
-                    <span className="text-slate-500 font-bold">Umur & Tanggal Lahir:</span>
-                    <span className="font-extrabold text-[#0F172A]">{guruData.umur}</span>
+                    <span className="text-slate-500">Usia / Tanggal Lahir</span>
+                    <span className="font-semibold text-slate-900">{guruData.umur}</span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-slate-200/60">
-                    <span className="text-slate-500 font-bold">NIP Guru:</span>
-                    <span className="font-extrabold text-indigo-700">{guruData.nip}</span>
+                    <span className="text-slate-500">Mata Pelajaran Pokok</span>
+                    <span className="font-semibold text-slate-900">{guruData.mapel}</span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-slate-200/60">
-                    <span className="text-slate-500 font-bold">NUPTK Resmi:</span>
-                    <span className="font-extrabold text-slate-700">{guruData.nuptk}</span>
+                    <span className="text-slate-500">Rombongan Belajar</span>
+                    <span className="font-semibold text-slate-900">{guruData.rombelBinaan}</span>
                   </div>
                   <div className="flex justify-between py-1">
-                    <span className="text-slate-500 font-bold">Pangkat / Golongan:</span>
-                    <span className="font-extrabold text-emerald-700">{guruData.statusKepegawaian}</span>
+                    <span className="text-slate-500">Total Siswa Dibina</span>
+                    <span className="font-semibold text-slate-900">{guruData.totalSiswa}</span>
                   </div>
                 </div>
               </div>
 
-              <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-100 space-y-3 flex flex-col justify-between">
+              <div className="p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/80 space-y-2 flex flex-col justify-between">
                 <div>
-                  <div className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">
-                    Misi & Pendekatan Pedagogik AI Sokratik
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                    Komitmen Pedagogik
                   </div>
-                  <p className="text-xs text-slate-700 font-medium leading-relaxed italic bg-white p-3 rounded-xl border border-slate-200">
-                    "{guruData.motto}"
+                  <p className="text-xs text-slate-700 leading-relaxed bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs">
+                    &ldquo;{guruData.motto}&rdquo;
                   </p>
                 </div>
-                <div className="pt-2 flex items-center gap-2 text-[11px] font-bold text-slate-500">
-                  <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
-                  <span>Menerapkan bimbingan adaptif Thinksy AI untuk eksplorasi matematika</span>
+                <div className="pt-2 flex items-center gap-2 text-[11px] text-slate-600 bg-white p-2.5 rounded-xl border border-slate-200/80 shadow-2xs">
+                  <BookOpen className="w-3.5 h-3.5 text-[#1967D2] shrink-0" />
+                  <span>Pendekatan dialogis kurikulum matematika adaptif</span>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Tab 2: Kompetensi & Pendidikan */}
+          {/* TAB 2: KOMPETENSI & SERTIFIKASI */}
           {activeTab === "kompetensi" && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in duration-150">
-              <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-100 space-y-2.5 text-xs">
-                <div className="text-xs font-black text-slate-400 uppercase tracking-wider mb-1">
-                  Riwayat Akademik Guru
-                </div>
-                <div className="p-3 rounded-xl bg-white border border-slate-200 space-y-1">
-                  <div className="font-black text-[#0F172A] flex items-center justify-between">
-                    <span>S2 Pendidikan Matematika</span>
-                    <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">2014 - 2016</span>
-                  </div>
-                  <p className="text-slate-500 font-medium text-[11px]">Universitas Negeri Yogyakarta (UNY) — Predikat Cum Laude</p>
-                </div>
-                <div className="p-3 rounded-xl bg-white border border-slate-200 space-y-1">
-                  <div className="font-black text-[#0F172A] flex items-center justify-between">
-                    <span>S1 Pendidikan Matematika</span>
-                    <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">2006 - 2010</span>
-                  </div>
-                  <p className="text-slate-500 font-medium text-[11px]">Universitas Sebelas Maret (UNS) Surakarta</p>
-                </div>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-100 space-y-2.5 text-xs">
-                <div className="text-xs font-black text-slate-400 uppercase tracking-wider mb-1">
-                  Sertifikasi & Lisensi Pendidik
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              <div className="p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/80 space-y-2">
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  Riwayat Pendidikan
                 </div>
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 font-bold">
+                  <div className="p-3 bg-white rounded-xl border border-slate-200/80 space-y-0.5 shadow-2xs">
+                    <div className="font-bold text-xs text-slate-900 flex items-center justify-between">
+                      <span>S2 Pendidikan Matematika</span>
+                      <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
+                        2014 – 2016
+                      </span>
+                    </div>
+                    <p className="text-slate-500 text-[11px]">
+                      Universitas Negeri Yogyakarta (UNY) — Cum Laude
+                    </p>
+                  </div>
+                  <div className="p-3 bg-white rounded-xl border border-slate-200/80 space-y-0.5 shadow-2xs">
+                    <div className="font-bold text-xs text-slate-900 flex items-center justify-between">
+                      <span>S1 Pendidikan Matematika</span>
+                      <span className="text-[10px] font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+                        2006 – 2010
+                      </span>
+                    </div>
+                    <p className="text-slate-500 text-[11px]">
+                      Universitas Sebelas Maret (UNS) Surakarta
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/80 space-y-2">
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  Sertifikasi & Lisensi
+                </div>
+                <div className="space-y-1.5 text-xs">
+                  <div className="flex items-center gap-2 p-2.5 bg-white rounded-xl border border-slate-200/80 text-slate-800 shadow-2xs">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Sertifikat Pendidik Profesional (Kemendikbudristek RI)</span>
+                    <span>Sertifikat Pendidik Profesional (Kemendikbudristek)</span>
                   </div>
-                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 font-bold">
-                    <Award className="w-4 h-4 text-blue-600 shrink-0" />
-                    <span>Sertifikat Kelulusan Fasilitator Guru Penggerak (2022)</span>
+                  <div className="flex items-center gap-2 p-2.5 bg-white rounded-xl border border-slate-200/80 text-slate-800 shadow-2xs">
+                    <Award className="w-4 h-4 text-amber-500 shrink-0" />
+                    <span>Fasilitator Guru Penggerak Nasional (2022)</span>
                   </div>
-                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-purple-50 border border-purple-200 text-purple-900 font-bold">
-                    <Sparkles className="w-4 h-4 text-purple-600 shrink-0" />
-                    <span>Pelatihan AI Sokratik dalam Pembelajaran Matematika (Thinksy 2026)</span>
+                  <div className="flex items-center gap-2 p-2.5 bg-white rounded-xl border border-slate-200/80 text-slate-800 shadow-2xs">
+                    <ShieldCheck className="w-4 h-4 text-[#1967D2] shrink-0" />
+                    <span>Pelatihan Pembelajaran Terstruktur (2026)</span>
                   </div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Tab 3: Kontak & Penugasan */}
+          {/* TAB 3: KONTAK & PENUGASAN */}
           {activeTab === "jadwal" && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in duration-150">
-              <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-100 space-y-3 text-xs">
-                <div className="text-xs font-black text-slate-400 uppercase tracking-wider">
-                  Saluran Kontak Resmi Guru
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              <div className="p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/80 space-y-2">
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  Saluran Komunikasi
                 </div>
-                <div className="space-y-2.5">
-                  <div className="flex items-center gap-3 p-3 rounded-xl bg-white border border-slate-200">
-                    <Mail className="w-4 h-4 text-blue-600 shrink-0" />
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2.5 p-2.5 bg-white rounded-xl border border-slate-200/80 shadow-2xs">
+                    <Mail className="w-4 h-4 text-[#1967D2] shrink-0" />
                     <div className="min-w-0">
-                      <div className="text-[10px] font-bold text-slate-400 uppercase">Surel / Email Sekolah</div>
-                      <div className="font-extrabold text-[#0F172A] truncate">{guruData.email}</div>
+                      <div className="text-[10px] text-slate-400 uppercase font-semibold">Surel</div>
+                      <div className="font-semibold text-xs text-slate-900 truncate">{guruData.email}</div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 p-3 rounded-xl bg-white border border-slate-200">
+                  <div className="flex items-center gap-2.5 p-2.5 bg-white rounded-xl border border-slate-200/80 shadow-2xs">
                     <Phone className="w-4 h-4 text-emerald-600 shrink-0" />
                     <div className="min-w-0">
-                      <div className="text-[10px] font-bold text-slate-400 uppercase">Telepon / WhatsApp Guru</div>
-                      <div className="font-extrabold text-[#0F172A]">{guruData.telepon}</div>
+                      <div className="text-[10px] text-slate-400 uppercase font-semibold">Telepon</div>
+                      <div className="font-semibold text-xs text-slate-900">{guruData.telepon}</div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-100 space-y-3 text-xs">
-                <div className="text-xs font-black text-slate-400 uppercase tracking-wider">
-                  Penugasan Rombel & Jadwal Aktif
+              <div className="p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/80 space-y-2">
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  Jadwal Tatap Muka
                 </div>
-                <div className="space-y-2">
-                  <div className="p-2.5 rounded-xl bg-white border border-slate-200 flex justify-between items-center">
+                <div className="space-y-1.5 text-xs">
+                  <div className="p-2.5 bg-white rounded-xl border border-slate-200/80 flex justify-between items-center shadow-2xs">
                     <div>
-                      <div className="font-black text-[#0F172A]">Kelas 8A (Wali Kelas)</div>
-                      <div className="text-[11px] text-slate-500 font-medium">Senin & Rabu (07:30 - 09:30 WIB)</div>
+                      <div className="font-bold text-slate-900">Kelas 8 (Wali Kelas)</div>
+                      <div className="text-[11px] text-slate-500">Senin & Rabu (07:30 – 09:30 WIB)</div>
                     </div>
-                    <span className="text-[10px] font-bold bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md">32 Siswa</span>
+                    <span className="text-[10px] font-semibold bg-blue-50 text-[#1967D2] px-2 py-0.5 rounded-full border border-blue-200">
+                      32 Siswa
+                    </span>
                   </div>
-                  <div className="p-2.5 rounded-xl bg-white border border-slate-200 flex justify-between items-center">
+                  <div className="p-2.5 bg-white rounded-xl border border-slate-200/80 flex justify-between items-center shadow-2xs">
                     <div>
-                      <div className="font-black text-[#0F172A]">Kelas 8B (Pengajar Utama)</div>
-                      <div className="text-[11px] text-slate-500 font-medium">Selasa & Kamis (10:00 - 12:00 WIB)</div>
+                      <div className="font-bold text-slate-900">Kelas 8 (Pengajar Utama)</div>
+                      <div className="text-[11px] text-slate-500">Selasa & Kamis (10:00 – 12:00 WIB)</div>
                     </div>
-                    <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md">30 Siswa</span>
+                    <span className="text-[10px] font-semibold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-200">
+                      30 Siswa
+                    </span>
                   </div>
                 </div>
               </div>

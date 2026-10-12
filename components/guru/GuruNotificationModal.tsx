@@ -6,7 +6,7 @@ import {
   Send,
   Calendar,
   Clock,
-  Sparkles,
+  Bookmark,
   CheckCircle2,
   AlertCircle,
   X,
@@ -209,78 +209,78 @@ export default function GuruNotificationModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-4xl max-h-[92vh] flex flex-col bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden text-slate-900">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/60 animate-in fade-in duration-100 font-mono text-zinc-900">
+      <div className="relative w-full max-w-4xl max-h-[92vh] flex flex-col bg-white border border-zinc-950 shadow-none overflow-hidden">
         {/* Header */}
-        <div className="p-6 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-[#0F172A] text-amber-400 flex items-center justify-center font-black shadow-md">
-              <Bell className="w-6 h-6" />
+        <div className="p-4 border-b border-zinc-200 bg-zinc-50 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 bg-zinc-950 text-white flex items-center justify-center font-bold">
+              <Bell className="w-4 h-4" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-200">
-                  SIARAN & PENJADWALAN
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.2 bg-zinc-200 text-zinc-800 border border-zinc-300">
+                  Siaran & Penjadwalan
                 </span>
-                <span className="text-[10px] font-bold text-slate-400">
-                  Manual & Otomatis Siswa
+                <span className="text-[10px] text-zinc-500">
+                  Manual & Otomatis
                 </span>
               </div>
-              <h2 className="text-lg font-black text-[#0F172A] mt-0.5">
+              <h2 className="text-sm font-bold text-zinc-950 uppercase tracking-tight mt-0.5">
                 Pengaturan Notifikasi Siswa
               </h2>
-              <p className="text-xs text-slate-500 font-medium">
-                Siarkan pengumuman dadakan atau jadwalkan pengingat tugas & presensi dengan template terstandar.
+              <p className="text-[11px] text-zinc-500">
+                Siarkan pengumuman dadakan atau jadwalkan pengingat tugas & presensi.
               </p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="p-2.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-400 hover:text-slate-700 transition cursor-pointer"
+            className="p-1 text-zinc-400 hover:text-zinc-900 transition cursor-pointer"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex items-center gap-2 px-6 pt-3 border-b border-slate-100 bg-white shrink-0 overflow-x-auto">
+        <div className="flex items-center gap-1 px-4 pt-2 border-b border-zinc-200 bg-zinc-100 shrink-0 overflow-x-auto text-xs font-bold">
           <button
             type="button"
             onClick={() => setActiveTab("instant")}
-            className={`pb-3 px-3 text-xs font-black border-b-2 transition flex items-center gap-2 cursor-pointer ${
+            className={`py-1.5 px-3 border transition flex items-center gap-1.5 cursor-pointer ${
               activeTab === "instant"
-                ? "border-[#0F172A] text-[#0F172A]"
-                : "border-transparent text-slate-500 hover:text-slate-900"
+                ? "bg-zinc-950 text-white border-zinc-950"
+                : "bg-white text-zinc-600 border-zinc-300 hover:bg-zinc-200"
             }`}
           >
-            <Send className="w-3.5 h-3.5 text-blue-600" />
+            <Send className="w-3.5 h-3.5" />
             <span>Kirim Manual (Dadakan)</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab("schedule")}
-            className={`pb-3 px-3 text-xs font-black border-b-2 transition flex items-center gap-2 cursor-pointer ${
+            className={`py-1.5 px-3 border transition flex items-center gap-1.5 cursor-pointer ${
               activeTab === "schedule"
-                ? "border-[#0F172A] text-[#0F172A]"
-                : "border-transparent text-slate-500 hover:text-slate-900"
+                ? "bg-zinc-950 text-white border-zinc-950"
+                : "bg-white text-zinc-600 border-zinc-300 hover:bg-zinc-200"
             }`}
           >
-            <Calendar className="w-3.5 h-3.5 text-amber-600" />
+            <Calendar className="w-3.5 h-3.5" />
             <span>Penjadwalan Siaran ({scheduledList.length})</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab("history")}
-            className={`pb-3 px-3 text-xs font-black border-b-2 transition flex items-center gap-2 cursor-pointer ${
+            className={`py-1.5 px-3 border transition flex items-center gap-1.5 cursor-pointer ${
               activeTab === "history"
-                ? "border-[#0F172A] text-[#0F172A]"
-                : "border-transparent text-slate-500 hover:text-slate-900"
+                ? "bg-zinc-950 text-white border-zinc-950"
+                : "bg-white text-zinc-600 border-zinc-300 hover:bg-zinc-200"
             }`}
           >
-            <History className="w-3.5 h-3.5 text-emerald-600" />
+            <History className="w-3.5 h-3.5" />
             <span>Riwayat Siaran ({historyList.length})</span>
           </button>
         </div>
@@ -288,23 +288,23 @@ export default function GuruNotificationModal({
         {/* Status Message Alert */}
         {statusMessage && (
           <div
-            className={`mx-6 mt-4 p-3.5 rounded-2xl text-xs font-extrabold flex items-center justify-between shadow-xs ${
+            className={`mx-4 mt-3 p-2.5 text-xs font-bold flex items-center justify-between border ${
               statusMessage.isError
-                ? "bg-rose-50 border border-rose-200 text-rose-800"
-                : "bg-emerald-50 border border-emerald-200 text-emerald-800"
+                ? "bg-red-50 border-red-300 text-red-800"
+                : "bg-zinc-100 border-zinc-950 text-zinc-950"
             }`}
           >
             <div className="flex items-center gap-2">
               {statusMessage.isError ? (
-                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
               ) : (
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <CheckCircle2 className="w-4 h-4 text-zinc-900 shrink-0" />
               )}
               <span>{statusMessage.text}</span>
             </div>
             <button
               onClick={() => setStatusMessage(null)}
-              className="text-slate-400 hover:text-slate-700"
+              className="text-zinc-400 hover:text-zinc-700"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -312,22 +312,22 @@ export default function GuruNotificationModal({
         )}
 
         {/* Content Body */}
-        <div className="p-6 overflow-y-auto flex-1 space-y-6">
+        <div className="p-4 overflow-y-auto flex-1 space-y-4">
           {isLoading ? (
-            <div className="py-16 flex flex-col items-center justify-center gap-2 text-slate-400">
-              <Loader2 className="w-6 h-6 animate-spin text-amber-500" />
+            <div className="py-16 flex flex-col items-center justify-center gap-2 text-zinc-500">
+              <Loader2 className="w-5 h-5 animate-spin" />
               <span className="text-xs font-bold">Memuat data notifikasi...</span>
             </div>
           ) : activeTab === "instant" || activeTab === "schedule" ? (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
               {/* Left Column: Form Builder (7 cols) */}
               <form
                 onSubmit={activeTab === "instant" ? handleSendInstant : handleScheduleNotif}
-                className="lg:col-span-7 space-y-4"
+                className="lg:col-span-7 space-y-3"
               >
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-black text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                    <FileText className="w-3.5 h-3.5 text-blue-600" />
+                  <h3 className="text-xs font-bold text-zinc-600 uppercase tracking-wider flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-zinc-700" />
                     <span>Konfigurasi Pesan Siaran</span>
                   </h3>
                   {selectedTemplateId && (
@@ -338,7 +338,7 @@ export default function GuruNotificationModal({
                         setTitle("");
                         setDesc("");
                       }}
-                      className="text-[11px] font-bold text-rose-600 hover:underline cursor-pointer"
+                      className="text-[11px] font-bold text-red-600 hover:underline cursor-pointer"
                     >
                       Reset Form
                     </button>
@@ -346,26 +346,24 @@ export default function GuruNotificationModal({
                 </div>
 
                 {/* Target Audiens */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-black text-slate-800 flex items-center justify-between">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-zinc-900 flex items-center justify-between">
                     <span>1. Target Penerima Siswa</span>
-                    <span className="text-[10px] text-slate-400">Wajib Dipilih</span>
+                    <span className="text-[10px] text-zinc-400">Wajib Dipilih</span>
                   </label>
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-2 gap-2">
                     {[
                       { id: "all", label: "Semua Siswa" },
-                      { id: "Kelas 8A", label: "Kelas 8A" },
-                      { id: "Kelas 8B", label: "Kelas 8B" },
-                      { id: "Kelas 8C", label: "Kelas 8C" },
+                      { id: "Kelas 8", label: "Kelas 8 (Rombel)" },
                     ].map((t) => (
                       <button
                         key={t.id}
                         type="button"
                         onClick={() => setTarget(t.id)}
-                        className={`py-2 px-2 rounded-xl text-xs font-extrabold transition cursor-pointer border text-center ${
+                        className={`py-1.5 px-2 text-xs font-bold transition cursor-pointer border text-center ${
                           target === t.id
-                            ? "bg-[#0F172A] text-white border-[#0F172A] shadow-xs"
-                            : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200"
+                            ? "bg-zinc-950 text-white border-zinc-950"
+                            : "bg-white hover:bg-zinc-100 text-zinc-700 border-zinc-300"
                         }`}
                       >
                         {t.label}
@@ -375,25 +373,25 @@ export default function GuruNotificationModal({
                 </div>
 
                 {/* Tipe / Urgensi Notifikasi */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-black text-slate-800">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-zinc-900">
                     2. Kategori / Tipe Notifikasi
                   </label>
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-4 gap-1.5">
                     {[
-                      { id: "info", label: "Informasi", badge: "bg-blue-50 text-blue-800 border-blue-200" },
-                      { id: "warning", label: "Peringatan", badge: "bg-amber-50 text-amber-800 border-amber-200" },
-                      { id: "urgent", label: "Mendesak", badge: "bg-rose-50 text-rose-800 border-rose-200" },
-                      { id: "success", label: "Apresiasi", badge: "bg-emerald-50 text-emerald-800 border-emerald-200" },
+                      { id: "info", label: "Informasi", badge: "bg-zinc-100 text-zinc-800 border-zinc-300" },
+                      { id: "warning", label: "Peringatan", badge: "bg-amber-100 text-amber-900 border-amber-300" },
+                      { id: "urgent", label: "Mendesak", badge: "bg-red-100 text-red-900 border-red-300" },
+                      { id: "success", label: "Apresiasi", badge: "bg-emerald-100 text-emerald-900 border-emerald-300" },
                     ].map((c) => (
                       <button
                         key={c.id}
                         type="button"
                         onClick={() => setType(c.id as any)}
-                        className={`py-2 px-2 rounded-xl text-xs font-extrabold transition cursor-pointer border text-center ${
+                        className={`py-1.5 px-1.5 text-xs font-bold transition cursor-pointer border text-center ${
                           type === c.id
-                            ? "ring-2 ring-[#0F172A] font-black " + c.badge
-                            : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                            ? "border-zinc-950 font-bold " + c.badge
+                            : "bg-white text-zinc-600 border-zinc-300 hover:bg-zinc-100"
                         }`}
                       >
                         {c.label}
@@ -403,69 +401,69 @@ export default function GuruNotificationModal({
                 </div>
 
                 {/* Judul Notifikasi */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-black text-slate-800">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-zinc-900">
                     3. Judul Notifikasi
                   </label>
                   <input
                     type="text"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    placeholder="Contoh: ⏰ Pengingat Absensi Pagi Kelas 8"
+                    placeholder="Contoh: Pengingat Absensi Pagi Kelas 8"
                     required
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                    className="w-full px-3 py-1.5 bg-white border border-zinc-300 text-xs font-bold text-zinc-900 focus:outline-none focus:border-zinc-950 transition"
                   />
                 </div>
 
                 {/* Isi Pesan */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-black text-slate-800">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-zinc-900">
                     4. Isi Pesan Siaran
                   </label>
                   <textarea
                     rows={3}
                     value={desc}
                     onChange={(e) => setDesc(e.target.value)}
-                    placeholder="Tuliskan pesan lengkap atau instruksi guru untuk siswa..."
+                    placeholder="Tuliskan pesan lengkap atau instruksi untuk siswa..."
                     required
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                    className="w-full px-3 py-1.5 bg-white border border-zinc-300 text-xs font-bold text-zinc-900 focus:outline-none focus:border-zinc-950 transition"
                   />
                 </div>
 
                 {/* If scheduled tab: Pick date & time */}
                 {activeTab === "schedule" && (
-                  <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 space-y-2">
-                    <label className="text-xs font-black text-amber-900 flex items-center justify-between">
+                  <div className="p-3 bg-zinc-50 border border-zinc-300 space-y-1.5">
+                    <label className="text-xs font-bold text-zinc-900 flex items-center justify-between">
                       <span className="flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5 text-amber-600" />
+                        <Calendar className="w-3.5 h-3.5 text-zinc-700" />
                         <span>Waktu Jadwal Siaran (WIB)</span>
                       </span>
-                      <span className="text-[10px] text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full font-bold">
-                        Server Timer Otomatis
+                      <span className="text-[10px] text-zinc-800 bg-zinc-200 px-1.5 py-0.2 border border-zinc-300 font-bold">
+                        Server Timer
                       </span>
                     </label>
-                    <p className="text-[11px] text-amber-800 font-medium">
-                      Notifikasi akan tersimpan di sistem antrean dan otomatis terdistribusi ke akun siswa saat jam tiba.
+                    <p className="text-[10px] text-zinc-500">
+                      Notifikasi tersimpan di sistem antrean dan otomatis dikirim ke siswa saat waktu tiba.
                     </p>
                     <input
                       type="datetime-local"
                       value={scheduledDateTime}
                       onChange={(e) => setScheduledDateTime(e.target.value)}
                       required
-                      className="w-full px-3.5 py-2.5 bg-white border border-amber-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono"
+                      className="w-full px-2.5 py-1.5 bg-white border border-zinc-300 text-xs font-bold text-zinc-900 focus:outline-none focus:border-zinc-950 font-mono"
                     />
                   </div>
                 )}
 
                 {/* Target Halaman / Aksi Link */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-black text-slate-800">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-zinc-900">
                     5. Tautan / Halaman yang Dibuka Siswa saat Notifikasi Diklik
                   </label>
                   <select
                     value={linkUrl}
                     onChange={(e) => setLinkUrl(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-2.5 py-1.5 bg-white border border-zinc-300 text-xs font-bold text-zinc-800 focus:outline-none focus:border-zinc-950"
                   >
                     <option value="/dashboard">Dashboard Siswa (Tab Utama Presensi)</option>
                     <option value="/ujian">Ruang Asesmen Resmi (AKU LULUS)</option>
@@ -474,24 +472,24 @@ export default function GuruNotificationModal({
                 </div>
 
                 {/* Submit Action */}
-                <div className="pt-2">
+                <div className="pt-1">
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="w-full py-3.5 rounded-2xl bg-[#0F172A] hover:bg-slate-800 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg transition cursor-pointer disabled:opacity-50"
+                    className="w-full py-2 bg-zinc-950 hover:bg-zinc-800 text-white font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer disabled:opacity-50"
                   >
                     {isSubmitting ? (
-                      <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     ) : activeTab === "instant" ? (
-                      <Send className="w-4 h-4 text-amber-400" />
+                      <Send className="w-3.5 h-3.5" />
                     ) : (
-                      <Calendar className="w-4 h-4 text-amber-400" />
+                      <Calendar className="w-3.5 h-3.5" />
                     )}
                     <span>
                       {isSubmitting
                         ? "Memproses Penyiaran..."
                         : activeTab === "instant"
-                        ? `Siarkan Notifikasi Dadakan Sekarang (${target})`
+                        ? `Siarkan Notifikasi Sekarang (${target})`
                         : `Simpan & Jadwalkan Notifikasi (${target})`}
                     </span>
                   </button>
@@ -499,60 +497,60 @@ export default function GuruNotificationModal({
               </form>
 
               {/* Right Column: Pre-made Notification Templates (5 cols) */}
-              <div className="lg:col-span-5 space-y-3.5">
+              <div className="lg:col-span-5 space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-black text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  <h3 className="text-xs font-bold text-zinc-600 uppercase tracking-wider flex items-center gap-1.5">
+                    <Bookmark className="w-3.5 h-3.5 text-zinc-700" />
                     <span>Template Notifikasi Guru</span>
                   </h3>
-                  <span className="text-[10px] font-bold text-slate-400">
-                    {templates.length} Template Siap Pakai
+                  <span className="text-[10px] font-bold text-zinc-500">
+                    {templates.length} Siap Pakai
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-500 font-medium">
-                  Pilih salah satu template di bawah untuk mengisi formulir secara instan:
+                <p className="text-[11px] text-zinc-500">
+                  Pilih template untuk mengisi formulir secara instan:
                 </p>
 
-                <div className="space-y-2.5 max-h-[460px] overflow-y-auto pr-1">
+                <div className="space-y-2 max-h-[460px] overflow-y-auto pr-0.5">
                   {templates.map((tpl) => (
                     <div
                       key={tpl.id}
                       onClick={() => handleSelectTemplate(tpl)}
-                      className={`p-3.5 rounded-2xl border transition-all cursor-pointer group text-left ${
+                      className={`p-2.5 border transition cursor-pointer text-left ${
                         selectedTemplateId === tpl.id
-                          ? "bg-amber-50/70 border-amber-300 ring-2 ring-amber-400/50 shadow-xs"
-                          : "bg-white hover:bg-slate-50/80 border-slate-200 hover:border-slate-300 shadow-2xs"
+                          ? "bg-zinc-100 border-zinc-950"
+                          : "bg-white hover:bg-zinc-50 border-zinc-300"
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <div className="space-y-1">
-                          <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200">
+                        <div className="space-y-0.5">
+                          <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.2 bg-zinc-100 text-zinc-700 border border-zinc-300">
                             {tpl.category}
                           </span>
-                          <h4 className="text-xs font-black text-[#0F172A] group-hover:text-amber-950 transition">
+                          <h4 className="text-xs font-bold text-zinc-950">
                             {tpl.title}
                           </h4>
                         </div>
                         <span
-                          className={`text-[9px] font-black px-2 py-0.5 rounded-full shrink-0 ${
+                          className={`text-[9px] font-bold px-1.5 py-0.2 border shrink-0 ${
                             tpl.type === "urgent"
-                              ? "bg-rose-100 text-rose-800"
+                              ? "bg-red-50 text-red-800 border-red-200"
                               : tpl.type === "warning"
-                              ? "bg-amber-100 text-amber-800"
+                              ? "bg-amber-50 text-amber-800 border-amber-200"
                               : tpl.type === "success"
-                              ? "bg-emerald-100 text-emerald-800"
-                              : "bg-blue-100 text-blue-800"
+                              ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                              : "bg-zinc-100 text-zinc-800 border-zinc-300"
                           }`}
                         >
                           {tpl.type.toUpperCase()}
                         </span>
                       </div>
-                      <p className="text-[11px] text-slate-500 line-clamp-2 mt-1.5 font-medium leading-relaxed">
+                      <p className="text-[11px] text-zinc-600 line-clamp-2 mt-1 leading-normal">
                         {tpl.desc}
                       </p>
-                      <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] font-bold text-slate-400 group-hover:text-[#0F172A]">
+                      <div className="mt-1.5 pt-1.5 border-t border-zinc-200 flex items-center justify-between text-[10px] font-bold text-zinc-500">
                         <span>Terapkan Template</span>
-                        <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                        <ArrowRight className="w-3 h-3" />
                       </div>
                     </div>
                   ))}
@@ -561,52 +559,52 @@ export default function GuruNotificationModal({
             </div>
           ) : (
             /* Tab 3: History */
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-black text-[#0F172A]">
+                  <h3 className="text-xs font-bold text-zinc-950 uppercase">
                     Riwayat Siaran Notifikasi Guru
                   </h3>
-                  <p className="text-xs text-slate-500 font-medium">
-                    Daftar pengumuman dan siaran yang pernah dikirimkan ke seluruh siswa.
+                  <p className="text-[11px] text-zinc-500">
+                    Daftar pengumuman dan siaran yang pernah dikirimkan ke siswa.
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={fetchData}
-                  className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-700 transition cursor-pointer"
+                  className="px-2.5 py-1 border border-zinc-300 bg-white hover:bg-zinc-100 text-xs font-bold text-zinc-700 transition cursor-pointer"
                 >
                   Segarkan Data
                 </button>
               </div>
 
               {historyList.length === 0 ? (
-                <div className="py-16 text-center bg-slate-50 rounded-3xl border border-dashed border-slate-200 text-slate-400 text-xs font-bold">
+                <div className="py-12 text-center bg-zinc-50 border border-zinc-200 text-zinc-400 text-xs font-bold">
                   Belum ada riwayat siaran notifikasi.
                 </div>
               ) : (
-                <div className="space-y-2.5">
+                <div className="space-y-2">
                   {historyList.map((h, idx) => (
                     <div
                       key={h.id || idx}
-                      className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                      className="p-3 bg-white border border-zinc-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
                     >
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-bold px-1.5 py-0.2 bg-zinc-100 text-zinc-800 border border-zinc-300">
                             Target: {h.target || "Semua Siswa"}
                           </span>
-                          <span className="text-[10px] font-bold text-slate-400">
+                          <span className="text-[10px] text-zinc-500">
                             {new Date(h.createdAt || Date.now()).toLocaleString("id-ID")} WIB
                           </span>
                         </div>
-                        <h4 className="text-xs font-black text-[#0F172A]">{h.title}</h4>
-                        <p className="text-xs text-slate-500 font-medium">{h.desc}</p>
+                        <h4 className="text-xs font-bold text-zinc-950">{h.title}</h4>
+                        <p className="text-xs text-zinc-600">{h.desc}</p>
                       </div>
 
                       <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
-                        <span className="inline-flex items-center gap-1 text-[11px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-xl">
-                          <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-zinc-900 bg-zinc-100 border border-zinc-300 px-2 py-0.5">
+                          <Check className="w-3 h-3" />
                           <span>Terkirim ({h.recipientCount || "Semua"} Siswa)</span>
                         </span>
                       </div>
@@ -619,37 +617,37 @@ export default function GuruNotificationModal({
 
           {/* Active scheduled notifications preview list inside schedule tab */}
           {activeTab === "schedule" && scheduledList.length > 0 && (
-            <div className="pt-4 border-t border-slate-100 space-y-3">
-              <h4 className="text-xs font-black text-slate-600 uppercase tracking-wider flex items-center gap-2">
-                <Clock className="w-3.5 h-3.5 text-amber-500" />
+            <div className="pt-3 border-t border-zinc-200 space-y-2">
+              <h4 className="text-xs font-bold text-zinc-600 uppercase tracking-wider flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-zinc-700" />
                 <span>Antrean Notifikasi Terjadwal ({scheduledList.length})</span>
               </h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 {scheduledList.map((sch) => (
                   <div
                     key={sch.id}
-                    className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2 relative group"
+                    className="p-3 bg-zinc-50 border border-zinc-200 space-y-1.5 relative"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-200">
+                      <span className="text-[10px] font-bold px-1.5 py-0.2 bg-zinc-200 text-zinc-800 border border-zinc-300">
                         {sch.target}
                       </span>
                       <button
                         type="button"
                         onClick={() => handleDeleteScheduled(sch.id)}
-                        className="text-slate-400 hover:text-rose-600 p-1 rounded-lg hover:bg-white transition cursor-pointer"
+                        className="text-zinc-400 hover:text-red-600 p-0.5 transition cursor-pointer"
                         title="Batalkan Jadwal"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                     <div>
-                      <h5 className="text-xs font-extrabold text-[#0F172A]">{sch.title}</h5>
-                      <p className="text-[11px] text-slate-500 line-clamp-2 mt-0.5">{sch.desc}</p>
+                      <h5 className="text-xs font-bold text-zinc-950">{sch.title}</h5>
+                      <p className="text-[11px] text-zinc-600 line-clamp-2 mt-0.5">{sch.desc}</p>
                     </div>
-                    <div className="pt-1.5 border-t border-slate-200/60 flex items-center justify-between text-[10px] font-bold text-amber-800">
+                    <div className="pt-1 border-t border-zinc-200 flex items-center justify-between text-[10px] text-zinc-600">
                       <span>Jadwal Tayang:</span>
-                      <span className="font-mono">
+                      <span className="font-mono font-bold">
                         {new Date(sch.scheduledTime).toLocaleString("id-ID")} WIB
                       </span>
                     </div>

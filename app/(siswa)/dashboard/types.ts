@@ -171,6 +171,16 @@ export interface UjianItem {
   sesiId?: string;
 }
 
+export interface ClassroomCardItem {
+  id: string;
+  nama_kelas: string;
+  nama_guru: string;
+  foto_guru?: string | null;
+  email_guru?: string | null;
+  banner_color?: string;
+  banner_pattern?: "ai" | "science" | "orientasi" | "matematika" | "indonesia" | "inggris" | "generic";
+}
+
 export interface StudentDashboardProps {
   userProfile: {
     nama_lengkap: string;
@@ -201,5 +211,6 @@ export interface StudentDashboardProps {
   answeredSoalCount?: number;
   totalSoalCount?: number;
   learningProgressPercent?: number;
+  classesData?: ClassroomCardItem[];
 }
 

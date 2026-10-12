@@ -61,6 +61,8 @@ interface DigitalJournalReaderProps {
   urutanBab: number;
   mapel?: string;
   kelas?: number;
+  namaKelas?: string;
+  studentName?: string;
   listMateri: MateriPage[];
   initialPageIndex?: number;
 }
@@ -75,9 +77,12 @@ export default function DigitalJournalReader({
   urutanBab,
   mapel = "Matematika",
   kelas = 8,
+  namaKelas,
+  studentName,
   listMateri = [],
   initialPageIndex = 0,
 }: DigitalJournalReaderProps) {
+  const displayKelas = namaKelas || (typeof kelas === "string" ? kelas : `Kelas ${kelas}`);
   const [currentPageIndex, setCurrentPageIndex] = useState(initialPageIndex);
   const [readingTheme, setReadingTheme] = useState<ReadingTheme>("light");
   const [fontSize, setFontSize] = useState<FontSize>("normal");
@@ -355,15 +360,15 @@ export default function DigitalJournalReader({
   };
 
   const paperClasses = {
-    light: "bg-white border-slate-200 shadow-sm",
-    sepia: "bg-[#FFFBF0] border-[#EADFC7] shadow-sm text-[#2C2416]",
-    dark: "bg-[#1E293B] border-slate-800 shadow-md text-slate-100",
+    light: "bg-white shadow-[0_4px_20px_rgba(0,0,0,0.02)] text-slate-900",
+    sepia: "bg-[#FFFBF0] shadow-[0_4px_20px_rgba(0,0,0,0.02)] text-[#2C2416]",
+    dark: "bg-[#1E293B] shadow-[0_4px_20px_rgba(0,0,0,0.02)] text-slate-100",
   };
 
   const fontSizeClass = {
-    normal: "text-sm sm:text-base leading-relaxed",
-    large: "text-base sm:text-lg leading-relaxed",
-    xlarge: "text-lg sm:text-xl leading-relaxed",
+    normal: "text-sm sm:text-base leading-relaxed text-slate-600 dark:text-slate-300 font-normal",
+    large: "text-base sm:text-lg leading-relaxed text-slate-600 dark:text-slate-300 font-normal",
+    xlarge: "text-base sm:text-lg leading-relaxed text-slate-700 dark:text-slate-200 font-normal",
   }[fontSize];
 
   return (
@@ -609,12 +614,12 @@ export default function DigitalJournalReader({
             <div
               ref={contentRef}
               onMouseUp={handleMouseUp}
-              className={`rounded-3xl border p-6 sm:p-10 md:p-12 relative transition-all ${paperClasses[readingTheme]}`}
+              className={`rounded-xl p-5 sm:p-6 md:p-8 relative transition-all ${paperClasses[readingTheme]}`}
             >
               {/* Top Page Header (Journal Meta) */}
-              <div className="flex items-center justify-between border-b border-black/10 pb-5 mb-6 text-xs text-slate-500">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 mb-4 text-xs text-slate-500">
                 <div className="flex items-center gap-2">
-                  <span className="font-extrabold text-blue-600 uppercase tracking-wide">
+                  <span className="font-semibold text-blue-600 uppercase tracking-wide text-[11px]">
                     Halaman {currentPageIndex + 1} dari {totalPages}
                   </span>
                   <span>•</span>
@@ -624,7 +629,7 @@ export default function DigitalJournalReader({
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => handleAskAiContext()}
-                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold border border-blue-200 transition text-xs"
+                    className="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold border border-blue-200/60 transition text-xs cursor-pointer"
                   >
                     <Sparkles className="w-3.5 h-3.5 text-blue-600" />
                     <span>Tanya Asisten AI</span>
@@ -633,11 +638,11 @@ export default function DigitalJournalReader({
               </div>
 
               {/* Page Title */}
-              <div className="mb-6 space-y-2">
-                <span className="text-xs font-extrabold uppercase tracking-wider text-slate-400">
-                  {mapel} • Bab {urutanBab}
+              <div className="mb-4 space-y-1">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  {mapel} • {displayKelas} • Bab {urutanBab}
                 </span>
-                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight font-heading text-slate-900 dark:text-white">
                   {currentPage?.judul || "Materi Pembelajaran"}
                 </h1>
               </div>

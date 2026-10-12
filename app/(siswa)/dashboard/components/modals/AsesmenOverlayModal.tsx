@@ -402,7 +402,7 @@ export default function AsesmenOverlayModal({
                   activeCategory === "ulangan"
                     ? "bg-indigo-50 text-indigo-600 border border-indigo-200"
                     : activeCategory === "ujian"
-                    ? "bg-purple-50 text-purple-600 border border-purple-200"
+                    ? "bg-blue-50 text-blue-700 border border-blue-200"
                     : "bg-amber-50 text-amber-600 border border-amber-200"
                 }`}
               >
@@ -474,28 +474,18 @@ export default function AsesmenOverlayModal({
       <div className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
         {/* Header Hero Banner */}
         <div className="saas-card rounded-3xl p-6 sm:p-8 bg-white border border-slate-200 shadow-sm relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6">
-          {/* Top Accent Gradient Line */}
+          {/* Top Accent Architectural Indicator */}
           <div
-            className={`absolute top-0 left-0 right-0 h-1.5 ${
+            className={`absolute top-0 left-0 right-0 h-1 ${
               activeCategory === "ulangan"
-                ? "bg-gradient-to-r from-indigo-500 via-sky-500 to-indigo-600"
+                ? "bg-indigo-600"
                 : activeCategory === "ujian"
-                ? "bg-gradient-to-r from-purple-500 via-indigo-500 to-slate-900"
-                : "bg-gradient-to-r from-amber-400 via-orange-500 to-amber-600"
+                ? "bg-slate-900"
+                : "bg-amber-500"
             }`}
           />
 
           <div className="space-y-2 max-w-2xl pt-1">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-[11px] font-black uppercase tracking-wider">
-              <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-              <span>
-                {activeCategory === "ulangan"
-                  ? "Evaluasi Formatif Per Bab • Sokratik AI"
-                  : activeCategory === "ujian"
-                  ? "Evaluasi Sumatif Terstandar • Sokratik AI"
-                  : "Simulasi Mandiri Adaptif • Sokratik AI"}
-              </span>
-            </div>
             <h1 className="text-2xl sm:text-3xl font-black text-[#0F172A] tracking-tight">
               {activeCategory === "ulangan"
                 ? "Pilih Mata Pelajaran — Ulangan Harian Per Bab"
@@ -519,7 +509,7 @@ export default function AsesmenOverlayModal({
                   activeCategory === "ulangan"
                     ? "bg-indigo-100 text-indigo-700"
                     : activeCategory === "ujian"
-                    ? "bg-purple-100 text-purple-700"
+                    ? "bg-blue-100 text-blue-800"
                     : "bg-amber-100 text-amber-700"
                 }`}
               >
@@ -567,7 +557,7 @@ export default function AsesmenOverlayModal({
             onClick={() => handleSelectCategory("ujian")}
             className={`px-4 py-2 rounded-xl text-xs font-black transition cursor-pointer flex items-center gap-2 ${
               activeCategory === "ujian"
-                ? "bg-white text-purple-700 shadow-xs border border-slate-200/80"
+                ? "bg-white text-blue-800 shadow-xs border border-slate-200/80"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
@@ -617,7 +607,7 @@ export default function AsesmenOverlayModal({
                     }
                     className={`saas-card rounded-2xl p-5 sm:p-6 border transition-all duration-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
                       isOpen
-                        ? "bg-white border-slate-200 hover:border-purple-400 hover:shadow-md cursor-pointer group"
+                        ? "bg-white border-slate-200 hover:border-blue-400 hover:shadow-md cursor-pointer group"
                         : "bg-slate-50/70 border-slate-200/80 opacity-80 cursor-not-allowed select-none"
                     }`}
                   >
@@ -648,14 +638,14 @@ export default function AsesmenOverlayModal({
                         </span>
                       </div>
 
-                      <h4 className="text-base font-extrabold text-[#0F172A] group-hover:text-purple-700 transition">
+                      <h4 className="text-base font-extrabold text-[#0F172A] group-hover:text-blue-800 transition">
                         {exam?.judul || `Penilaian Tengah Semester (PTS) ${m}`}
                       </h4>
 
                       {/* Meta Specification Grid: Durasi, KKM, Asesmen, Keamanan */}
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs pt-1 max-w-2xl">
                         <div className="p-2 sm:p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center gap-2">
-                          <Clock className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                          <Clock className="w-3.5 h-3.5 text-slate-600 shrink-0" />
                           <div>
                             <div className="text-[9px] text-slate-400 font-medium">Durasi</div>
                             <div className="font-extrabold text-[#0F172A] text-xs">

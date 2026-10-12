@@ -456,7 +456,7 @@ CREATE POLICY "log_ai: insert oleh user login"
 INSERT INTO sekolah (id, nama, npsn, alamat)
 VALUES (
   'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-  'SMP Negeri 1 Nusantara', '20101010', 'Jl. Pendidikan No. 1, Jakarta'
+  'SMKS Muhammadiyah Pakem', '20401318', 'Jl. Pakem - Turi No.23, Sleman, D.I. Yogyakarta'
 ) ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO bab (id, sekolah_id, judul, deskripsi, urutan)

@@ -7,7 +7,6 @@ import {
   FileText,
   BrainCircuit,
   Bot,
-  Sparkles,
   Save,
   Trash2,
   CheckCircle2,
@@ -115,16 +114,16 @@ export default function FloatingGuruSpeedDial() {
         setNotes([
           {
             id: "note-1",
-            title: "Remedial Bab 4 Kelas 8A",
+            title: "Remedial Bab 4 Kelas 8",
             category: "Evaluasi Siswa",
             content: "Siapkan 5 soal remedial pemfaktoran aljabar kuadrat untuk Ahmad Raihan dan Eko Prasetyo pada hari Rabu.",
             createdAt: new Date().toLocaleDateString("id-ID"),
           },
           {
             id: "note-2",
-            title: "Pengayaan Teorema Pythagoras 8B",
+            title: "Pengayaan Teorema Pythagoras Kelas 8",
             category: "Materi",
-            content: "Gunakan model pembelajaran Problem Based Learning (PBL) untuk pembuktian luas kuadrat di kelas 8B.",
+            content: "Gunakan model pembelajaran Problem Based Learning (PBL) untuk pembuktian luas kuadrat di kelas 8.",
             createdAt: new Date().toLocaleDateString("id-ID"),
           },
         ]);
@@ -458,71 +457,71 @@ export default function FloatingGuruSpeedDial() {
       {/* ======================================================== */}
       {/* FLOATING SPEED DIAL TRIGGER (+) BUTTON                    */}
       {/* ======================================================== */}
-      <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3 font-sans">
+      <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-2 font-mono">
         {/* EXPANDED MENU CARDS UPWARDS */}
         {isExpanded && (
-          <div className="flex flex-col items-end gap-3 mb-1 animate-in fade-in slide-in-from-bottom-5 duration-200">
-            {/* CARD 1: My Notes (Amber Card) */}
-            <div
+          <div className="flex flex-col items-end gap-2 mb-1 animate-in fade-in slide-in-from-bottom-2 duration-150">
+            {/* CARD 1: My Notes */}
+            <button
+              type="button"
               onClick={() => {
                 setActiveModal("notes");
                 setIsExpanded(false);
               }}
-              className="group flex items-center justify-between gap-4 bg-white border border-slate-200/80 px-5 py-3.5 rounded-3xl shadow-xl hover:shadow-2xl hover:border-amber-400 hover:scale-105 transition-all duration-200 cursor-pointer min-w-[210px]"
+              className="group flex items-center justify-between gap-4 bg-white border border-zinc-950 px-3.5 py-2.5 shadow-none hover:bg-zinc-50 transition-colors cursor-pointer min-w-[200px] text-left"
             >
-              <div className="text-left">
-                <div className="text-sm font-extrabold text-[#0F172A] leading-tight flex items-center gap-1.5">
-                  <span>My Notes</span>
-                  <span className="text-xs">📝</span>
+              <div>
+                <div className="text-xs font-bold text-zinc-950 tracking-tight">
+                  My Notes
                 </div>
-                <div className="text-[10px] text-slate-400 font-semibold leading-tight mt-0.5">
+                <div className="text-[10px] text-zinc-500 font-mono mt-0.5">
                   Catatan Guru ({notes.length})
                 </div>
               </div>
-              <div className="w-11 h-11 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-md group-hover:scale-110 transition duration-200 shrink-0">
-                <FileText className="w-5 h-5 stroke-[2.2]" />
+              <div className="w-8 h-8 border border-zinc-950 bg-zinc-950 text-white flex items-center justify-center shrink-0">
+                <FileText className="w-4 h-4" />
               </div>
-            </div>
+            </button>
 
             {/* CARD 2: Thinksy AI Assistant Chat */}
-            <div
+            <button
+              type="button"
               onClick={() => {
                 setActiveModal("ai_assistant");
                 setIsExpanded(false);
               }}
-              className="group flex items-center justify-between gap-4 bg-white border border-slate-200/80 px-5 py-3.5 rounded-3xl shadow-xl hover:shadow-2xl hover:border-blue-400 hover:scale-105 transition-all duration-200 cursor-pointer min-w-[210px]"
+              className="group flex items-center justify-between gap-4 bg-white border border-zinc-950 px-3.5 py-2.5 shadow-none hover:bg-zinc-50 transition-colors cursor-pointer min-w-[200px] text-left"
             >
-              <div className="text-left">
-                <div className="text-sm font-extrabold text-[#0F172A] leading-tight flex items-center gap-1.5">
+              <div>
+                <div className="text-xs font-bold text-zinc-950 tracking-tight flex items-center gap-1.5">
                   <span>Thinksy AI</span>
-                  <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-500 text-slate-950">
-                    Versi Guru
+                  <span className="text-[9px] font-mono font-bold px-1 py-0.5 bg-zinc-200 text-zinc-900 border border-zinc-300">
+                    Guru
                   </span>
                 </div>
-                <div className="text-[10px] text-blue-600 font-bold leading-tight mt-0.5">
-                  Gemini 3.1 Flash Lite Chat
+                <div className="text-[10px] text-zinc-500 font-mono mt-0.5">
+                  Asisten Pengajaran
                 </div>
               </div>
-              <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center shadow-md group-hover:scale-110 transition duration-200 shrink-0">
-                <BrainCircuit className="w-5 h-5 stroke-[2.2]" />
+              <div className="w-8 h-8 border border-zinc-950 bg-zinc-950 text-white flex items-center justify-center shrink-0">
+                <Bot className="w-4 h-4" />
               </div>
-            </div>
+            </button>
           </div>
         )}
 
-        {/* MAIN TRIGGER BUTTON (+ / X CIRCLE) */}
+        {/* MAIN TRIGGER BUTTON (+ / X) */}
         <button
+          type="button"
           onClick={() => setIsExpanded(!isExpanded)}
-          aria-label="Toggle Menu Floating Asisten Guru"
-          className="relative w-14 h-14 rounded-full bg-[#0F172A] text-white shadow-2xl hover:bg-slate-900 border-2 border-slate-700/60 flex items-center justify-center hover:scale-105 transition-all duration-300 cursor-pointer group ring-4 ring-slate-900/10"
+          aria-label="Toggle Menu Asisten Guru"
+          className="w-12 h-12 bg-zinc-950 text-white border border-zinc-950 flex items-center justify-center hover:bg-zinc-800 transition-colors cursor-pointer shadow-none"
         >
-          <div className={`transition-transform duration-300 ${isExpanded ? "rotate-90" : "rotate-0"}`}>
-            {isExpanded ? (
-              <X className="w-6 h-6 stroke-[3]" />
-            ) : (
-              <Plus className="w-6 h-6 stroke-[3]" />
-            )}
-          </div>
+          {isExpanded ? (
+            <X className="w-5 h-5 stroke-[2.5]" />
+          ) : (
+            <Plus className="w-5 h-5 stroke-[2.5]" />
+          )}
         </button>
       </div>
 
@@ -530,54 +529,55 @@ export default function FloatingGuruSpeedDial() {
       {/* MODAL 1: MY NOTES (CATATAN GURU)                         */}
       {/* ======================================================== */}
       {activeModal === "notes" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/75 backdrop-blur-sm animate-in fade-in duration-150 font-sans">
-          <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-4xl p-6 sm:p-8 space-y-6 max-h-[90vh] overflow-y-auto flex flex-col justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/60 animate-in fade-in duration-150 font-mono">
+          <div className="bg-white border border-zinc-950 shadow-none w-full max-w-4xl p-5 sm:p-6 space-y-5 max-h-[90vh] overflow-y-auto flex flex-col justify-between">
             {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4 shrink-0">
+            <div className="flex items-center justify-between border-b border-zinc-200 pb-3 shrink-0">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-md shrink-0">
-                  <FileText className="w-6 h-6" />
+                <div className="w-8 h-8 border border-zinc-950 bg-zinc-950 text-white flex items-center justify-center shrink-0">
+                  <FileText className="w-4 h-4" />
                 </div>
                 <div>
-                  <h2 className="font-extrabold text-[#0F172A] text-lg flex items-center gap-2">
-                    <span>Catatan & Memo Guru (My Notes)</span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
-                      📝 Memo Privat
+                  <h2 className="font-bold text-zinc-950 text-sm flex items-center gap-2 uppercase tracking-tight">
+                    <span>Catatan & Memo Guru</span>
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 bg-zinc-100 text-zinc-800 border border-zinc-300">
+                      Memo Privat
                     </span>
                   </h2>
-                  <p className="text-xs text-slate-500 font-medium">
-                    Kelola pengingat mengajar, catatan evaluasi siswa, dan memo pribadi.
+                  <p className="text-xs text-zinc-500 font-mono mt-0.5">
+                    Kelola pengingat mengajar, evaluasi siswa, dan memo pribadi guru.
                   </p>
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setActiveModal(null)}
-                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                className="p-1 border border-zinc-200 hover:border-zinc-950 text-zinc-500 hover:text-zinc-950 transition-colors cursor-pointer"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* Notification Toast */}
             {notification && (
-              <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2 animate-in fade-in">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <div className="p-3 bg-zinc-100 border border-zinc-950 text-zinc-950 text-xs font-mono font-bold flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-zinc-950 shrink-0" />
                 <span>{notification}</span>
               </div>
             )}
 
             {/* Grid Body */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1">
               {/* Form Input Catatan (5 cols) */}
-              <div className="lg:col-span-5 bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-4">
-                <div className="text-xs font-extrabold text-[#0F172A] flex items-center gap-1.5 border-b border-slate-200 pb-2">
-                  <Edit className="w-4 h-4 text-amber-500" />
+              <div className="lg:col-span-5 bg-zinc-50 p-4 border border-zinc-200 space-y-3">
+                <div className="text-xs font-bold text-zinc-950 uppercase tracking-wider flex items-center gap-1.5 border-b border-zinc-200 pb-2">
+                  <Edit className="w-3.5 h-3.5 text-zinc-950" />
                   <span>Tulis Catatan Baru</span>
                 </div>
 
                 <form onSubmit={handleAddNote} className="space-y-3">
                   <div>
-                    <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                    <label className="block text-[10px] font-bold text-zinc-600 uppercase tracking-wider mb-1">
                       Judul Catatan *
                     </label>
                     <input
@@ -586,18 +586,18 @@ export default function FloatingGuruSpeedDial() {
                       value={noteTitle}
                       onChange={(e) => setNoteTitle(e.target.value)}
                       placeholder="contoh: Jadwal Remedial 8A"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs font-bold text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                      className="w-full px-3 py-2 bg-white border border-zinc-300 text-xs font-mono text-zinc-950 focus:outline-none focus:border-zinc-950"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                    <label className="block text-[10px] font-bold text-zinc-600 uppercase tracking-wider mb-1">
                       Kategori *
                     </label>
                     <select
                       value={noteCategory}
                       onChange={(e) => setNoteCategory(e.target.value as any)}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs font-bold text-[#0F172A] focus:outline-none"
+                      className="w-full px-3 py-2 bg-white border border-zinc-300 text-xs font-mono text-zinc-950 focus:outline-none focus:border-zinc-950"
                     >
                       <option value="Pengingat">Pengingat Mengajar</option>
                       <option value="Evaluasi Siswa">Evaluasi Siswa</option>
@@ -607,7 +607,7 @@ export default function FloatingGuruSpeedDial() {
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                    <label className="block text-[10px] font-bold text-zinc-600 uppercase tracking-wider mb-1">
                       Isi Memo *
                     </label>
                     <textarea
@@ -616,74 +616,76 @@ export default function FloatingGuruSpeedDial() {
                       value={noteContent}
                       onChange={(e) => setNoteContent(e.target.value)}
                       placeholder="Tuliskan memo atau pengingat di sini..."
-                      className="w-full p-3.5 rounded-xl bg-white border border-slate-200 text-xs font-medium text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-amber-500/50 resize-none"
+                      className="w-full p-3 bg-white border border-zinc-300 text-xs font-mono text-zinc-950 focus:outline-none focus:border-zinc-950 resize-none"
                     />
                   </div>
 
                   <button
                     type="submit"
-                    className="w-full py-2.5 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-sm transition cursor-pointer"
+                    className="w-full py-2 bg-zinc-950 hover:bg-zinc-800 text-white font-mono text-xs uppercase tracking-wider flex items-center justify-center gap-2 border border-zinc-950 transition-colors cursor-pointer"
                   >
-                    <Save className="w-4 h-4 text-amber-400" />
+                    <Save className="w-3.5 h-3.5 text-white" />
                     <span>Simpan Catatan</span>
                   </button>
                 </form>
               </div>
 
               {/* Saved Notes List (7 cols) */}
-              <div className="lg:col-span-7 space-y-4">
-                <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-2xl border border-slate-200">
-                  <span className="text-xs font-extrabold text-[#0F172A] px-2">
+              <div className="lg:col-span-7 space-y-3">
+                <div className="flex items-center justify-between bg-zinc-50 p-2.5 border border-zinc-200">
+                  <span className="text-xs font-bold text-zinc-950 px-1 uppercase tracking-wider">
                     Tersimpan ({filteredNotes.length})
                   </span>
                   <div className="relative w-48">
-                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                     <input
                       type="text"
                       value={noteSearch}
                       onChange={(e) => setNoteSearch(e.target.value)}
                       placeholder="Cari catatan..."
-                      className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-bold text-[#0F172A] focus:outline-none"
+                      className="w-full pl-8 pr-2.5 py-1 bg-white border border-zinc-300 text-xs font-mono text-zinc-950 focus:outline-none focus:border-zinc-950"
                     />
                   </div>
                 </div>
 
-                <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
+                <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
                   {filteredNotes.length === 0 ? (
-                    <div className="p-6 text-center text-slate-400 text-xs font-medium bg-slate-50 rounded-2xl border border-slate-200">
-                      Belum ada catatan.
+                    <div className="p-6 text-center text-zinc-400 text-xs font-mono bg-zinc-50 border border-zinc-200">
+                      Belum ada catatan tersimpan.
                     </div>
                   ) : (
                     filteredNotes.map((note) => (
                       <div
                         key={note.id}
-                        className="p-4 rounded-2xl border border-slate-200 bg-white hover:shadow-md transition duration-150 space-y-2"
+                        className="p-3 border border-zinc-200 bg-white hover:border-zinc-950 transition-colors space-y-2"
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <h4 className="text-xs font-extrabold text-[#0F172A]">
+                            <h4 className="text-xs font-bold text-zinc-950">
                               {note.title}
                             </h4>
-                            <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-full bg-amber-50 text-amber-900 border border-amber-200">
+                            <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 bg-zinc-100 text-zinc-800 border border-zinc-300">
                               {note.category}
                             </span>
                           </div>
 
                           <div className="flex items-center gap-1.5">
                             <button
+                              type="button"
                               onClick={() => handleCopyNote(note.id, note.content)}
-                              className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                              className="p-1 border border-zinc-200 hover:border-zinc-950 text-zinc-500 hover:text-zinc-950 transition-colors cursor-pointer"
                               title="Salin Teks"
                             >
                               {copiedNoteId === note.id ? (
-                                <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                <Check className="w-3.5 h-3.5 text-zinc-950" />
                               ) : (
                                 <Copy className="w-3.5 h-3.5" />
                               )}
                             </button>
                             <button
+                              type="button"
                               onClick={() => handleDeleteNote(note.id)}
-                              className="p-1 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
+                              className="p-1 border border-zinc-200 hover:border-red-600 text-zinc-500 hover:text-red-600 transition-colors cursor-pointer"
                               title="Hapus"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -691,11 +693,11 @@ export default function FloatingGuruSpeedDial() {
                           </div>
                         </div>
 
-                        <p className="text-xs text-slate-600 font-medium whitespace-pre-line leading-relaxed">
+                        <p className="text-xs text-zinc-700 font-mono whitespace-pre-line leading-relaxed">
                           {note.content}
                         </p>
 
-                        <div className="text-[9px] text-slate-400 font-bold pt-1 border-t border-slate-100 flex items-center justify-between">
+                        <div className="text-[9px] font-mono text-zinc-400 pt-1 border-t border-zinc-100 flex items-center justify-between">
                           <span>{note.createdAt}</span>
                           <span>Memo Privat</span>
                         </div>
@@ -706,10 +708,11 @@ export default function FloatingGuruSpeedDial() {
               </div>
             </div>
 
-            <div className="pt-3 border-t border-slate-100 flex justify-end shrink-0">
+            <div className="pt-3 border-t border-zinc-200 flex justify-end shrink-0">
               <button
+                type="button"
                 onClick={() => setActiveModal(null)}
-                className="px-5 py-2.5 rounded-xl bg-[#0F172A] text-white text-xs font-extrabold hover:bg-slate-800 transition cursor-pointer"
+                className="px-4 py-2 bg-zinc-950 text-white text-xs font-mono uppercase tracking-wider hover:bg-zinc-800 border border-zinc-950 transition-colors cursor-pointer"
               >
                 Tutup Catatan
               </button>
@@ -722,13 +725,17 @@ export default function FloatingGuruSpeedDial() {
       {/* MODAL 2: FULL-SCREEN THINKSY AI CHAT (GEMINI 3.1 FLASH LITE) */}
       {/* ======================================================== */}
       {activeModal === "ai_assistant" && (
-        <div className="fixed inset-0 z-50 bg-[#0F172A] text-slate-100 flex flex-col sm:flex-row w-screen h-screen overflow-hidden animate-in fade-in duration-200 font-sans">
+        <div className="fixed inset-0 z-50 bg-zinc-950 text-zinc-100 flex flex-col sm:flex-row w-screen h-screen overflow-hidden animate-in fade-in duration-150 font-mono">
           {/* Notification Toast */}
           {notification && (
-            <div className="absolute top-4 right-16 z-50 flex items-center gap-2.5 bg-emerald-600 text-white px-4 py-2.5 rounded-2xl shadow-2xl border border-emerald-400/30 text-xs font-bold animate-in fade-in">
+            <div className="absolute top-4 right-16 z-50 flex items-center gap-2 bg-zinc-900 text-white px-3 py-2 border border-zinc-700 text-xs font-mono font-bold">
               <CheckCircle2 className="w-4 h-4 text-white shrink-0" />
               <span>{notification}</span>
-              <button onClick={() => setNotification(null)} className="ml-2 opacity-80 hover:opacity-100">
+              <button
+                type="button"
+                onClick={() => setNotification(null)}
+                className="ml-2 text-zinc-400 hover:text-white"
+              >
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -737,71 +744,73 @@ export default function FloatingGuruSpeedDial() {
           {/* ==================================================== */}
           {/* THINKSY AI SIDEBAR: HISTORY & BACK BUTTON            */}
           {/* ==================================================== */}
-          <div className="w-full sm:w-80 bg-[#090D16] border-r border-slate-800/80 flex flex-col justify-between shrink-0 h-auto sm:h-full">
+          <div className="w-full sm:w-80 bg-zinc-950 border-r border-zinc-800 flex flex-col justify-between shrink-0 h-auto sm:h-full">
             {/* Top Section: Back Button & Branding */}
-            <div className="p-4 space-y-4">
-              {/* PROMINENT BACK BUTTON TO DASHBOARD */}
+            <div className="p-3.5 space-y-3">
+              {/* BACK BUTTON TO DASHBOARD */}
               <button
+                type="button"
                 onClick={() => setActiveModal(null)}
-                className="w-full flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-white border border-slate-800 transition text-xs font-bold cursor-pointer group shadow-sm"
+                className="w-full flex items-center gap-2 px-3 py-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 hover:text-white border border-zinc-800 transition-colors text-xs font-mono font-bold cursor-pointer group"
               >
-                <ArrowLeft className="w-4 h-4 text-amber-400 group-hover:-translate-x-1 transition-transform" />
-                <span>← Kembali ke Dashboard Guru</span>
+                <ArrowLeft className="w-4 h-4 text-zinc-400 group-hover:-translate-x-0.5 transition-transform" />
+                <span>← Kembali ke Dashboard</span>
               </button>
 
               <div className="flex items-center justify-between pt-1">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-black shadow-md">
-                    <Sparkles className="w-5 h-5 text-amber-300" />
+                  <div className="w-8 h-8 border border-zinc-800 bg-zinc-900 text-white flex items-center justify-center shrink-0">
+                    <Bot className="w-4 h-4 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-black text-white leading-tight flex items-center gap-1.5">
+                    <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
                       <span>Thinksy AI</span>
-                      <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-500 text-slate-950">
-                        Versi Guru
+                      <span className="text-[9px] font-mono px-1 py-0.2 bg-zinc-800 text-zinc-300 border border-zinc-700">
+                        Guru
                       </span>
                     </h3>
-                    <p className="text-[10px] text-blue-400 font-semibold leading-tight">
+                    <p className="text-[10px] text-zinc-400 font-mono">
                       Gemini 3.1 Flash Lite
                     </p>
                   </div>
                 </div>
 
-                <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                <span className="text-[9px] font-mono px-1.5 py-0.5 bg-zinc-900 text-zinc-400 border border-zinc-800">
                   Multimodal
                 </span>
               </div>
 
               {/* "+ Chat & Soal Baru" Button */}
               <button
+                type="button"
                 onClick={handleNewChatSession}
-                className="w-full py-3 px-4 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black flex items-center justify-center gap-2 shadow-md transition cursor-pointer border border-blue-500/30"
+                className="w-full py-2 px-3 bg-zinc-100 hover:bg-white text-zinc-950 text-xs font-mono font-bold flex items-center justify-center gap-2 border border-zinc-300 transition-colors cursor-pointer"
               >
-                <Plus className="w-4 h-4 stroke-[3]" />
+                <Plus className="w-4 h-4" />
                 <span>+ Chat & Soal Baru</span>
               </button>
 
               {/* History Search Bar */}
               <div className="relative">
-                <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   value={historySearch}
                   onChange={(e) => setHistorySearch(e.target.value)}
-                  placeholder="Cari history chat Thinksy..."
-                  className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-900/90 border border-slate-800 text-xs font-semibold text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-blue-500"
+                  placeholder="Cari riwayat chat..."
+                  className="w-full pl-8 pr-2.5 py-1.5 bg-zinc-900 border border-zinc-800 text-xs font-mono text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500"
                 />
               </div>
             </div>
 
             {/* Middle Section: Chat History List */}
-            <div className="flex-1 overflow-y-auto px-4 py-2 space-y-1">
-              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 pb-2">
-                Riwayat Chat & Soal ({filteredHistory.length})
+            <div className="flex-1 overflow-y-auto px-3.5 py-2 space-y-1">
+              <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider px-1 pb-1.5 border-b border-zinc-800">
+                Riwayat Chat ({filteredHistory.length})
               </div>
 
               {filteredHistory.length === 0 ? (
-                <div className="p-4 text-center text-slate-400 text-xs font-medium">
+                <div className="p-4 text-center text-zinc-500 text-xs font-mono">
                   Belum ada riwayat chat.
                 </div>
               ) : (
@@ -811,26 +820,27 @@ export default function FloatingGuruSpeedDial() {
                     <div
                       key={sess.id}
                       onClick={() => handleLoadChatSession(sess)}
-                      className={`group flex items-center justify-between p-3 rounded-2xl cursor-pointer transition ${
+                      className={`group flex items-center justify-between p-2 cursor-pointer border transition-colors ${
                         isActive
-                          ? "bg-blue-600/20 border border-blue-500/50 text-white font-bold"
-                          : "hover:bg-slate-900 text-slate-400 hover:text-white border border-transparent"
+                          ? "bg-zinc-900 border-zinc-700 text-white font-bold"
+                          : "hover:bg-zinc-900/50 text-zinc-400 hover:text-white border-transparent"
                       }`}
                     >
-                      <div className="flex items-center gap-2.5 truncate">
-                        <MessageSquare className={`w-3.5 h-3.5 shrink-0 ${isActive ? "text-blue-400" : "text-slate-500"}`} />
+                      <div className="flex items-center gap-2 truncate">
+                        <MessageSquare className="w-3.5 h-3.5 shrink-0 text-zinc-400" />
                         <div className="truncate">
-                          <div className="text-xs truncate leading-snug">{sess.title}</div>
-                          <div className="text-[9px] opacity-60 leading-tight">{sess.createdAt}</div>
+                          <div className="text-xs truncate font-mono">{sess.title}</div>
+                          <div className="text-[9px] text-zinc-500 font-mono">{sess.createdAt}</div>
                         </div>
                       </div>
 
                       <button
+                        type="button"
                         onClick={(e) => handleDeleteChatSession(sess.id, e)}
-                        className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 transition cursor-pointer"
-                        title="Hapus Chat Ini"
+                        className="opacity-0 group-hover:opacity-100 p-1 text-zinc-500 hover:text-red-400 transition-opacity cursor-pointer"
+                        title="Hapus"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 className="w-3 h-3" />
                       </button>
                     </div>
                   );
@@ -839,10 +849,10 @@ export default function FloatingGuruSpeedDial() {
             </div>
 
             {/* Bottom Section: Footer Info */}
-            <div className="p-4 border-t border-slate-800/80 bg-slate-950/60 text-slate-400 text-[11px] font-medium flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Clock className="w-3.5 h-3.5 text-blue-400" />
-                <span>History Tersimpan Otomatis</span>
+            <div className="p-3 border-t border-zinc-800 bg-zinc-950 text-zinc-500 text-[10px] font-mono flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-zinc-400" />
+                <span>Tersimpan Otomatis</span>
               </div>
             </div>
           </div>
@@ -850,119 +860,122 @@ export default function FloatingGuruSpeedDial() {
           {/* ==================================================== */}
           {/* THINKSY AI MAIN CHAT WORKSPACE CONVERSATIONAL        */}
           {/* ==================================================== */}
-          <div className="flex-1 bg-[#F8FAFC] text-[#0F172A] flex flex-col h-full overflow-hidden">
+          <div className="flex-1 bg-zinc-50 text-zinc-950 flex flex-col h-full overflow-hidden">
             {/* Top Bar Header */}
-            <div className="bg-white border-b border-slate-200/80 px-6 py-3.5 flex items-center justify-between shrink-0 shadow-xs">
-              <div className="flex items-center gap-3">
+            <div className="bg-white border-b border-zinc-200 px-4 py-2.5 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2.5">
                 {/* Back Button on Mobile */}
                 <button
+                  type="button"
                   onClick={() => setActiveModal(null)}
-                  className="sm:hidden p-2 rounded-xl text-slate-700 hover:bg-slate-100"
-                  title="Kembali ke Dashboard"
+                  className="sm:hidden p-1 border border-zinc-200 text-zinc-700 hover:bg-zinc-100"
+                  title="Kembali"
                 >
-                  <ArrowLeft className="w-5 h-5" />
+                  <ArrowLeft className="w-4 h-4" />
                 </button>
 
-                <div className="flex items-center gap-2 bg-gradient-to-r from-blue-50 to-indigo-50 px-3.5 py-1.5 rounded-xl border border-blue-200 text-xs font-black text-blue-950">
-                  <Sparkles className="w-4 h-4 text-blue-600" />
+                <div className="flex items-center gap-2 bg-zinc-100 px-2.5 py-1 border border-zinc-300 text-xs font-mono font-bold text-zinc-900">
+                  <Bot className="w-3.5 h-3.5 text-zinc-950" />
                   <span>Thinksy AI</span>
-                  <span className="text-[9px] font-black bg-amber-500 text-slate-950 px-2 py-0.5 rounded-md">
-                    Versi Guru 3.1
+                  <span className="text-[9px] font-mono bg-zinc-200 text-zinc-900 px-1 py-0.2 border border-zinc-300">
+                    Guru
                   </span>
-                  <span className="text-[9px] font-extrabold bg-blue-600 text-white px-2 py-0.5 rounded-md">
-                    Gemini 3.1 Flash Lite
+                  <span className="text-[9px] font-mono bg-zinc-900 text-white px-1 py-0.2">
+                    Flash Lite
                   </span>
                 </div>
 
-                <div className="hidden md:flex items-center gap-2 text-xs font-bold text-slate-500">
-                  <span>•</span>
-                  <span>Materi Pembelajaran & Generasi Soal Otomatis</span>
+                <div className="hidden md:flex items-center gap-1.5 text-xs font-mono text-zinc-500">
+                  <span>/</span>
+                  <span>Generasi Materi & Soal</span>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
                 <button
+                  type="button"
                   onClick={handleNewChatSession}
-                  className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-extrabold transition cursor-pointer"
+                  className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-xs font-mono border border-zinc-300 transition-colors cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Chat Baru</span>
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => setActiveModal(null)}
-                  className="p-2 rounded-xl text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition cursor-pointer"
-                  title="Tutup & Kembali ke Dashboard"
+                  className="p-1 border border-zinc-200 hover:border-zinc-950 text-zinc-500 hover:text-zinc-950 transition-colors cursor-pointer"
+                  title="Tutup"
                 >
-                  <X className="w-6 h-6 stroke-[2.5]" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
             </div>
 
             {/* CHAT MESSAGES FEED CANVAS */}
-            <div ref={chatFeedRef} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 max-w-5xl mx-auto w-full">
+            <div ref={chatFeedRef} className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 max-w-5xl mx-auto w-full">
               {messages.length === 0 ? (
                 /* STARTER SCREEN: WELCOME CARD & QUICK ACTION CHIPS */
-                <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-6 animate-in fade-in duration-200 my-auto">
-                  <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center shadow-xl ring-4 ring-blue-500/20">
-                    <BrainCircuit className="w-8 h-8" />
+                <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-4 my-auto">
+                  <div className="w-12 h-12 bg-zinc-950 border border-zinc-800 text-white flex items-center justify-center">
+                    <BrainCircuit className="w-6 h-6" />
                   </div>
 
-                  <div className="space-y-2 max-w-lg">
-                    <h2 className="text-xl sm:text-2xl font-black text-[#0F172A]">
-                      Selamat Datang di Thinksy AI (Versi Guru)! ✨
+                  <div className="space-y-1 max-w-lg">
+                    <h2 className="text-base font-bold text-zinc-950 font-mono uppercase tracking-tight">
+                      Thinksy AI Guru Assistant
                     </h2>
-                    <p className="text-xs sm:text-sm text-slate-500 font-medium leading-relaxed">
-                      Saya adalah **Thinksy AI Versi Guru 3.1** bertenaga **Gemini 3.1 Flash Lite**. Tanyakan apa saja, buat materi pembelajaran lengkap, atau unggah foto/PDF untuk penyusunan paket soal otomatis.
+                    <p className="text-xs text-zinc-600 font-mono leading-relaxed">
+                      Asisten cerdas Gemini 3.1 Flash Lite untuk pembuatan bank soal terstruktur, modul RPP, dan analisis materi pengajaran.
                     </p>
                   </div>
 
                   {/* 4 STARTER QUICK ACTION CARDS */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl text-left pt-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full max-w-2xl text-left pt-2 font-mono">
                     <div
                       onClick={() => handleSendMessage("Buatkan 5 soal Pilihan Ganda tingkat HOTS materi Sistem Persamaan Linear Dua Variabel (SPLDV) beserta kunci jawaban dan pembahasan KaTeX.")}
-                      className="p-4 rounded-2xl bg-white border border-slate-200 hover:border-blue-500 hover:shadow-md transition cursor-pointer space-y-1.5 group"
+                      className="p-3 bg-white border border-zinc-200 hover:border-zinc-950 hover:bg-zinc-50 transition-colors cursor-pointer space-y-1 group"
                     >
-                      <div className="text-xs font-black text-[#0F172A] group-hover:text-blue-600 flex items-center gap-2">
-                        <span>🎯 5 Soal PG HOTS (SPLDV)</span>
+                      <div className="text-xs font-bold text-zinc-950 flex items-center gap-1.5">
+                        <span>5 Soal PG HOTS (SPLDV)</span>
                       </div>
-                      <div className="text-[11px] text-slate-500 font-medium">
+                      <div className="text-[11px] text-zinc-500">
                         Buat 5 soal Pilihan Ganda tingkat HOTS lengkap dengan pembahasan.
                       </div>
                     </div>
 
                     <div
                       onClick={() => handleSendMessage("Buatkan 3 soal esai uraian materi Teorema Pythagoras beserta kunci jawaban, langkah solusi KaTeX, dan rubrik penilaian.")}
-                      className="p-4 rounded-2xl bg-white border border-slate-200 hover:border-blue-500 hover:shadow-md transition cursor-pointer space-y-1.5 group"
+                      className="p-3 bg-white border border-zinc-200 hover:border-zinc-950 hover:bg-zinc-50 transition-colors cursor-pointer space-y-1 group"
                     >
-                      <div className="text-xs font-black text-[#0F172A] group-hover:text-blue-600 flex items-center gap-2">
-                        <span>✍️ 3 Soal Esai & Rubrik</span>
+                      <div className="text-xs font-bold text-zinc-950 flex items-center gap-1.5">
+                        <span>3 Soal Esai & Rubrik</span>
                       </div>
-                      <div className="text-[11px] text-slate-500 font-medium">
+                      <div className="text-[11px] text-zinc-500">
                         Buat 3 soal esai uraian beserta rubrik dan pembahasan KaTeX.
                       </div>
                     </div>
 
                     <div
                       onClick={() => handleSendMessage("Saya telah melampirkan berkas foto/PDF. Mohon analisis materi dari foto tersebut dan buatkan 4 soal latihan yang serupa.")}
-                      className="p-4 rounded-2xl bg-white border border-slate-200 hover:border-blue-500 hover:shadow-md transition cursor-pointer space-y-1.5 group"
+                      className="p-3 bg-white border border-zinc-200 hover:border-zinc-950 hover:bg-zinc-50 transition-colors cursor-pointer space-y-1 group"
                     >
-                      <div className="text-xs font-black text-[#0F172A] group-hover:text-blue-600 flex items-center gap-2">
-                        <span>📷 Ekstrak Soal dari Foto/PDF</span>
+                      <div className="text-xs font-bold text-zinc-950 flex items-center gap-1.5">
+                        <span>Ekstrak Soal dari Foto/PDF</span>
                       </div>
-                      <div className="text-[11px] text-slate-500 font-medium">
+                      <div className="text-[11px] text-zinc-500">
                         Analisis buku/soal terlampir untuk dijadikan paket soal baru.
                       </div>
                     </div>
 
                     <div
                       onClick={() => handleSendMessage("Berikan rekomendasi strategi mengajar interaktif dan rencana bimbingan remedial matematika untuk siswa SMP.")}
-                      className="p-4 rounded-2xl bg-white border border-slate-200 hover:border-blue-500 hover:shadow-md transition cursor-pointer space-y-1.5 group"
+                      className="p-3 bg-white border border-zinc-200 hover:border-zinc-950 hover:bg-zinc-50 transition-colors cursor-pointer space-y-1 group"
                     >
-                      <div className="text-xs font-black text-[#0F172A] group-hover:text-blue-600 flex items-center gap-2">
-                        <span>💡 Konsultasi Strategi Mengajar</span>
+                      <div className="text-xs font-bold text-zinc-950 flex items-center gap-1.5">
+                        <span>Konsultasi Strategi Mengajar</span>
                       </div>
-                      <div className="text-[11px] text-slate-500 font-medium">
+                      <div className="text-[11px] text-zinc-500">
                         Diskusi strategi mengajar, RPP, dan bimbingan remedial siswa.
                       </div>
                     </div>
@@ -975,96 +988,96 @@ export default function FloatingGuruSpeedDial() {
                   return (
                     <div
                       key={msg.id}
-                      className={`flex gap-3 max-w-4xl ${isUser ? "ml-auto flex-row-reverse" : "mr-auto"}`}
+                      className={`flex gap-2.5 max-w-4xl ${isUser ? "ml-auto flex-row-reverse" : "mr-auto"}`}
                     >
                       {/* Avatar */}
                       <div
-                        className={`w-8 h-8 rounded-2xl flex items-center justify-center text-xs font-black shrink-0 ${
+                        className={`w-7 h-7 flex items-center justify-center text-[11px] font-mono font-bold shrink-0 border ${
                           isUser
-                            ? "bg-[#0F172A] text-white"
-                            : "bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-md"
+                            ? "bg-zinc-950 text-white border-zinc-950"
+                            : "bg-white text-zinc-950 border-zinc-300"
                         }`}
                       >
-                        {isUser ? "Guru" : <Sparkles className="w-4 h-4 text-amber-300" />}
+                        {isUser ? "G" : <Bot className="w-3.5 h-3.5 text-zinc-950" />}
                       </div>
 
                       {/* Message Bubble Content */}
                       <div
-                        className={`p-4 sm:p-5 rounded-3xl space-y-3 shadow-xs ${
+                        className={`p-3.5 space-y-2.5 border ${
                           isUser
-                            ? "bg-[#0F172A] text-white rounded-tr-xs"
-                            : "bg-white border border-slate-200/90 text-[#0F172A] rounded-tl-xs"
+                            ? "bg-zinc-950 text-white border-zinc-950"
+                            : "bg-white text-zinc-950 border-zinc-300"
                         }`}
                       >
                         {/* Attached File Tag if present */}
                         {msg.attachedFile && (
-                          <div className="p-2.5 rounded-xl bg-slate-800 text-blue-300 text-xs font-bold flex items-center gap-2 border border-slate-700">
+                          <div className="p-2 bg-zinc-900 text-zinc-200 text-xs font-mono font-bold flex items-center gap-2 border border-zinc-800">
                             {msg.attachedFile.isPdf ? (
-                              <FileText className="w-4 h-4 text-red-400" />
+                              <FileText className="w-3.5 h-3.5 text-zinc-400" />
                             ) : (
-                              <Camera className="w-4 h-4 text-emerald-400" />
+                              <Camera className="w-3.5 h-3.5 text-zinc-400" />
                             )}
                             <span className="truncate">{msg.attachedFile.name}</span>
                           </div>
                         )}
 
                         {/* Text Message Content */}
-                        <div className={`text-xs sm:text-sm font-medium leading-relaxed whitespace-pre-line ${isUser ? "text-white [&_*]:!text-white [&_p]:!text-white [&_span]:!text-white [&_div]:!text-white font-bold" : "text-[#0F172A]"}`}>
+                        <div className={`text-xs sm:text-sm font-mono leading-relaxed whitespace-pre-line ${isUser ? "text-white [&_*]:!text-white [&_p]:!text-white [&_span]:!text-white [&_div]:!text-white font-medium" : "text-zinc-950 font-normal"}`}>
                           <MarkdownRenderer content={msg.text} />
                         </div>
 
-                        {/* STRUCTURED LEARNING MATERIAL BUBBLE (IF GENERATED BY THINKSY AI) */}
+                        {/* STRUCTURED LEARNING MATERIAL BUBBLE */}
                         {msg.materiLengkap && (
-                          <div className="mt-3 p-5 rounded-2xl bg-blue-50/80 border border-blue-200 text-[#0F172A] space-y-3">
-                            <div className="text-[10px] font-black text-blue-900 uppercase tracking-widest border-b border-blue-200 pb-2 flex items-center justify-between">
-                              <span>📘 MODUL & MATERI PEMBELAJARAN LENGKAP:</span>
-                              <span className="text-blue-900 bg-blue-100 px-2 py-0.5 rounded-md border border-blue-300 font-extrabold">
+                          <div className="mt-2.5 p-3.5 bg-zinc-50 border border-zinc-300 text-zinc-950 space-y-2">
+                            <div className="text-[10px] font-bold text-zinc-800 font-mono uppercase tracking-wider border-b border-zinc-200 pb-1.5 flex items-center justify-between">
+                              <span>MODUL & MATERI PEMBELAJARAN:</span>
+                              <span className="text-zinc-600 bg-zinc-100 px-1.5 py-0.2 border border-zinc-300 font-mono">
                                 Gemini 3.1 Flash Lite
                               </span>
                             </div>
-                            <div className="text-xs sm:text-sm font-medium leading-relaxed">
+                            <div className="text-xs sm:text-sm font-mono leading-relaxed">
                               <MarkdownRenderer content={msg.materiLengkap} />
                             </div>
                           </div>
                         )}
 
-                        {/* STRUCTURED QUIZ DRAFT BUBBLE (IF GENERATED BY THINKSY AI) */}
+                        {/* STRUCTURED QUIZ DRAFT BUBBLE */}
                         {msg.quizDraft && (
-                          <div className="mt-3 p-5 rounded-2xl bg-slate-50 border border-slate-200 text-[#0F172A] space-y-4">
-                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200 pb-2 flex items-center justify-between">
-                              <span>PERTANYAAN HASIL THINKSY AI:</span>
-                              <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                          <div className="mt-2.5 p-3.5 bg-zinc-50 border border-zinc-300 text-zinc-950 space-y-3 font-mono">
+                            <div className="text-[10px] font-bold text-zinc-600 uppercase tracking-wider border-b border-zinc-200 pb-1.5 flex items-center justify-between">
+                              <span>PERTANYAAN HASIL GENERASI:</span>
+                              <span className="text-zinc-700 bg-zinc-200 px-1.5 py-0.2 border border-zinc-300">
                                 KaTeX Native
                               </span>
                             </div>
 
-                            <div className="text-sm font-bold text-[#0F172A]">
+                            <div className="text-sm font-bold text-zinc-950">
                               <MarkdownRenderer content={msg.quizDraft.pertanyaan} />
                             </div>
 
                             {/* Options A, B, C, D */}
                             {msg.quizDraft.opsiSoal && msg.quizDraft.opsiSoal.length > 0 && (
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-bold">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                                 {msg.quizDraft.opsiSoal.map((o, idx) => {
                                   const letter = String.fromCharCode(65 + idx);
                                   return (
                                     <div
                                       key={letter}
-                                      className={`p-3 rounded-xl border flex items-center justify-between ${
+                                      className={`p-2.5 border flex items-center justify-between ${
                                         o.benar
-                                          ? "bg-emerald-50 border-emerald-300 text-emerald-950 font-black"
-                                          : "bg-white border-slate-200 text-slate-800"
+                                          ? "bg-zinc-100 border-zinc-950 text-zinc-950 font-bold"
+                                          : "bg-white border-zinc-200 text-zinc-800"
                                       }`}
                                     >
                                       <div className="flex items-center gap-2">
-                                        <span className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black ${o.benar ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-700"}`}>
+                                        <span className={`w-4 h-4 flex items-center justify-center text-[10px] font-bold border ${o.benar ? "bg-zinc-950 text-white border-zinc-950" : "bg-zinc-100 text-zinc-700 border-zinc-300"}`}>
                                           {letter}
                                         </span>
                                         <MarkdownRenderer content={o.teksOpsi} />
                                       </div>
                                       {o.benar && (
-                                        <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-emerald-200 text-emerald-900">
-                                          Benar
+                                        <span className="text-[9px] font-bold px-1 py-0.2 bg-zinc-200 text-zinc-900 border border-zinc-400">
+                                          Kunci
                                         </span>
                                       )}
                                     </div>
@@ -1075,34 +1088,35 @@ export default function FloatingGuruSpeedDial() {
 
                             {/* Pembahasan & Solusi */}
                             {msg.quizDraft.pembahasan && (
-                              <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-950 space-y-1">
-                                <div className="font-black text-amber-900 flex items-center gap-1.5">
-                                  <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                              <div className="p-3 bg-zinc-100 border border-zinc-300 text-xs text-zinc-900 space-y-1">
+                                <div className="font-bold text-zinc-900 flex items-center gap-1.5">
+                                  <FileText className="w-3.5 h-3.5 text-zinc-900" />
                                   <span>Pembahasan Solusi:</span>
                                 </div>
                                 <MarkdownRenderer content={msg.quizDraft.pembahasan} />
                               </div>
                             )}
 
-                            {/* SAVE TO DB BUTTON RIGHT ON MESSAGE BUBBLE */}
-                            <div className="pt-2 border-t border-slate-200 flex justify-end">
+                            {/* SAVE TO DB BUTTON */}
+                            <div className="pt-2 border-t border-zinc-200 flex justify-end">
                               <button
+                                type="button"
                                 onClick={() => handleSaveQuizToDB(msg.id, msg.quizDraft)}
                                 disabled={savingQuizId === msg.id}
-                                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black flex items-center gap-2 shadow-sm transition cursor-pointer disabled:opacity-50"
+                                className="px-3.5 py-1.5 bg-zinc-950 hover:bg-zinc-800 text-white text-xs font-mono uppercase tracking-wider flex items-center gap-2 border border-zinc-950 transition-colors cursor-pointer disabled:opacity-50"
                               >
                                 {savingQuizId === msg.id ? (
                                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
                                 ) : (
-                                  <Save className="w-3.5 h-3.5 text-amber-300" />
+                                  <Save className="w-3.5 h-3.5 text-white" />
                                 )}
-                                <span>{savingQuizId === msg.id ? "Menyimpan..." : "Simpan ke Bank Soal Supabase"}</span>
+                                <span>{savingQuizId === msg.id ? "Menyimpan..." : "Simpan ke Bank Soal"}</span>
                               </button>
                             </div>
                           </div>
                         )}
 
-                        <div className={`text-[9px] text-right font-medium ${isUser ? "text-slate-200 font-bold" : "text-slate-400 opacity-60"}`}>
+                        <div className={`text-[9px] font-mono text-right ${isUser ? "text-zinc-400" : "text-zinc-400"}`}>
                           {msg.timestamp}
                         </div>
                       </div>
@@ -1113,52 +1127,52 @@ export default function FloatingGuruSpeedDial() {
 
               {/* Generating Loader Bubble */}
               {isGenerating && (
-                <div className="flex gap-3 max-w-xl mr-auto animate-pulse">
-                  <div className="w-8 h-8 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center text-xs font-black shrink-0">
-                    <Sparkles className="w-4 h-4 text-amber-300" />
+                <div className="flex gap-2.5 max-w-xl mr-auto">
+                  <div className="w-7 h-7 flex items-center justify-center text-[11px] font-mono font-bold shrink-0 border bg-white text-zinc-950 border-zinc-300">
+                    <Bot className="w-3.5 h-3.5 text-zinc-950" />
                   </div>
-                  <div className="p-4 rounded-3xl rounded-tl-xs bg-white border border-slate-200 text-xs font-bold text-slate-700 flex items-center gap-3">
-                    <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
-                    <span>Thinksy AI (Gemini 3.1 Flash Lite) sedang memproses instruksi & menyusun soal...</span>
+                  <div className="p-3 bg-white border border-zinc-300 text-xs font-mono font-bold text-zinc-700 flex items-center gap-2.5">
+                    <Loader2 className="w-4 h-4 animate-spin text-zinc-950" />
+                    <span>Thinksy AI sedang memproses instruksi & menyusun soal...</span>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* CHAT INPUT DOCK (THINKSY CONVERSATIONAL INPUT BAR) */}
-            <div className="bg-white border-t border-slate-200/80 p-4 sm:p-5 shrink-0 shadow-lg">
-              <div className="max-w-4xl mx-auto space-y-3">
+            {/* CHAT INPUT DOCK */}
+            <div className="bg-white border-t border-zinc-200 p-3 sm:p-4 shrink-0 font-mono">
+              <div className="max-w-4xl mx-auto space-y-2.5">
                 {/* File Attachment Badge Preview */}
                 {attachedFile && (
-                  <div className="p-2.5 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-between text-xs font-bold text-blue-900 animate-in fade-in">
+                  <div className="p-2 bg-zinc-100 border border-zinc-300 flex items-center justify-between text-xs font-mono text-zinc-900">
                     <div className="flex items-center gap-2 truncate">
                       {attachedFile.isPdf ? (
-                        <FileText className="w-4 h-4 text-red-600 shrink-0" />
+                        <FileText className="w-3.5 h-3.5 text-zinc-700 shrink-0" />
                       ) : (
-                        <Camera className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <Camera className="w-3.5 h-3.5 text-zinc-700 shrink-0" />
                       )}
                       <span className="truncate max-w-[240px]">{attachedFile.name}</span>
-                      <span className="text-[10px] bg-blue-200 text-blue-900 px-2 py-0.5 rounded-md">
-                        Siap dikirim ke Gemini 3.1
+                      <span className="text-[10px] bg-zinc-200 text-zinc-900 px-1.5 py-0.2 border border-zinc-300">
+                        Siap Kirim
                       </span>
                     </div>
                     <button
                       type="button"
                       onClick={() => setAttachedFile(null)}
-                      className="p-1 rounded-lg text-blue-700 hover:text-red-600 hover:bg-blue-100 transition cursor-pointer"
+                      className="p-1 text-zinc-600 hover:text-zinc-950 transition-colors cursor-pointer"
                     >
-                      <X className="w-4 h-4" />
+                      <X className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 )}
 
                 {/* Quick Action Toolbar Chips */}
-                <div className="flex items-center justify-between gap-2 overflow-x-auto pb-1 text-xs">
+                <div className="flex items-center justify-between gap-2 overflow-x-auto pb-0.5 text-xs">
                   <div className="flex items-center gap-1.5 shrink-0">
                     {/* File Attachment Button */}
-                    <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 font-extrabold border border-slate-200 transition cursor-pointer">
-                      <Paperclip className="w-3.5 h-3.5 text-blue-600" />
-                      <span>Kirim Foto / PDF Materi</span>
+                    <label className="flex items-center gap-1.5 px-2.5 py-1 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 font-mono text-xs border border-zinc-300 transition-colors cursor-pointer">
+                      <Paperclip className="w-3 h-3 text-zinc-700" />
+                      <span>Lampirkan Foto / PDF</span>
                       <input
                         type="file"
                         accept="image/*,application/pdf"
@@ -1171,7 +1185,7 @@ export default function FloatingGuruSpeedDial() {
                     <select
                       value={topik}
                       onChange={(e) => setTopik(e.target.value)}
-                      className="px-2.5 py-1.5 rounded-xl bg-slate-100 border border-slate-200 text-xs font-extrabold text-[#0F172A] focus:outline-none"
+                      className="px-2 py-1 bg-zinc-100 border border-zinc-300 text-xs font-mono text-zinc-900 focus:outline-none focus:border-zinc-950"
                     >
                       <option value="Persamaan Linear Dua Variabel (SPLDV)">Bab: SPLDV</option>
                       <option value="Persamaan Kuadrat & Pemfaktoran">Bab: Persamaan Kuadrat</option>
@@ -1183,7 +1197,7 @@ export default function FloatingGuruSpeedDial() {
                     <select
                       value={tingkatSoal}
                       onChange={(e) => setTingkatSoal(e.target.value as any)}
-                      className="px-2.5 py-1.5 rounded-xl bg-slate-100 border border-slate-200 text-xs font-extrabold text-[#0F172A] focus:outline-none"
+                      className="px-2 py-1 bg-zinc-100 border border-zinc-300 text-xs font-mono text-zinc-900 focus:outline-none focus:border-zinc-950"
                     >
                       <option value="mudah">Mudah</option>
                       <option value="sedang">Sedang</option>
@@ -1192,7 +1206,7 @@ export default function FloatingGuruSpeedDial() {
                     </select>
                   </div>
 
-                  <span className="text-[10px] text-slate-400 font-extrabold shrink-0 hidden sm:inline">
+                  <span className="text-[10px] text-zinc-400 font-mono shrink-0 hidden sm:inline">
                     Gemini 3.1 Flash Lite
                   </span>
                 </div>
@@ -1215,20 +1229,20 @@ export default function FloatingGuruSpeedDial() {
                         handleSendMessage();
                       }
                     }}
-                    placeholder="Tanyakan sesuatu atau instruksikan Thinksy AI (contoh: 'Buatkan 5 soal cerita SPLDV HOTS beserta pembahasan')..."
-                    className="flex-1 p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs sm:text-sm font-medium text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none"
+                    placeholder="Instruksikan Thinksy AI (contoh: 'Buatkan 5 soal cerita SPLDV HOTS beserta pembahasan')..."
+                    className="flex-1 p-2.5 bg-zinc-50 border border-zinc-300 text-xs sm:text-sm font-mono text-zinc-950 focus:outline-none focus:border-zinc-950 resize-none"
                   />
 
                   <button
                     type="submit"
                     disabled={isGenerating || (!inputPrompt.trim() && !attachedFile)}
-                    className="p-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold shadow-md transition cursor-pointer disabled:opacity-40 shrink-0"
+                    className="p-3 bg-zinc-950 hover:bg-zinc-800 text-white font-mono border border-zinc-950 transition-colors cursor-pointer disabled:opacity-40 shrink-0"
                     title="Kirim ke Thinksy AI"
                   >
                     {isGenerating ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
-                      <Send className="w-5 h-5" />
+                      <Send className="w-4 h-4" />
                     )}
                   </button>
                 </form>

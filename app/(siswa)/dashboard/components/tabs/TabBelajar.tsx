@@ -3,12 +3,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRealtimeDashboard } from "@/hooks/useRealtimeDashboard";
 import {
-  TriangleAlert,
-  HelpCircle,
-  RefreshCw,
   GraduationCap,
   Globe,
-  ExternalLink,
   BookOpen,
   ChevronRight,
   Trophy,
@@ -24,7 +20,6 @@ import {
   PlayCircle,
   Layers,
   MapPin,
-  Sparkles,
   X,
   Key,
   ArrowRight,
@@ -33,7 +28,10 @@ import {
   Search,
   Eye,
   EyeOff,
-  KeyRound,
+  Folder,
+  MoreVertical,
+  Plus,
+  Sparkles,
 } from "lucide-react";
 import {
   SekolahData,
@@ -43,8 +41,10 @@ import {
   PeerStudent,
   AgendaAkademikItem,
   UjianItem,
+  ClassroomCardItem,
 } from "../../types";
 import AsesmenOverlayModal from "../modals/AsesmenOverlayModal";
+import { LastActivityItem } from "../classroom/ClassroomTodoView";
 
 interface TabBelajarProps {
   studentName: string;
@@ -62,13 +62,16 @@ interface TabBelajarProps {
   peerStudents: PeerStudent[];
   agendasData?: AgendaAkademikItem[];
   examsData?: UjianItem[];
+  lastActivity?: LastActivityItem | null;
   onNavigateToCourses: () => void;
+  onOpenClass?: (classId: string) => void;
+  classesData?: ClassroomCardItem[];
 }
 
 export default function TabBelajar({
   studentName,
   currentUserRank,
-  namaKelas = "Kelas 8A",
+  namaKelas = "Kelas 8",
   learningProgressPercent,
   learningPoints,
   sekolahData,
@@ -81,8 +84,16 @@ export default function TabBelajar({
   peerStudents,
   agendasData = [],
   examsData = [],
+  lastActivity,
   onNavigateToCourses,
+  onOpenClass,
+  classesData = [],
 }: TabBelajarProps) {
+  // Classes Card & Modal States
+  const [openCardMenu, setOpenCardMenu] = useState<string | null>(null);
+  const [isJoinClassModalOpen, setIsJoinClassModalOpen] = useState(false);
+  const [classCodeInput, setClassCodeInput] = useState("");
+
   // Calendar Date Selection & Hover
   const todayIso = new Date().toISOString().split("T")[0];
   const [selectedDate, setSelectedDate] = useState<string>(todayIso);
@@ -262,7 +273,7 @@ export default function TabBelajar({
     if (m.includes("pancasila") || m.includes("ppkn")) return "bg-rose-100 text-rose-800 border-rose-200";
     if (m.includes("agama") || m.includes("islam")) return "bg-teal-100 text-teal-800 border-teal-200";
     if (m.includes("pjok")) return "bg-lime-100 text-lime-800 border-lime-200";
-    if (m.includes("seni")) return "bg-purple-100 text-purple-800 border-purple-200";
+    if (m.includes("seni")) return "bg-rose-100 text-rose-800 border-rose-200";
     return "bg-slate-100 text-slate-800 border-slate-200";
   };
 
@@ -374,109 +385,31 @@ export default function TabBelajar({
     (c) => c.mapel?.toLowerCase().includes("indonesia")
   );
 
+  // Dynamic active resume item: use lastActivity or fallback to first chapter
+  const activeResumeItem =
+    lastActivity ||
+    (allChapters.length > 0
+      ? {
+          type: "bab" as const,
+          id: allChapters[0].id,
+          judul: allChapters[0].judul,
+          mapel: allChapters[0].mapel || "Informatika",
+          link: `/bab/${allChapters[0].id}`,
+        }
+      : null);
+
   return (
-    <main className="mx-auto max-w-7xl px-4 sm:px-6 pt-10 sm:pt-14 space-y-8 pb-16 font-sans animate-in fade-in duration-200">
-      {/* 1. SCHOOL BANNER */}
-      {!sekolahData ? (
-        <section className="relative rounded-3xl overflow-hidden shadow-xl border border-amber-500/30 text-white bg-slate-900 w-full mb-8">
-          <div className="absolute inset-0 bg-linear-to-r from-amber-950/40 via-slate-900 to-slate-950 opacity-90" />
-          <div className="relative z-10 p-6 sm:p-8 flex flex-col md:flex-row items-center justify-between gap-6 text-center md:text-left">
-            <div className="flex flex-col md:flex-row items-center md:items-start gap-4 max-w-3xl">
-              <div className="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center shrink-0 shadow-inner">
-                <TriangleAlert className="w-7 h-7 text-amber-400" />
-              </div>
-              <div className="space-y-2">
-                <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-                  Profil Sekolah Belum Ditemukan
-                </h1>
-                <p className="text-slate-300 text-xs sm:text-sm leading-relaxed font-medium">
-                  Halo, <strong className="text-white">{studentName}</strong>! Akun siswa Anda saat ini belum dihubungkan dengan database sekolah manapun di platform Thinksy.
-                </p>
-                <div className="mt-3 p-3.5 rounded-2xl bg-amber-500/15 border border-amber-400/30 text-amber-200 text-xs font-semibold leading-relaxed flex items-start gap-2.5 shadow-xs">
-                  <HelpCircle className="w-4.5 h-4.5 text-amber-400 shrink-0 mt-0.5" />
-                  <span>
-                    Jika akun Anda belum terdaftar di database sekolah, silakan laporkan kepada <strong>Wali Kelas</strong> atau <strong>Admin Sekolah</strong> Anda untuk penautan akun.
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="shrink-0 flex flex-col sm:flex-row md:flex-col gap-2.5 w-full md:w-auto">
-              <button
-                onClick={() => window.location.reload()}
-                className="py-3 px-5 rounded-2xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-xs flex items-center justify-center gap-2 shadow-md transition duration-200 cursor-pointer"
-              >
-                <RefreshCw className="w-4 h-4 text-slate-950" />
-                <span>Muat Ulang Halaman</span>
-              </button>
-            </div>
-          </div>
-        </section>
-      ) : (
-        <section className="relative rounded-3xl overflow-hidden shadow-xl border border-slate-800 text-white bg-slate-900">
-          <div
-            className="absolute inset-0 bg-cover bg-center transition-all duration-700 transform hover:scale-105"
-            style={{
-              backgroundImage: `url('${
-                sekolahData.bg_image_url || "/images/smk-muh-pakem.png"
-              }')`,
-            }}
-          />
-          <div className="absolute inset-0 bg-linear-to-t from-slate-950 via-slate-900/85 to-slate-900/60 backdrop-blur-[1px]" />
-
-          <div className="relative z-10 p-8 sm:p-12 flex flex-col items-center justify-center text-center space-y-4 max-w-4xl mx-auto">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 text-xs font-extrabold uppercase tracking-wider shadow-xs backdrop-blur-md">
-              <GraduationCap className="w-4 h-4 text-blue-400" />
-              <span>Kurikulum Merdeka • Sekolah Pusat Keunggulan & Pesantren Vokasi</span>
-            </div>
-
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight drop-shadow-md leading-tight">
-              {sekolahData.nama}
-            </h1>
-
-            {sekolahData.motto && (
-              <p className="text-amber-400 font-extrabold text-sm sm:text-base tracking-wide drop-shadow-sm max-w-2xl">
-                ✨ {sekolahData.motto}
-              </p>
-            )}
-
-            {sekolahData.deskripsi && (
-              <p className="text-slate-200 text-xs sm:text-sm max-w-3xl leading-relaxed font-medium mt-1">
-                {sekolahData.deskripsi}
-              </p>
-            )}
-
-            {sekolahData.links && sekolahData.links.length > 0 && (
-              <div className="flex flex-wrap justify-center items-center gap-3 pt-3">
-                {sekolahData.links.slice(0, 3).map((link, idx) => (
-                  <a
-                    key={idx}
-                    href={link.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 backdrop-blur-md text-white text-xs font-bold border border-white/20 hover:border-white/40 transition duration-200 shadow-sm cursor-pointer hover:scale-105"
-                  >
-                    <Globe className="w-3.5 h-3.5 text-amber-400" />
-                    <span>{link.label}</span>
-                    <ExternalLink className="w-3 h-3 text-slate-300 ml-0.5" />
-                  </a>
-                ))}
-              </div>
-            )}
-          </div>
-        </section>
-      )}
-
-      {/* 2. TOP GRID: WELCOME CARD (NO STREAK) & ACADEMIC CALENDAR */}
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+    <div className="w-full space-y-6 pt-0 font-sans animate-in fade-in duration-200">
+      {/* 1. TOP GRID: WELCOME CARD (NO STREAK) & ACADEMIC CALENDAR */}
+      <section id="kalender-akademik" className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5 items-stretch">
         {/* WELCOME CARD (Left 2 cols) */}
-        <div className="lg:col-span-2 saas-card p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-xs relative overflow-hidden bg-white flex flex-col gap-3.5 sm:gap-4">
+        <div className="lg:col-span-2 saas-card p-5 sm:p-6 rounded-3xl border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.03)] relative overflow-hidden bg-white flex flex-col justify-between gap-3 sm:gap-3.5">
           <div className="space-y-1">
-            <div className="flex flex-wrap items-center gap-2.5">
-              <h2 className="text-2xl sm:text-3xl font-black text-[#0F172A] tracking-tight">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-xl sm:text-2xl font-black text-[#0F172A] tracking-tight font-heading">
                 Selamat Datang Kembali, {studentName.split(" ")[0]}!
               </h2>
-              <span className="text-xs font-black text-slate-600 bg-slate-100 px-3 py-1 rounded-lg border border-slate-200 tracking-wide">
+              <span className="text-xs font-black text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-lg border border-slate-200/80 tracking-wide">
                 Peringkat #{currentUserRank}
               </span>
             </div>
@@ -486,17 +419,17 @@ export default function TabBelajar({
           </div>
 
           {/* 3 Metric Cards: Kelas Siswa, Progress Belajar, Poin Belajar (NO DAILY STREAK) */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
             {/* 1. Kelas Siswa */}
-            <div className="p-3.5 sm:p-4 rounded-2xl bg-blue-50/70 border border-blue-200/80 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black shadow-xs shrink-0">
-                <GraduationCap className="w-5 h-5" />
+            <div className="p-3 sm:p-3.5 rounded-2xl bg-blue-50/70 border border-blue-200/70 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black shadow-xs shrink-0">
+                <GraduationCap className="w-4 h-4" />
               </div>
               <div>
                 <div className="text-[10px] font-extrabold text-blue-700 uppercase tracking-wider">
                   KELAS SISWA
                 </div>
-                <div className="text-base font-black text-[#0F172A]">
+                <div className="text-sm sm:text-base font-black text-[#0F172A] font-heading">
                   {namaKelas}
                 </div>
                 <div className="text-[10px] text-slate-500 font-medium">
@@ -562,39 +495,122 @@ export default function TabBelajar({
             </div>
           </div>
 
-          {/* Quick Resume Card - tightly placed under metric cards */}
-          {mathChapters.length > 0 && (
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl bg-linear-to-r from-blue-50/90 via-slate-50 to-indigo-50/50 border border-blue-100 shadow-2xs">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs font-bold text-xs">
-                  <BookOpen className="w-5 h-5" />
+          {/* MISI HARIAN (Menggantikan Lanjutkan Belajar, Ukuran Menyesuaikan) */}
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-amber-50/50 border border-amber-200/80 shadow-2xs space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-amber-500 text-white flex items-center justify-center font-bold shadow-2xs">
+                  <Target className="w-4 h-4 text-slate-950" />
                 </div>
                 <div>
-                  <div className="text-[10px] font-extrabold text-blue-700 uppercase tracking-wider">
-                    Lanjutkan Pembelajaran Terakhir
-                  </div>
-                  <div className="text-sm font-black text-[#0F172A] line-clamp-1">
-                    {mathChapters[0].judul}
-                  </div>
+                  <h3 className="text-xs sm:text-sm font-black text-slate-900 tracking-tight flex items-center gap-1.5 font-heading">
+                    <span>Misi Harianku</span>
+                    <span className="text-[10px] font-bold text-amber-800 bg-amber-100/90 px-2 py-0.5 rounded-md border border-amber-200/70">
+                      Tantangan Harian
+                    </span>
+                  </h3>
                 </div>
               </div>
-              <Link
-                href={`/bab/${mathChapters[0].id}`}
-                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-extrabold transition shadow-xs cursor-pointer hover:scale-105 shrink-0"
-              >
-                <span>Lanjutkan Belajar</span>
-                <ChevronRight className="w-3.5 h-3.5" />
-              </Link>
+              <span className="text-[11px] font-semibold text-slate-500 hidden sm:inline">
+                Otomatis reset tiap 24 jam
+              </span>
             </div>
-          )}
+
+            {/* Grid Misi Menyesuaikan Ukuran Card */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              {isMissionsLoading ? (
+                [...Array(3)].map((_, i) => (
+                  <div key={i} className="p-3 rounded-xl bg-white border border-amber-100 animate-pulse space-y-2">
+                    <div className="h-3 bg-amber-100 rounded w-2/3" />
+                    <div className="h-2.5 bg-amber-50 rounded w-full" />
+                    <div className="h-7 bg-amber-100 rounded-lg w-full" />
+                  </div>
+                ))
+              ) : dailyMissions.length === 0 ? (
+                <div className="col-span-3 text-center py-4 bg-white/70 rounded-xl border border-dashed border-amber-200/80 text-slate-400 text-xs font-medium">
+                  Belum ada misi aktif hari ini.
+                </div>
+              ) : (
+                dailyMissions.map((misi) => {
+                  const isCompleted =
+                    Number((misi as any).progres_saat_ini ?? (misi as any).currentCount) >=
+                    Number((misi as any).target_max ?? (misi as any).targetCount);
+                  const isClaimed = Boolean(
+                    (misi as any).diklaim ?? (misi as any).isClaimed
+                  );
+
+                  return (
+                    <div
+                      key={misi.id}
+                      className={`p-3 rounded-xl border flex flex-col justify-between gap-2.5 transition-all ${
+                        isClaimed
+                          ? "bg-emerald-50/50 border-emerald-200/80"
+                          : isCompleted
+                          ? "bg-amber-100/70 border-amber-300 shadow-2xs ring-1 ring-amber-300/60"
+                          : "bg-white hover:bg-amber-50/40 border-amber-200/70 shadow-2xs"
+                      }`}
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-start justify-between gap-1.5">
+                          <h4 className="text-xs font-bold text-slate-900 line-clamp-1 leading-snug">
+                            {(misi as any).judul || (misi as any).title}
+                          </h4>
+                          <span className="text-[10px] font-black text-amber-900 bg-amber-100/90 px-1.5 py-0.5 rounded border border-amber-200 shrink-0">
+                            +{(misi as any).poin_hadiah || (misi as any).rewardPoints || 20}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 line-clamp-1 leading-tight">
+                          {(misi as any).deskripsi || "Selesaikan target aktivitas belajar hari ini."}
+                        </p>
+                      </div>
+
+                      <div>
+                        {isClaimed ? (
+                          <button
+                            disabled
+                            className="w-full py-1.5 rounded-lg bg-emerald-100 text-emerald-800 text-[11px] font-bold flex items-center justify-center gap-1 cursor-not-allowed border border-emerald-200"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Klaim Selesai</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (isCompleted) {
+                                onClaimMission(misi.id);
+                              } else {
+                                onNavigateToCourses();
+                              }
+                            }}
+                            disabled={isClaimingMissionId === misi.id}
+                            className={`w-full py-1.5 rounded-lg text-[11px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50 ${
+                              isCompleted
+                                ? "bg-amber-500 hover:bg-amber-600 text-white shadow-xs active:scale-[0.98]"
+                                : "bg-white hover:bg-amber-50 text-amber-950 border border-amber-200 hover:border-amber-300 shadow-2xs"
+                            }`}
+                          >
+                            {isClaimingMissionId === misi.id && (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            )}
+                            <span>{isCompleted ? "Klaim Reward" : "Kerjakan"}</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
         </div>
 
         {/* ACADEMIC CALENDAR (Right 1 col) */}
-        <div className="lg:col-span-1 p-5 sm:p-6 rounded-3xl bg-white text-slate-900 shadow-xs border border-slate-200 flex flex-col justify-between space-y-3.5 relative">
+        <div className="lg:col-span-1 p-5 sm:p-6 rounded-3xl bg-white text-slate-900 shadow-[0_8px_30px_rgb(0,0,0,0.03)] border border-slate-100 flex flex-col justify-between space-y-3 relative">
           <div className="flex items-center justify-between border-b border-slate-100 pb-2">
             <div className="flex items-center gap-2">
-              <CalendarIcon className="w-4 h-4 text-blue-600" />
-              <h3 className="text-base font-black text-[#0F172A] tracking-tight">
+              <CalendarIcon className="w-4 h-4 text-emerald-600" />
+              <h3 className="text-base font-black text-[#0F172A] tracking-tight font-heading">
                 Agenda Akademik
               </h3>
             </div>
@@ -723,7 +739,7 @@ export default function TabBelajar({
                                   <span
                                     className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase shrink-0 ${
                                       item.kategori === "ulangan"
-                                        ? "bg-purple-100 text-purple-800 border border-purple-200"
+                                        ? "bg-indigo-100 text-indigo-800 border border-indigo-200"
                                         : item.kategori === "ujian"
                                         ? "bg-rose-100 text-rose-800 border border-rose-200"
                                         : item.kategori === "tugas"
@@ -826,561 +842,338 @@ export default function TabBelajar({
         </div>
       </section>
 
-      {/* 3. MISI HARIAN SISWA (WITH REWARDS & AUTO-CLAIM) */}
-      <section className="saas-card rounded-3xl p-6 border border-slate-200 shadow-sm bg-white space-y-5">
-        <div className="pb-3 border-b border-slate-100 flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-black text-slate-900 tracking-tight">
-              Misi Harian Siswa
-            </h2>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">
-              Selesaikan tantangan harian untuk mengklaim reward poin. Misi otomatis terklaim dalam 24 jam.
-            </p>
-          </div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-xs font-extrabold">
-            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-            <span>Server-Timed Quests</span>
+      {/* 2. CLASSES SECTION (GOOGLE CLASSROOM REPLICA MATCHING SCREENSHOT) */}
+      <section id="classes" className="space-y-4 pt-2">
+        {/* Section Header */}
+        <div className="flex items-center justify-between px-1">
+          <h2 className="text-xl sm:text-2xl font-normal text-slate-800 tracking-tight font-sans">
+            Classes
+          </h2>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setIsJoinClassModalOpen(true)}
+              title="Create or join a class"
+              className="inline-flex items-center gap-1.5 text-[#1967D2] hover:bg-blue-50 px-3.5 py-1.5 rounded-full font-medium text-xs sm:text-sm transition cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add class</span>
+            </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {isMissionsLoading ? (
-            [...Array(3)].map((_, i) => (
-              <div
-                key={i}
-                className="p-5 rounded-3xl border bg-slate-50/80 border-slate-100 space-y-4 animate-pulse"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="h-4 bg-slate-200 rounded w-1/2" />
-                  <div className="h-5 bg-amber-100 rounded-xl w-16" />
-                </div>
-                <div className="h-3 bg-slate-200 rounded w-full" />
-                <div className="h-9 bg-slate-200 rounded-2xl w-full" />
-              </div>
-            ))
-          ) : dailyMissions.length === 0 ? (
-            <div className="col-span-3 text-center py-8 bg-slate-50/60 rounded-3xl border border-dashed border-slate-200 text-slate-400 text-xs font-semibold flex flex-col items-center justify-center gap-2">
-              <Target className="w-8 h-8 text-slate-300" />
-              <span>Belum ada misi harian yang aktif hari ini.</span>
-            </div>
-          ) : (
-            dailyMissions.map((misi) => {
-              const isCompleted =
-                Number((misi as any).progres_saat_ini ?? (misi as any).currentCount) >=
-                Number((misi as any).target_max ?? (misi as any).targetCount);
-              const isClaimed = Boolean(
-                (misi as any).diklaim ?? (misi as any).isClaimed
-              );
+        {/* Classes Grid (Dynamic Cards with Real Teachers from Database) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {(classesData && classesData.length > 0
+            ? classesData
+            : [
+                {
+                  id: "class_matematika",
+                  nama_kelas: "Matematika",
+                  nama_guru: "Ibu Rani Kamayasha, S.Pd.",
+                  foto_guru: null,
+                  banner_color: "#4338CA",
+                  banner_pattern: "matematika" as const,
+                },
+                {
+                  id: "class_indonesia",
+                  nama_kelas: "Bahasa Indonesia",
+                  nama_guru: "Ibu Rani Kamayasha, S.Pd.",
+                  foto_guru: null,
+                  banner_color: "#047857",
+                  banner_pattern: "indonesia" as const,
+                },
+                {
+                  id: "class_inggris",
+                  nama_kelas: "Bahasa Inggris",
+                  nama_guru: "Ibu Siti Rahmawati, M.Pd.",
+                  foto_guru: "/images/foto-guru.jpg",
+                  banner_color: "#0284C7",
+                  banner_pattern: "inggris" as const,
+                },
+              ]
+          ).map((cls, idx) => {
+            const isMenuOpen = openCardMenu === cls.id;
+            const nameParts = (cls.nama_guru || "Guru").trim().split(" ");
+            const initials =
+              nameParts.length >= 2
+                ? (nameParts[0][0] + nameParts[1][0]).toUpperCase()
+                : (nameParts[0][0] || "G").toUpperCase();
 
-              return (
+            const avatarBgColors = [
+              "bg-indigo-600",
+              "bg-emerald-600",
+              "bg-sky-600",
+              "bg-amber-600",
+              "bg-teal-600",
+            ];
+            const avatarBg = avatarBgColors[idx % avatarBgColors.length];
+
+            return (
+              <div
+                key={cls.id || idx}
+                className="bg-white rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between overflow-hidden relative group"
+              >
+                {/* Header Banner */}
                 <div
-                  key={misi.id}
-                  className={`group relative rounded-3xl border p-5 transition-all duration-300 flex flex-col justify-between space-y-4 overflow-hidden ${
-                    isClaimed
-                      ? "bg-emerald-50/40 border-emerald-200 shadow-xs"
-                      : isCompleted
-                      ? "bg-amber-50/50 border-amber-300 shadow-md shadow-amber-500/10 ring-1 ring-amber-300"
-                      : "bg-white hover:bg-slate-50/60 border-slate-200 hover:border-slate-300 shadow-xs"
-                  }`}
+                  style={{ backgroundColor: cls.banner_color || "#4338CA" }}
+                  className="h-34 sm:h-36 relative p-4 flex flex-col justify-between select-none overflow-hidden"
                 >
-                  <div className="space-y-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <h3 className="text-sm font-extrabold text-slate-900 group-hover:text-amber-950 transition-colors leading-snug">
-                        {(misi as any).judul || (misi as any).title}
-                      </h3>
-                      <span className="inline-flex items-center gap-1 text-[11px] font-black px-2.5 py-0.5 rounded-xl bg-amber-50 text-amber-900 border border-amber-200 shrink-0">
-                        +{(misi as any).poin_hadiah || (misi as any).rewardPoints || 20} Poin
-                      </span>
+                  {/* Decorative artwork for 3 mapel */}
+                  {cls.banner_pattern === "matematika" || cls.nama_kelas.toLowerCase().includes("matematika") ? (
+                    <div className="absolute top-2 right-3 opacity-30 pointer-events-none select-none">
+                      <svg className="w-24 h-24" viewBox="0 0 100 100" fill="none">
+                        <path d="M 50 15 L 25 85" stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round" />
+                        <path d="M 50 15 L 75 85" stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round" />
+                        <circle cx="50" cy="15" r="5" fill="#FFFFFF" />
+                        <path d="M 35 60 A 20 20 0 0 0 65 60" stroke="#FDE047" strokeWidth="2.5" strokeDasharray="3 3" fill="none" />
+                        <text x="43" y="55" fill="#FDE047" fontSize="14" fontWeight="bold">π</text>
+                        <path d="M 10 75 Q 40 40 70 85 T 95 30" stroke="#A5B4FC" strokeWidth="1.8" fill="none" />
+                      </svg>
                     </div>
-                    <p className="text-xs text-slate-500 font-medium leading-relaxed">
-                      {(misi as any).deskripsi || "Selesaikan target aktivitas belajar ini hari ini."}
+                  ) : cls.banner_pattern === "indonesia" || cls.nama_kelas.toLowerCase().includes("indonesia") ? (
+                    <div className="absolute top-2 right-3 opacity-30 pointer-events-none select-none">
+                      <svg className="w-24 h-24" viewBox="0 0 100 100" fill="none">
+                        <path d="M 20 35 C 35 30, 48 33, 50 38 C 52 33, 65 30, 80 35 L 80 75 C 65 70, 52 73, 50 78 C 48 73, 35 70, 20 75 Z" fill="#FFFFFF" opacity="0.8" />
+                        <line x1="50" y1="38" x2="50" y2="78" stroke="#065F46" strokeWidth="2" />
+                        <path d="M 75 15 C 72 30, 60 45, 52 50 L 53 48 C 58 40, 66 30, 75 15" stroke="#FEF08A" strokeWidth="3" fill="#FEF08A" />
+                        <line x1="28" y1="46" x2="44" y2="46" stroke="#065F46" strokeWidth="1.5" />
+                        <line x1="28" y1="54" x2="44" y2="54" stroke="#065F46" strokeWidth="1.5" />
+                        <line x1="56" y1="46" x2="72" y2="46" stroke="#065F46" strokeWidth="1.5" />
+                        <line x1="56" y1="54" x2="72" y2="54" stroke="#065F46" strokeWidth="1.5" />
+                      </svg>
+                    </div>
+                  ) : cls.banner_pattern === "inggris" || cls.nama_kelas.toLowerCase().includes("inggris") ? (
+                    <div className="absolute top-2 right-3 opacity-30 pointer-events-none select-none">
+                      <svg className="w-24 h-24" viewBox="0 0 100 100" fill="none">
+                        <circle cx="50" cy="50" r="32" stroke="#FFFFFF" strokeWidth="2.5" fill="none" />
+                        <ellipse cx="50" cy="50" rx="16" ry="32" stroke="#FFFFFF" strokeWidth="1.8" fill="none" opacity="0.8" />
+                        <line x1="18" y1="50" x2="82" y2="50" stroke="#FFFFFF" strokeWidth="2" opacity="0.8" />
+                        <rect x="52" y="20" width="36" height="24" rx="6" fill="#38BDF8" opacity="0.95" />
+                        <polygon points="58,44 54,52 66,44" fill="#38BDF8" opacity="0.95" />
+                        <text x="59" y="36" fill="#0C4A6E" fontSize="10" fontWeight="bold">ABC</text>
+                      </svg>
+                    </div>
+                  ) : (
+                    <div className="absolute inset-0 opacity-20 pointer-events-none select-none">
+                      <svg className="w-full h-full" viewBox="0 0 200 100" fill="none">
+                        <circle cx="170" cy="20" r="35" stroke="white" strokeWidth="2" />
+                        <path d="M 120 80 C 140 40, 180 40, 200 80" stroke="white" strokeWidth="2" />
+                        <rect x="140" y="50" width="25" height="25" rx="4" stroke="white" strokeWidth="1.5" />
+                      </svg>
+                    </div>
+                  )}
+
+                  {/* Title & Real Teacher Name from Database */}
+                  <div className="relative z-10 space-y-0.5 max-w-[70%]">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onOpenClass) onOpenClass(cls.id);
+                        else onNavigateToCourses();
+                      }}
+                      className="text-left font-semibold text-lg sm:text-xl text-white group-hover:underline tracking-tight line-clamp-1 block cursor-pointer"
+                    >
+                      {cls.nama_kelas}
+                    </button>
+                    <p className="text-xs text-white/90 font-normal truncate" title={cls.nama_guru}>
+                      {cls.nama_guru}
                     </p>
                   </div>
 
-                  <div className="pt-2">
-                    {isClaimed ? (
-                      <button
-                        disabled
-                        className="w-full py-2.5 rounded-2xl bg-emerald-100 text-emerald-800 text-xs font-black flex items-center justify-center gap-1.5 cursor-not-allowed border border-emerald-200"
-                      >
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                        <span>Sudah Diklaim</span>
-                      </button>
+                  {/* Circular Teacher Photo from Database (or Initial Avatar Fallback) */}
+                  <div className="absolute -bottom-8 right-4 w-18 h-18 rounded-full border-2 border-white shadow-md overflow-hidden bg-slate-200 z-20 flex items-center justify-center">
+                    {cls.foto_guru ? (
+                      <img
+                        src={cls.foto_guru}
+                        alt={cls.nama_guru}
+                        className="w-full h-full object-cover object-top"
+                      />
                     ) : (
-                      <button
-                        onClick={() => onClaimMission(misi.id)}
-                        disabled={isClaimingMissionId === misi.id}
-                        className={`w-full py-2.5 rounded-2xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 ${
-                          isCompleted
-                            ? "bg-amber-500 hover:bg-amber-600 text-white shadow-md shadow-amber-500/20 active:scale-[0.98]"
-                            : "bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200"
-                        }`}
-                      >
-                        {isClaimingMissionId === misi.id ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : null}
-                        <span>{isCompleted ? "Klaim Reward" : "Kerjakan"}</span>
-                      </button>
+                      <div className={`w-full h-full ${avatarBg} text-white font-black text-xl flex items-center justify-center select-none shadow-inner`}>
+                        {initials}
+                      </div>
                     )}
                   </div>
                 </div>
-              );
-            })
-          )}
-        </div>
-      </section>
 
-      {/* 4. SECTION "AKU LULUS" (ASESMEN RESMI SEKOLAH) */}
-      <section className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                AKU LULUS
-              </span>
-            </div>
-            <h2 className="text-2xl font-black text-[#0F172A] tracking-tight">
-              Asesmen Resmi Sekolah
-            </h2>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">
-              Ujian dan Ulangan resmi bersifat privat sekolah. Jadwal dan status pengerjaan (ON/OFF) dikendalikan penuh oleh Admin / Guru.
-            </p>
-          </div>
+                {/* Card Body */}
+                <div className="pt-9 pb-5 px-4 min-h-[95px] flex flex-col justify-between bg-white" />
 
-          <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
-            <span className="px-3.5 py-1.5 rounded-xl bg-slate-100 border border-slate-200/80 text-slate-700 text-xs font-bold shadow-2xs">
-              25 Asesmen Terjadwal
-            </span>
-            <Link
-              href="/ujian"
-              className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200/80 text-slate-800 text-xs font-bold transition flex items-center gap-1.5 shadow-2xs cursor-pointer"
-            >
-              <span>Riwayat Ujian</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {/* Card 1: ULANGAN */}
-          {(() => {
-            const activeCount = allUlanganItems.filter((e) => e.status === "dipublikasi").length;
-            const isAnyActive = activeCount > 0;
-
-            return (
-              <div
-                onClick={isAnyActive ? () => setSelectedCategoryModal("ulangan") : undefined}
-                className={`saas-card rounded-3xl p-6 sm:p-7 border transition-all duration-200 flex flex-col justify-between space-y-4 ${
-                  isAnyActive
-                    ? "bg-white border-slate-200/90 hover:border-indigo-400 hover:shadow-md cursor-pointer group"
-                    : "bg-slate-50/90 border-slate-200/90 text-slate-400 cursor-not-allowed select-none opacity-85"
-                }`}
-              >
-                <div className="space-y-4">
-                  {/* Top Bar: Icon & Badges */}
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center font-bold text-indigo-600 shadow-2xs group-hover:scale-105 transition">
-                      <BookOpen className="w-6 h-6" />
-                    </div>
-
-                    <div className="flex flex-col items-end gap-1.5">
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 border border-slate-200/80 text-slate-700 text-[10px] sm:text-[11px] font-extrabold tracking-wide">
-                        <Lock className="w-3 h-3 text-slate-500" />
-                        <span>Privat Sekolah</span>
-                      </span>
-
-                      {isAnyActive ? (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] sm:text-[11px] font-extrabold tracking-wide shadow-2xs">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                          <span>Akses Terbuka (ON)</span>
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-500 text-[10px] sm:text-[11px] font-extrabold tracking-wide">
-                          <Lock className="w-3 h-3 text-slate-400" />
-                          <span>Akses Ditutup (OFF)</span>
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Title & Subtitle */}
-                  <div>
-                    <h3 className="text-xl font-black text-[#0F172A] tracking-tight">
-                      Ulangan Harian
-                    </h3>
-                    <p className="text-xs text-slate-500 font-medium mt-0.5">
-                      Asesmen formatif berkala materi tiap bab
-                    </p>
-                  </div>
-
-                  {/* Description Paragraph */}
-                  <p className="text-xs text-slate-600 leading-relaxed font-normal">
-                    Evaluasi pemahaman kompetensi materi per bab pembelajaran. Akses pengerjaan dikontrol resmi (ON/OFF) oleh guru mata pelajaran.
-                  </p>
-
-                  {/* Durasi & KKM Box */}
-                  <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-50/80 border border-slate-100 grid grid-cols-2 gap-4">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-xl bg-white border border-slate-200/80 flex items-center justify-center shrink-0 shadow-2xs">
-                        <Clock className="w-4 h-4 text-indigo-600" />
-                      </div>
-                      <div>
-                        <div className="text-[10px] text-slate-400 font-medium">Durasi Pengerjaan</div>
-                        <div className="font-extrabold text-[#0F172A] text-xs sm:text-sm">60 Menit</div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-xl bg-white border border-slate-200/80 flex items-center justify-center shrink-0 shadow-2xs">
-                        <Award className="w-4 h-4 text-indigo-600" />
-                      </div>
-                      <div>
-                        <div className="text-[10px] text-slate-400 font-medium">Standar KKM</div>
-                        <div className="font-extrabold text-[#0F172A] text-xs sm:text-sm">Nilai 75</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Mapel Pills Row */}
-                  <div className="flex items-center gap-2 flex-wrap pt-0.5">
-                    <span className="text-xs text-slate-400 font-medium mr-0.5">Mapel:</span>
-                    <span className="px-3 py-1 rounded-xl bg-slate-100 border border-slate-200/70 text-slate-700 text-xs font-bold">
-                      Matematika
-                    </span>
-                    <span className="px-3 py-1 rounded-xl bg-slate-100 border border-slate-200/70 text-slate-700 text-xs font-bold">
-                      B. Indonesia
-                    </span>
-                    <span className="px-3 py-1 rounded-xl bg-slate-100 border border-slate-200/70 text-slate-700 text-xs font-bold">
-                      B. Inggris
-                    </span>
-                  </div>
-                </div>
-
-                {/* Footer Button: Hijau diganti warna button yang ada di aku lulus (Indigo) */}
-                {isAnyActive ? (
+                {/* Card Footer with 3 Google Classroom Icons */}
+                <div className="border-t border-slate-100 py-2.5 px-4 flex items-center justify-end gap-3 text-slate-500 bg-white relative">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onOpenClass) onOpenClass(cls.id);
+                      else onNavigateToCourses();
+                    }}
+                    title="Buka tugas Anda untuk kelas ini"
+                    className="p-1.5 rounded-full hover:bg-slate-100 hover:text-slate-800 transition cursor-pointer"
+                  >
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <rect x="3" y="4" width="18" height="16" rx="2" />
+                      <circle cx="12" cy="10" r="3" />
+                      <path d="M7 17c0-2 2-3 5-3s5 1 5 3" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onOpenClass) onOpenClass(cls.id);
+                      else onNavigateToCourses();
+                    }}
+                    title="Buka folder kelas di Google Drive"
+                    className="p-1.5 rounded-full hover:bg-slate-100 hover:text-slate-800 transition cursor-pointer"
+                  >
+                    <Folder className="w-5 h-5" />
+                  </button>
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setSelectedCategoryModal("ulangan");
+                      setOpenCardMenu(isMenuOpen ? null : cls.id);
                     }}
-                    className="w-full py-3.5 px-5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs sm:text-sm flex items-center justify-between transition cursor-pointer shadow-xs active:scale-98"
+                    title="Opsi Lainnya"
+                    className="p-1.5 rounded-full hover:bg-slate-100 hover:text-slate-800 transition cursor-pointer"
                   >
-                    <div className="flex items-center gap-2">
-                      <PlayCircle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-300 shrink-0" />
-                      <span>Buka Daftar Ulangan (19 Mapel)</span>
-                    </div>
-                    <ChevronRight className="w-4 h-4 transition group-hover:translate-x-0.5" />
+                    <MoreVertical className="w-5 h-5" />
                   </button>
-                ) : (
-                  <button
-                    type="button"
-                    disabled
-                    className="w-full py-3.5 px-5 rounded-2xl bg-slate-200 border border-slate-300 text-slate-500 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 cursor-not-allowed select-none"
-                  >
-                    <Lock className="w-4 h-4 text-slate-500" />
-                    <span>Akses Ditutup oleh Guru</span>
-                  </button>
-                )}
+
+                  {/* Dropdown Menu (Matching Image 2) */}
+                  {isMenuOpen && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-20"
+                        onClick={() => setOpenCardMenu(null)}
+                      />
+                      <div className="absolute right-3 bottom-11 w-44 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-30 text-xs font-medium text-slate-700 animate-in fade-in zoom-in-95 duration-100">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOpenCardMenu(null);
+                            alert(`Pindahkan urutan kelas: ${cls.nama_kelas}`);
+                          }}
+                          className="w-full text-left px-4 py-2 hover:bg-slate-50 transition cursor-pointer block"
+                        >
+                          Move
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOpenCardMenu(null);
+                            alert(`Kelas ${cls.nama_kelas} disembunyikan`);
+                          }}
+                          className="w-full text-left px-4 py-2 hover:bg-slate-50 transition cursor-pointer block"
+                        >
+                          Hide
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOpenCardMenu(null);
+                            alert(`Batalkan pendaftaran kelas: ${cls.nama_kelas}`);
+                          }}
+                          className="w-full text-left px-4 py-2 hover:bg-slate-50 transition cursor-pointer block"
+                        >
+                          Unenroll
+                        </button>
+                        <div className="my-1 border-t border-slate-100" />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOpenCardMenu(null);
+                            alert(`Laporkan penyalahgunaan kelas: ${cls.nama_kelas}`);
+                          }}
+                          className="w-full text-left px-4 py-2 hover:bg-slate-50 transition cursor-pointer block text-slate-700 hover:text-rose-600"
+                        >
+                          Report abuse
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             );
-          })()}
+          })}
+        </div>
+      </section>
 
-          {/* Card 2: UJIAN SEMESTER (PTS/PAS) */}
-          {(() => {
-            const activeCount = ujianList.filter((e) => e.status === "dipublikasi").length;
-            const isAnyActive = activeCount > 0;
-
-            return (
-              <div
-                onClick={isAnyActive ? () => setSelectedCategoryModal("ujian") : undefined}
-                className={`saas-card rounded-3xl p-6 sm:p-7 border transition-all duration-200 flex flex-col justify-between space-y-4 ${
-                  isAnyActive
-                    ? "bg-white border-slate-200/90 hover:border-slate-800 hover:shadow-md cursor-pointer group"
-                    : "bg-slate-50/90 border-slate-200/90 text-slate-400 cursor-not-allowed select-none opacity-85"
-                }`}
+      {/* MODAL GABUNG KELAS (+ ADD CLASS MODAL) */}
+      {isJoinClassModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-5 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="text-lg font-black text-slate-900 tracking-tight font-sans">
+                Gabung ke Kelas
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsJoinClassModalOpen(false)}
+                className="p-1 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
               >
-                <div className="space-y-4">
-                  {/* Top Bar: Icon & Badges */}
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-purple-50 border border-purple-100 flex items-center justify-center font-bold text-purple-600 shadow-2xs group-hover:scale-105 transition">
-                      <Award className="w-6 h-6" />
-                    </div>
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
-                    <div className="flex flex-col items-end gap-1.5">
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 border border-slate-200/80 text-slate-700 text-[10px] sm:text-[11px] font-extrabold tracking-wide">
-                        <Lock className="w-3 h-3 text-slate-500" />
-                        <span>Privat Sekolah</span>
-                      </span>
-
-                      {isAnyActive ? (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] sm:text-[11px] font-extrabold tracking-wide shadow-2xs">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                          <span>Akses Terbuka (ON)</span>
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-500 text-[10px] sm:text-[11px] font-extrabold tracking-wide">
-                          <Lock className="w-3 h-3 text-slate-400" />
-                          <span>Akses Ditutup (OFF)</span>
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Title & Subtitle */}
-                  <div>
-                    <h3 className="text-xl font-black text-[#0F172A] tracking-tight">
-                      Ujian Semester (PTS/PAS)
-                    </h3>
-                    <p className="text-xs text-slate-500 font-medium mt-0.5">
-                      Evaluasi sumatif resmi penilaian rapor
-                    </p>
-                  </div>
-
-                  {/* Description Paragraph */}
-                  <p className="text-xs text-slate-600 leading-relaxed font-normal">
-                    Evaluasi sumatif tengah dan akhir semester berbasis CBT terpadu. Hasil penilaian terekam otomatis ke dalam buku nilai rapor dan diawasi server.
-                  </p>
-
-                  {/* Durasi & KKM Box */}
-                  <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-50/80 border border-slate-100 grid grid-cols-2 gap-4">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-xl bg-white border border-slate-200/80 flex items-center justify-center shrink-0 shadow-2xs">
-                        <Clock className="w-4 h-4 text-purple-600" />
-                      </div>
-                      <div>
-                        <div className="text-[10px] text-slate-400 font-medium">Durasi Pengerjaan</div>
-                        <div className="font-extrabold text-[#0F172A] text-xs sm:text-sm">90 Menit</div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-xl bg-white border border-slate-200/80 flex items-center justify-center shrink-0 shadow-2xs">
-                        <Award className="w-4 h-4 text-purple-600" />
-                      </div>
-                      <div>
-                        <div className="text-[10px] text-slate-400 font-medium">Standar KKM</div>
-                        <div className="font-extrabold text-[#0F172A] text-xs sm:text-sm">Nilai 75</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Mapel Pills Row */}
-                  <div className="flex items-center gap-2 flex-wrap pt-0.5">
-                    <span className="text-xs text-slate-400 font-medium mr-0.5">Mapel:</span>
-                    <span className="px-3 py-1 rounded-xl bg-slate-100 border border-slate-200/70 text-slate-700 text-xs font-bold">
-                      Matematika
-                    </span>
-                    <span className="px-3 py-1 rounded-xl bg-slate-100 border border-slate-200/70 text-slate-700 text-xs font-bold">
-                      B. Indonesia
-                    </span>
-                    <span className="px-3 py-1 rounded-xl bg-slate-100 border border-slate-200/70 text-slate-700 text-xs font-bold">
-                      B. Inggris
-                    </span>
-                  </div>
+            <div className="space-y-3">
+              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs text-slate-600 space-y-1">
+                <div className="font-bold text-slate-900">Masuk sebagai:</div>
+                <div className="font-semibold text-blue-700">
+                  {studentName} ({studentName.toLowerCase().replace(/\s+/g, ".")}@sekolah.sch.id)
                 </div>
-
-                {/* Footer Button: Black/Navy button as in mockup */}
-                {isAnyActive ? (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedCategoryModal("ujian");
-                    }}
-                    className="w-full py-3.5 px-5 rounded-2xl bg-[#0F172A] hover:bg-slate-800 text-white font-extrabold text-xs sm:text-sm flex items-center justify-between transition cursor-pointer shadow-xs active:scale-98"
-                  >
-                    <div className="flex items-center gap-2">
-                      <PlayCircle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400 shrink-0" />
-                      <span>Buka Daftar Ujian (6 Mapel)</span>
-                    </div>
-                    <ChevronRight className="w-4 h-4 transition group-hover:translate-x-0.5" />
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    disabled
-                    className="w-full py-3.5 px-5 rounded-2xl bg-slate-200 border border-slate-300 text-slate-500 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 cursor-not-allowed select-none"
-                  >
-                    <Lock className="w-4 h-4 text-slate-500" />
-                    <span>Akses Ditutup oleh Guru</span>
-                  </button>
-                )}
+                <div className="text-[11px] text-slate-400">
+                  Untuk beralih akun, silakan gunakan menu akun profil.
+                </div>
               </div>
-            );
-          })()}
-        </div>
-      </section>
 
-      {/* 4. SECTION "KELAS AKTIF" (3 CORE SUBJECTS) */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-black text-[#0F172A] flex items-center gap-2">
-              <BookOpen className="w-5 h-5 text-blue-600" />
-              <span>Kelas Aktif</span>
-            </h2>
-            <p className="text-xs text-slate-500 font-medium">
-              3 Mata Pelajaran Utama Kelas 8. Klik kartu untuk langsung masuk ke materi dan bab di tab Belajar.
-            </p>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700 block">
+                  Kode Kelas
+                </label>
+                <p className="text-[11px] text-slate-500">
+                  Mintalah kode kelas kepada guru pengampu Anda, lalu masukkan di bawah ini.
+                </p>
+                <input
+                  type="text"
+                  value={classCodeInput}
+                  onChange={(e) => setClassCodeInput(e.target.value)}
+                  placeholder="Contoh: sci-8a-2026"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 text-xs font-mono tracking-wider transition"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsJoinClassModalOpen(false);
+                  setClassCodeInput("");
+                }}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!classCodeInput.trim()) {
+                    alert("Masukkan kode kelas terlebih dahulu!");
+                    return;
+                  }
+                  alert(`Berhasil mengirim permintaan bergabung dengan kode kelas: ${classCodeInput}`);
+                  setIsJoinClassModalOpen(false);
+                  setClassCodeInput("");
+                }}
+                className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition shadow-xs cursor-pointer"
+              >
+                Gabung
+              </button>
+            </div>
           </div>
-          <Link
-            href="/belajar"
-            className="px-4 py-2 rounded-xl bg-[#0F172A] text-white hover:bg-slate-800 text-xs font-bold transition cursor-pointer shadow-xs"
-          >
-            Buka Halaman Belajar
-          </Link>
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {/* Card 1: MATEMATIKA */}
-          <Link
-            href={`/belajar?mapel=Matematika${mathChapters[0]?.id ? `&babId=${mathChapters[0].id}` : ""}`}
-            className="saas-card saas-card-hover rounded-3xl p-6 border border-slate-200 hover:border-blue-400 flex flex-col justify-between space-y-5 shadow-xs hover:shadow-md group bg-white cursor-pointer transition-all duration-200"
-          >
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center font-bold shadow-xs group-hover:scale-105 transition">
-                  <BookOpen className="w-5 h-5" />
-                </div>
-                <span className="text-[10px] font-extrabold px-3 py-1 rounded-full bg-blue-50 text-blue-700 uppercase tracking-wider">
-                  6 Bab • 2 Semester
-                </span>
-              </div>
-
-              <div>
-                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  Mata Pelajaran Wajib
-                </div>
-                <h3 className="text-lg font-black text-[#0F172A] group-hover:text-blue-600 transition">
-                  Matematika
-                </h3>
-                <p className="text-xs text-slate-600 font-medium mt-1">
-                  Guru: <strong>Ibu Siti Rahmawati, M.Pd.</strong>
-                </p>
-                <div className="mt-2 text-xs text-slate-500 font-medium">
-                  Materi Terakhir:{" "}
-                  <span className="text-[#0F172A] font-bold">
-                    {mathChapters[0]?.judul || "Bab 1: Bilangan Berpangkat"}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-600">
-                Ulangan Harian 1 Aktif
-              </span>
-              <span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-blue-600 group-hover:translate-x-1 transition">
-                <span>Buka Belajar Bab</span>
-                <ChevronRight className="w-4 h-4" />
-              </span>
-            </div>
-          </Link>
-
-          {/* Card 2: BAHASA INGGRIS */}
-          <Link
-            href={`/belajar?mapel=Bahasa%20Inggris${englishChapters[0]?.id ? `&babId=${englishChapters[0].id}` : ""}`}
-            className="saas-card saas-card-hover rounded-3xl p-6 border border-slate-200 hover:border-indigo-400 flex flex-col justify-between space-y-5 shadow-xs hover:shadow-md group bg-white cursor-pointer transition-all duration-200"
-          >
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-200 flex items-center justify-center font-bold shadow-xs group-hover:scale-105 transition">
-                  <Globe className="w-5 h-5" />
-                </div>
-                <span className="text-[10px] font-extrabold px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 uppercase tracking-wider">
-                  6 Bab • 2 Semester
-                </span>
-              </div>
-
-              <div>
-                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  Mata Pelajaran Wajib
-                </div>
-                <h3 className="text-lg font-black text-[#0F172A] group-hover:text-indigo-600 transition">
-                  Bahasa Inggris
-                </h3>
-                <p className="text-xs text-slate-600 font-medium mt-1">
-                  Guru: <strong>Budi Santoso, S.Pd.</strong>
-                </p>
-                <div className="mt-2 text-xs text-slate-500 font-medium">
-                  Materi Terakhir:{" "}
-                  <span className="text-[#0F172A] font-bold">
-                    {englishChapters[0]?.judul || "Bab 1: Congratulation and Compliment"}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-600">
-                PTS Ganjil Tersedia
-              </span>
-              <span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-indigo-600 group-hover:translate-x-1 transition">
-                <span>Buka Belajar Bab</span>
-                <ChevronRight className="w-4 h-4" />
-              </span>
-            </div>
-          </Link>
-
-          {/* Card 3: BAHASA INDONESIA */}
-          <Link
-            href={`/belajar?mapel=Bahasa%20Indonesia${indonesianChapters[0]?.id ? `&babId=${indonesianChapters[0].id}` : ""}`}
-            className="saas-card saas-card-hover rounded-3xl p-6 border border-slate-200 hover:border-emerald-400 flex flex-col justify-between space-y-5 shadow-xs hover:shadow-md group bg-white cursor-pointer transition-all duration-200"
-          >
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center font-bold shadow-xs group-hover:scale-105 transition">
-                  <FileText className="w-5 h-5" />
-                </div>
-                <span className="text-[10px] font-extrabold px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 uppercase tracking-wider">
-                  6 Bab • 2 Semester
-                </span>
-              </div>
-
-              <div>
-                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  Mata Pelajaran Wajib
-                </div>
-                <h3 className="text-lg font-black text-[#0F172A] group-hover:text-emerald-600 transition">
-                  Bahasa Indonesia
-                </h3>
-                <p className="text-xs text-slate-600 font-medium mt-1">
-                  Guru: <strong>Dra. Nurul Hidayah</strong>
-                </p>
-                <div className="mt-2 text-xs text-slate-500 font-medium">
-                  Materi Terakhir:{" "}
-                  <span className="text-[#0F172A] font-bold">
-                    {indonesianChapters[0]?.judul || "Bab 1: Menulis Teks LHO"}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-600">
-                Tugas Proyek LHO
-              </span>
-              <span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-emerald-600 group-hover:translate-x-1 transition">
-                <span>Buka Belajar Bab</span>
-                <ChevronRight className="w-4 h-4" />
-              </span>
-            </div>
-          </Link>
-        </div>
-      </section>
-
-      {/* 6. MODAL OVERLAY ASESMEN (ULANGAN, UJIAN, SIMULASI) - REUSABLE COMPONENT */}
-      <AsesmenOverlayModal
-        isOpen={Boolean(selectedCategoryModal)}
-        category={selectedCategoryModal}
-        onClose={() => setSelectedCategoryModal(null)}
-        ulanganList={allUlanganItems}
-        ujianList={ujianList}
-        sekolahNama={sekolahData?.nama}
-        tingkatKelas={namaKelas}
-        onCategoryChange={(cat) => setSelectedCategoryModal(cat)}
-      />
-    </main>
+      )}
+    </div>
   );
 }

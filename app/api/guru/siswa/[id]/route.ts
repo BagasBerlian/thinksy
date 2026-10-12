@@ -36,7 +36,7 @@ export async function GET(
     // 2. Fetch Student Profile
     const { data: studentProfil, error: profErr } = await adminDb
       .from("profil")
-      .select("id, nama_lengkap, email, poin, streak, peran, sekolah_id, dibuat_pada")
+      .select("id, nama_lengkap, email, nisn, poin, streak, peran, sekolah_id, dibuat_pada")
       .eq("id", studentId)
       .single();
 
@@ -75,7 +75,8 @@ export async function GET(
           soal (
             pertanyaan,
             tipe_soal,
-            kunci_jawaban
+            kunci_jawaban,
+            pembahasan
           )
         `)
         .in("sesi_id", sessionIds);
@@ -124,8 +125,8 @@ export async function GET(
         id: studentProfil?.id || studentId,
         name: studentProfil?.nama_lengkap || studentProfil?.email?.split("@")[0] || "Ahmad Raihan",
         email: studentProfil?.email || "siswa@sekolah.sch.id",
-        nis: `192837${studentId.substring(0, 2)}`,
-        class: "Kelas 8A",
+        nis: studentProfil?.nisn || `192837${studentId.substring(0, 2)}`,
+        class: "Kelas 8",
         attendance: "98%",
         status: "Aktif",
         overallScore: Math.min(100, (studentProfil?.poin || 0) > 0 ? 75 + ((studentProfil?.poin || 0) % 25) : 82),

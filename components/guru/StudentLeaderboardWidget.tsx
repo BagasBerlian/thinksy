@@ -8,7 +8,6 @@ import {
   Search,
   RefreshCw,
   Award,
-  Sparkles,
   TrendingUp,
   AlertTriangle,
   CheckCircle2,
@@ -148,9 +147,7 @@ export default function StudentLeaderboardWidget() {
       : 0;
 
   return (
-    <div className="bg-white rounded-3xl border border-slate-200/90 p-6 sm:p-7 shadow-xs space-y-6 relative overflow-hidden">
-      {/* Top Gradient Ribbon */}
-      <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-amber-500 via-emerald-500 to-indigo-600" />
+    <div className="bg-white rounded-2xl border border-slate-200/90 p-6 sm:p-7 shadow-xs space-y-6 relative overflow-hidden">
 
       {/* Floating Toast Notification */}
       {toastMessage && (
@@ -168,10 +165,6 @@ export default function StudentLeaderboardWidget() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-black uppercase tracking-wider mb-1.5">
-            <Trophy className="w-3.5 h-3.5 text-amber-600" />
-            <span>Papan Peringkat & Keaktifan Real-Time</span>
-          </div>
           <h2 className="text-xl font-black text-[#0F172A] tracking-tight">
             Papan Peringkat & Keaktifan Siswa
           </h2>
@@ -232,7 +225,7 @@ export default function StudentLeaderboardWidget() {
         <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200 space-y-1">
           <div className="flex items-center justify-between text-emerald-800">
             <span className="text-[10px] font-black uppercase tracking-wider">Sangat Aktif</span>
-            <Sparkles className="w-4 h-4 text-emerald-600" />
+            <Award className="w-4 h-4 text-emerald-600" />
           </div>
           <div className="text-xl font-black text-emerald-900">{veryActiveCount} Siswa</div>
           <div className="text-[11px] font-semibold text-emerald-700">Poin &gt;= 100 XP</div>

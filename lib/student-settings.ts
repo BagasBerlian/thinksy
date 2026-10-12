@@ -11,6 +11,7 @@ export interface StudentCardProfile {
   agama: string;
   tahun_ajaran: string;
   foto_url: string;
+  is_locked?: boolean;
 }
 
 export type ThemeMode = "light" | "dark" | "dim";
@@ -37,11 +38,11 @@ export const THEME_COLOR_OPTIONS: {
   },
   {
     id: "purple",
-    label: "Ungu Amethyst",
-    hex: "#7C3AED",
-    bgHex: "#FAF5FF",
-    borderHex: "#E9D5FF",
-    description: "Warna Khas Sokratik AI Thinksy",
+    label: "Biru Oxford / Navy",
+    hex: "#1E3A8A",
+    bgHex: "#F0F4F8",
+    borderHex: "#BFDBFE",
+    description: "Format Standar Resmi Akademik",
   },
   {
     id: "emerald",
@@ -217,6 +218,48 @@ export function applyTheme(mode: ThemeMode, color: ThemeColorAccent): void {
     // Siarkan event perubahan
     window.dispatchEvent(
       new CustomEvent("thinksy_theme_change", { detail: { mode, color } })
+    );
+  } catch {}
+}
+
+export type SettingsLanguage = "id" | "en";
+
+export function getStoredLanguage(): SettingsLanguage {
+  if (typeof window === "undefined") return "id";
+  try {
+    const saved = localStorage.getItem("thinksy_language") as SettingsLanguage;
+    if (saved === "id" || saved === "en") return saved;
+  } catch {}
+  return "id";
+}
+
+export function saveStoredLanguage(lang: SettingsLanguage): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem("thinksy_language", lang);
+    window.dispatchEvent(
+      new CustomEvent("thinksy_language_change", { detail: lang })
+    );
+  } catch {}
+}
+
+export function isStoredProfileLocked(): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    const saved = localStorage.getItem("thinksy_profile_locked");
+    if (saved !== null) {
+      return saved === "true";
+    }
+  } catch {}
+  return true; // Default locked by guru for official school data
+}
+
+export function saveStoredProfileLocked(locked: boolean): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem("thinksy_profile_locked", String(locked));
+    window.dispatchEvent(
+      new CustomEvent("thinksy_profile_lock_change", { detail: locked })
     );
   } catch {}
 }

@@ -1,0 +1,15 @@
+{
+  "mode": "selamanya",
+  "schedule": {
+    "senin": "07:30",
+    "selasa": "07:30",
+    "rabu": "07:30",
+    "kamis": "07:30",
+    "jumat": "07:15"
+  },
+  "jam_masuk": "07:00",
+  "jam_terlambat": "07:15",
+  "temporaryDate": "2026-10-08",
+  "updatedAt": "2026-10-08T01:35:54.850Z",
+  "updatedBy": "Ibu Siti Rahmawati, M.Pd."
+}

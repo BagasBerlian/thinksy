@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import {
   Plus,
   X,
-  Sparkles,
   Bot,
   FileText,
   Save,
@@ -63,7 +62,7 @@ export default function FloatingGuruAssistantModal() {
         setNotes([
           {
             id: "note-1",
-            title: "Remedial Bab 4 Kelas 8A",
+            title: "Remedial Bab 4 Kelas 8",
             category: "Evaluasi Siswa",
             content: "Siapkan 5 soal remedial materi pemfaktoran kuadrat untuk Ahmad Raihan dan Eko Prasetyo pada hari Rabu jam ke-3.",
             createdAt: new Date().toLocaleDateString("id-ID"),
@@ -72,7 +71,7 @@ export default function FloatingGuruAssistantModal() {
             id: "note-2",
             title: "Materi Pengayaan Teorema Pythagoras",
             category: "Materi",
-            content: "Gunakan model pembelajaran berbasis masalah (PBL) untuk pembuktian segitiga siku-siku di kelas 8B.",
+            content: "Gunakan model pembelajaran berbasis masalah (PBL) untuk pembuktian segitiga siku-siku di kelas 8.",
             createdAt: new Date().toLocaleDateString("id-ID"),
           },
         ]);
@@ -239,20 +238,21 @@ export default function FloatingGuruAssistantModal() {
       {/* 1. FLOATING ACTION BUTTON (+) HANGING AT BOTTOM RIGHT */}
       <div className="fixed bottom-6 right-6 z-40">
         <button
+          type="button"
           onClick={() => setIsOpen(true)}
           aria-label="Buka AI Pembuat Soal & Catatan Guru"
-          className="group relative flex items-center gap-3 bg-gradient-to-r from-[#0F172A] via-slate-900 to-[#0F172A] text-white p-3.5 sm:px-5 sm:py-3.5 rounded-full shadow-2xl hover:shadow-amber-500/20 border border-amber-500/40 hover:border-amber-400 transition-all duration-300 hover:scale-105 cursor-pointer ring-4 ring-amber-500/10"
+          className="group relative flex items-center gap-3 bg-zinc-950 text-white p-3 sm:px-4 sm:py-2.5 border border-zinc-950 hover:bg-zinc-800 transition-colors cursor-pointer font-mono shadow-none"
         >
-          <div className="w-8 h-8 rounded-full bg-amber-500 text-slate-950 flex items-center justify-center font-extrabold shadow-md group-hover:rotate-90 transition-transform duration-300 shrink-0">
-            <Plus className="w-5 h-5 stroke-[3]" />
+          <div className="w-7 h-7 bg-white text-zinc-950 flex items-center justify-center font-bold shrink-0">
+            <Plus className="w-4 h-4 stroke-[2.5]" />
           </div>
           <div className="text-left hidden sm:block pr-1">
-            <div className="text-xs font-extrabold text-white flex items-center gap-1.5 leading-tight">
-              <span>AI Pembuat Soal & Catatan</span>
-              <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+            <div className="text-xs font-bold text-white flex items-center gap-1.5 leading-tight uppercase tracking-wider">
+              <span>AI Soal & Catatan</span>
+              <Bot className="w-3.5 h-3.5 text-zinc-400" />
             </div>
-            <div className="text-[10px] text-amber-400 font-bold leading-tight">
-              Asisten Guru Full-Screen
+            <div className="text-[10px] text-zinc-400 font-mono leading-tight">
+              Asisten Pengajar
             </div>
           </div>
         </button>
@@ -260,15 +260,19 @@ export default function FloatingGuruAssistantModal() {
 
       {/* 2. FULL SCREEN POP-UP MODAL */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-2 sm:p-6 animate-in fade-in duration-200">
-          <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full h-full max-w-7xl max-h-[96vh] flex flex-col overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-2 sm:p-4 animate-in fade-in duration-150 font-mono">
+          <div className="bg-white border border-zinc-950 shadow-none w-full h-full max-w-7xl max-h-[96vh] flex flex-col overflow-hidden">
             {/* Toast Notification */}
             {notification && (
-              <div className="absolute top-5 right-5 z-50 flex items-center gap-3 bg-[#0F172A] text-white px-5 py-3.5 rounded-2xl shadow-2xl border border-amber-500/40 animate-in fade-in slide-in-from-top duration-200">
-                <CheckCircle2 className="w-5 h-5 text-amber-400 shrink-0" />
-                <span className="text-xs font-bold">{notification}</span>
-                <button onClick={() => setNotification(null)} className="text-slate-400 hover:text-white ml-2">
-                  <X className="w-4 h-4" />
+              <div className="absolute top-5 right-5 z-50 flex items-center gap-3 bg-zinc-900 text-white px-4 py-2.5 border border-zinc-700 shadow-none animate-in fade-in text-xs font-mono font-bold">
+                <CheckCircle2 className="w-4 h-4 text-white shrink-0" />
+                <span>{notification}</span>
+                <button
+                  type="button"
+                  onClick={() => setNotification(null)}
+                  className="text-zinc-400 hover:text-white ml-2"
+                >
+                  <X className="w-3.5 h-3.5" />
                 </button>
               </div>
             )}
@@ -299,7 +303,7 @@ export default function FloatingGuruAssistantModal() {
                     onClick={() => setActiveTab("ai_soal")}
                     className={`px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-2 transition cursor-pointer ${
                       activeTab === "ai_soal"
-                        ? "bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 shadow-md"
+                        ? "bg-amber-500 text-slate-950 font-black shadow-xs"
                         : "text-slate-400 hover:text-white"
                     }`}
                   >
@@ -310,7 +314,7 @@ export default function FloatingGuruAssistantModal() {
                     onClick={() => setActiveTab("catatan")}
                     className={`px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-2 transition cursor-pointer ${
                       activeTab === "catatan"
-                        ? "bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 shadow-md"
+                        ? "bg-amber-500 text-slate-950 font-black shadow-xs"
                         : "text-slate-400 hover:text-white"
                     }`}
                   >
@@ -339,9 +343,9 @@ export default function FloatingGuruAssistantModal() {
                   {/* Left Column: Form Parameters & Controls (5 cols) */}
                   <div className="lg:col-span-5 space-y-5 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs flex flex-col justify-between">
                     <form onSubmit={handleGenerateSoal} className="space-y-4">
-                      <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
-                        <Sparkles className="w-5 h-5 text-amber-500" />
-                        <h2 className="text-sm font-extrabold text-[#0F172A]">
+                      <div className="flex items-center gap-2 pb-3 border-b border-zinc-200">
+                        <Bot className="w-4 h-4 text-zinc-950" />
+                        <h2 className="text-xs font-bold text-zinc-950 uppercase tracking-wider font-mono">
                           Parameter Generator Soal AI
                         </h2>
                       </div>
@@ -446,7 +450,7 @@ export default function FloatingGuruAssistantModal() {
                       <button
                         type="submit"
                         disabled={isGenerating}
-                        className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-[#0F172A] via-slate-900 to-[#0F172A] hover:from-slate-800 hover:to-slate-900 text-white font-extrabold text-xs flex items-center justify-center gap-2.5 shadow-xl transition cursor-pointer disabled:opacity-50 border border-amber-500/30"
+                        className="w-full py-3.5 rounded-2xl bg-[#090D16] hover:bg-slate-900 text-white font-extrabold text-xs flex items-center justify-center gap-2.5 shadow-md transition cursor-pointer disabled:opacity-50 border border-slate-700"
                       >
                         {isGenerating ? (
                           <>
@@ -550,10 +554,10 @@ export default function FloatingGuruAssistantModal() {
                         )}
 
                         {/* Pembahasan & Solusi Langkah demi Langkah */}
-                        <div className="p-5 rounded-2xl bg-amber-50/70 border border-amber-200 space-y-2">
-                          <div className="text-xs font-extrabold text-amber-900 flex items-center gap-2">
-                            <Sparkles className="w-4 h-4 text-amber-600" />
-                            Pembahasan & Solusi Solusi Langkah-demi-Langkah:
+                        <div className="p-3 border border-zinc-300 bg-zinc-100 space-y-1.5 font-mono">
+                          <div className="text-xs font-bold text-zinc-950 flex items-center gap-2 uppercase tracking-wider">
+                            <FileText className="w-3.5 h-3.5 text-zinc-950" />
+                            Pembahasan & Solusi:
                           </div>
                           <div className="text-xs text-amber-950 font-medium leading-relaxed">
                             <MarkdownRenderer content={generatedDraft.pembahasan} />

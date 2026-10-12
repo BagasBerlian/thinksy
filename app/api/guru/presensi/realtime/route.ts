@@ -62,7 +62,7 @@ export async function GET(request: Request) {
     // 4. Map each student to rich attendance record
     const allMapped = (students || []).map((st: any, index: number) => {
       const pRecord = presensiMap.get(st.id);
-      const studentClass = studentClassMap.get(st.id) || (index % 3 === 0 ? "Kelas 8A" : index % 3 === 1 ? "Kelas 8B" : "Kelas 8C");
+      const studentClass = studentClassMap.get(st.id) || "Kelas 8";
 
       // Default photo based on gender/index
       const isFemale =

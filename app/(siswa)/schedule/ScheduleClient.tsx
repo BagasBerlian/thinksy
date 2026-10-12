@@ -137,9 +137,6 @@ export default function ScheduleClient({
         {/* Toggle Mode Banner */}
         <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200 mb-2">
-              <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Real-time Schedule Sync
-            </span>
             <h2 className="text-xl font-extrabold text-[#0F172A]">
               Agenda Pembelajaran Sekolah
             </h2>
