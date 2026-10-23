@@ -36,20 +36,6 @@ const SUBJECT_LIST = [
     icon: BookOpen,
     desc: "Evaluasi formatif bab: Bilangan Berpangkat, Teorema Pythagoras, SPLDV, Relasi & Fungsi.",
   },
-  {
-    key: "Bahasa Indonesia",
-    name: "Bahasa Indonesia",
-    code: "BIN-8",
-    icon: FileText,
-    desc: "Evaluasi formatif bab: Teks Laporan Hasil Observasi, Puisi Rakyat, Menulis Wacana & Kebahasaan.",
-  },
-  {
-    key: "Bahasa Inggris",
-    name: "Bahasa Inggris",
-    code: "ENG-8",
-    icon: Globe,
-    desc: "Evaluasi formatif bab: Descriptive Text, Daily Routine, Narrative Text, Grammar & Vocabulary.",
-  },
 ] as const;
 
 export default function RuangUlanganSubjectChaptersView({
@@ -59,8 +45,7 @@ export default function RuangUlanganSubjectChaptersView({
   onBackToHome,
   onSelectExamTab,
 }: RuangUlanganSubjectChaptersViewProps) {
-  // Requirement 2: Default to Matematika when tab "Ulangan" is opened
-  const [selectedSubject, setSelectedSubject] = useState<"Matematika" | "Bahasa Indonesia" | "Bahasa Inggris">("Matematika");
+  const [selectedSubject, setSelectedSubject] = useState<"Matematika">("Matematika");
   const [selectedSemester, setSelectedSemester] = useState<number>(1);
 
   const activeSubjectMeta =
@@ -232,6 +217,10 @@ export default function RuangUlanganSubjectChaptersView({
             (e) => (e.bab_id && e.bab_id === chap.id) || (e.judul && e.judul.toLowerCase().includes(chap.judul.toLowerCase()))
           );
 
+          const progressPercent = typeof chap.progress === "number" ? chap.progress : 0;
+          const chapterStatus: "belum" | "berjalan" | "selesai" =
+            progressPercent >= 100 ? "selesai" : progressPercent > 0 ? "berjalan" : "belum";
+
           return (
             <div
               key={chap.id}
@@ -239,26 +228,34 @@ export default function RuangUlanganSubjectChaptersView({
             >
               {/* Header Bab */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-slate-100">
-                <div className="flex items-start sm:items-center gap-3.5">
-                  <div className="w-11 h-11 rounded-2xl bg-blue-50 text-blue-700 border border-blue-200/80 flex items-center justify-center font-black text-sm shrink-0">
-                    Bab {chap.urutan || idx + 1}
-                  </div>
-                  <div>
-                    <h3 className="font-extrabold text-base sm:text-lg text-slate-900">
-                      {chap.judul}
-                    </h3>
-                    <p className="text-xs text-slate-500 font-normal mt-0.5 line-clamp-2">
-                      {chap.deskripsi || "Evaluasi formatif soal penalaran dan konsep materi kurikulum merdeka."}
-                    </p>
-                  </div>
+                <div>
+                  <h3 className="font-extrabold text-base sm:text-lg text-slate-900">
+                    {chap.judul}
+                  </h3>
+                  <p className="text-xs text-slate-500 font-normal mt-0.5 line-clamp-2">
+                    {chap.deskripsi || "Evaluasi formatif soal penalaran dan konsep materi kurikulum merdeka."}
+                  </p>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
+                  {/* Status Bab sesuai Modul MVP: Belum / Berjalan / Selesai */}
+                  {chapterStatus === "selesai" ? (
+                    <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1.5 shadow-2xs">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Selesai</span>
+                    </span>
+                  ) : chapterStatus === "berjalan" ? (
+                    <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-blue-100 text-blue-800 border border-blue-200 flex items-center gap-1.5 shadow-2xs">
+                      <Clock className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Sedang Berjalan ({progressPercent}%)</span>
+                    </span>
+                  ) : (
+                    <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200/70">
+                      Belum Dimulai
+                    </span>
+                  )}
                   <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                    Standar KKM: 75
-                  </span>
-                  <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
-                    Durasi: 45 Menit
+                    KKM 75
                   </span>
                 </div>
               </div>

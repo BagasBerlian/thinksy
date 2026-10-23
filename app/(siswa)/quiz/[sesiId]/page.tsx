@@ -72,17 +72,21 @@ export default async function QuizPage({
     babData = bData;
   }
 
-  // 4. Query Real Questions with DEVTOOLS PROTECTION (Strictly no keys/answers leaked)
+  // 4. Query Real Questions with Socratic Tutor support
   let query = adminDb
     .from("soal")
     .select(`
       id,
       pertanyaan,
       tipe_soal,
+      pembahasan,
+      kunci_jawaban,
       opsi_soal (
         id,
         teks_opsi,
-        urutan
+        urutan,
+        benar,
+        alasan_salah
       )
     `);
 
@@ -94,7 +98,7 @@ export default async function QuizPage({
     .order("dibuat_pada", { ascending: true })
     .limit(10);
 
-  // Fallback questions if chapter has no questions in database yet
+  // Fallback questions if chapter has no questions in database yet (Strictly without answer keys / explanations)
   const defaultSoalList: CleanQuizQuestion[] = generateChapterQuestions(
     babData?.judul || "Bab Pembelajaran",
     babData?.mapel || "Matematika",
@@ -107,23 +111,28 @@ export default async function QuizPage({
       id: o.id || `opt-${idx + 1}-${optIdx + 1}`,
       teksOpsi: o.teksOpsi,
     })),
+    hintSokratik: q.hintSokratik,
   }));
 
   const formattedSoalList: CleanQuizQuestion[] =
     dbSoalList && dbSoalList.length > 0
-      ? dbSoalList.map((item: any) => ({
-          id: item.id,
-          pertanyaan: item.pertanyaan,
-          tipeSoal: item.tipe_soal as "pilihan_ganda" | "esai",
-          opsiSoal: Array.isArray(item.opsi_soal)
-            ? [...item.opsi_soal]
-                .sort((a, b) => (a.urutan || 0) - (b.urutan || 0))
-                .map((o: any) => ({
-                  id: o.id,
-                  teksOpsi: o.teks_opsi,
-                }))
-            : [],
-        }))
+      ? dbSoalList.map((item: any, idx: number) => {
+          const matchingCurriculum = defaultSoalList[idx] || defaultSoalList.find((dq) => dq.pertanyaan === item.pertanyaan);
+          return {
+            id: item.id,
+            pertanyaan: item.pertanyaan,
+            tipeSoal: item.tipe_soal as "pilihan_ganda" | "esai",
+            opsiSoal: Array.isArray(item.opsi_soal)
+              ? [...item.opsi_soal]
+                  .sort((a, b) => (a.urutan || 0) - (b.urutan || 0))
+                  .map((o: any) => ({
+                    id: o.id,
+                    teksOpsi: o.teks_opsi,
+                  }))
+              : [],
+            hintSokratik: item.hint_sokratik || matchingCurriculum?.hintSokratik || undefined,
+          };
+        })
       : defaultSoalList;
 
   // 5. Query Existing Saved Answers for State Persistence across Refresh

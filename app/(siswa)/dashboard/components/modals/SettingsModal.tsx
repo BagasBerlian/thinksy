@@ -710,41 +710,7 @@ export default function SettingsModal({
                 </div>
               </div>
 
-              {/* 1. EMAIL */}
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-base font-medium text-slate-800 dark:text-slate-100">
-                    {dict.emailHeading}
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    {dict.emailSub}{" "}
-                    <a
-                      href="#learn-more"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        alert(
-                          language === "en"
-                            ? "Email notifications keep you informed about assignments, comments, and classroom activities."
-                            : "Notifikasi email membuat Anda selalu mengetahui tugas, komentar, dan aktivitas kelas terbaru."
-                        );
-                      }}
-                      className="text-[#1967D2] hover:underline cursor-pointer"
-                    >
-                      {dict.learnMore}
-                    </a>
-                  </p>
-                </div>
-                <div className="flex items-center justify-between py-1">
-                  <span className="text-sm font-normal text-slate-800 dark:text-slate-200">
-                    {dict.allowEmail}
-                  </span>
-                  <ClassroomToggle
-                    id="toggle-allow-email"
-                    checked={allowEmailNotifications}
-                    onChange={(val) => setAllowEmailNotifications(val)}
-                  />
-                </div>
-              </div>
+
 
               {/* 2. COMMENTS */}
               <div
@@ -1117,8 +1083,8 @@ export default function SettingsModal({
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     {isProfileLockedByGuru
-                      ? "Data resmi Kartu Pelajar (Nama, Kelas, NISN, Jurusan, TTL, Agama) dikelola langsung oleh Guru melalui Dashboard Guru."
-                      : "Ubah data nama, kelas, NIS/NISN, serta jurusan tanpa menghapus format data resmi lainnya."}
+                      ? "Data resmi Kartu Pelajar (Nama, Kelas, NISN, Kurikulum/Fase, TTL, Agama) dikelola langsung oleh Guru melalui Dashboard Guru."
+                      : "Ubah data nama, kelas, NIS/NISN, serta kurikulum/fase tanpa menghapus format data resmi lainnya."}
                   </p>
                 </div>
               </div>
@@ -1148,7 +1114,7 @@ export default function SettingsModal({
                     disabled={isProfileLockedByGuru}
                     value={formData.nama_lengkap}
                     onChange={(e) => setFormData({ ...formData, nama_lengkap: e.target.value })}
-                    placeholder="Contoh: SYAA PX"
+                    placeholder="Masukkan nama lengkap siswa"
                     className={`w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-bold text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                       isProfileLockedByGuru ? "opacity-60 cursor-not-allowed bg-slate-100 dark:bg-slate-900" : ""
                     }`}
@@ -1186,17 +1152,17 @@ export default function SettingsModal({
                   )}
                 </div>
 
-                {/* Kompetensi Keahlian / Jurusan */}
+                {/* Program / Kurikulum */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                    Kompetensi Keahlian / Jurusan <span className="text-rose-500">*</span>
+                    Program / Kurikulum <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
                     disabled={isProfileLockedByGuru}
                     value={formData.jurusan}
                     onChange={(e) => setFormData({ ...formData, jurusan: e.target.value })}
-                    placeholder="Contoh: Teknik Komputer & Jaringan"
+                    placeholder="Contoh: Fase D (Kurikulum Merdeka)"
                     className={`w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-bold text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                       isProfileLockedByGuru ? "opacity-60 cursor-not-allowed bg-slate-100 dark:bg-slate-900" : ""
                     }`}

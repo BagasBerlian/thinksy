@@ -18,6 +18,7 @@ import {
   ArrowRight,
   Sparkles,
 } from "lucide-react";
+import { useRealtimeDashboard } from "@/hooks/useRealtimeDashboard";
 
 interface SoalItem {
   id: string;
@@ -37,6 +38,7 @@ interface SoalItem {
 }
 
 export default function DaftarSoalGuruPage() {
+  const { broadcastEvent } = useRealtimeDashboard();
   const [soalList, setSoalList] = useState<SoalItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<"semua" | "review" | "terbit" | "draft">("semua");
@@ -84,9 +86,19 @@ export default function DaftarSoalGuruPage() {
             babsMap.set(item.bab.id, item.bab.judul);
           }
         });
-        setAvailableBabs(
-          Array.from(babsMap.entries()).map(([id, judul]) => ({ id, judul }))
-        );
+        if (babsMap.size === 0) {
+          setAvailableBabs([
+            { id: "bab-1", judul: "Bab 1: Bilangan Berpangkat & Bentuk Akar" },
+            { id: "bab-2", judul: "Bab 2: Teorema Pythagoras" },
+            { id: "bab-3", judul: "Bab 3: Persamaan Linear Satu Variabel" },
+            { id: "bab-4", judul: "Bab 4: Relasi dan Fungsi" },
+            { id: "bab-5", judul: "Bab 5: Persamaan Garis Lurus" },
+          ]);
+        } else {
+          setAvailableBabs(
+            Array.from(babsMap.entries()).map(([id, judul]) => ({ id, judul }))
+          );
+        }
       }
     } catch (err) {
       console.error("Gagal memuat bank soal:", err);
@@ -109,6 +121,11 @@ export default function DaftarSoalGuruPage() {
         setSoalList((prev) =>
           prev.map((s) => (s.id === soalId ? { ...s, status_soal: "dipublikasi" } : s))
         );
+        broadcastEvent("SOAL_PUBLISHED", {
+          soalId,
+          judul: "Latihan Soal Baru Diterbitkan",
+          pesan: "Guru Matematika baru saja menerbitkan soal latihan baru di portal pembelajaran.",
+        });
       }
     } catch (err) {
       console.error("Gagal mempublikasikan soal:", err);

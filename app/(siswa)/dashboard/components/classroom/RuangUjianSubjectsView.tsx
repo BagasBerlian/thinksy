@@ -49,7 +49,7 @@ interface OfficialExamSubject {
   accentBorder: string;
 }
 
-// Requirement 3: EXACTLY 3 Mapel (Matematika, Bahasa Indonesia, Bahasa Inggris)
+// Asesmen Sumatif Resmi (Hanya Matematika Kelas 8 Fase D)
 const OFFICIAL_EXAM_SUBJECTS: OfficialExamSubject[] = [
   {
     id: "e5eebc99-9c0b-4ef8-bb6d-6bb9bd380a55",
@@ -65,36 +65,6 @@ const OFFICIAL_EXAM_SUBJECTS: OfficialExamSubject[] = [
     defaultToken: "MTK-PTS26",
     badgeColor: "bg-blue-50 text-blue-700 border-blue-200",
     accentBorder: "hover:border-blue-300",
-  },
-  {
-    id: "e6eebc99-9c0b-4ef8-bb6d-6bb9bd380a66",
-    key: "indonesia",
-    name: "Bahasa Indonesia",
-    code: "BIN-PTS8",
-    curriculum: "Kurikulum Merdeka • Fase D",
-    desc: "Asesmen sumatif resmi mata pelajaran Bahasa Indonesia mencakup Teks LHO, Analisis Wacana Kritis, Puisi Rakyat, dan Kebahasaan.",
-    durasi: 90,
-    kkm: 75,
-    totalSoal: 40,
-    icon: FileText,
-    defaultToken: "IND-PTS26",
-    badgeColor: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    accentBorder: "hover:border-emerald-300",
-  },
-  {
-    id: "e2eebc99-9c0b-4ef8-bb6d-6bb9bd380a22",
-    key: "inggris",
-    name: "Bahasa Inggris",
-    code: "ENG-PTS8",
-    curriculum: "Kurikulum Merdeka • Fase D",
-    desc: "Asesmen sumatif resmi mata pelajaran Bahasa Inggris mencakup Reading Comprehension, Functional Text, Grammar, and Vocabulary.",
-    durasi: 90,
-    kkm: 75,
-    totalSoal: 40,
-    icon: Globe,
-    defaultToken: "ENG-PTS26",
-    badgeColor: "bg-purple-50 text-purple-700 border-purple-200",
-    accentBorder: "hover:border-purple-300",
   },
 ];
 

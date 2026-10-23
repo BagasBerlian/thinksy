@@ -188,7 +188,7 @@ export async function POST(req: Request) {
       .eq("id", user.id)
       .single();
 
-    if (!profil || !["guru", "admin_sekolah", "super_admin", "superadmin"].includes(profil.peran)) {
+    if (!profil || profil.peran !== "guru") {
       return NextResponse.json({ error: "Akses ditolak" }, { status: 403 });
     }
 

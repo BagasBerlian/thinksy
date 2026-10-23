@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, TriangleAlert, X } from "lucide-react";
+import { CheckCircle2, TriangleAlert, Bell, X } from "lucide-react";
 import { ToastNotificationData } from "../../types";
 
 interface ToastNotificationProps {
@@ -15,12 +15,15 @@ export default function ToastNotification({
   if (!notification?.show) return null;
 
   const isAlpha = notification.type === "alpha";
+  const isWarning = notification.type === "warning";
 
   return (
     <div
       className={`fixed top-5 right-5 z-50 max-w-sm w-full bg-[#0F172A] text-white rounded-2xl p-4 border shadow-2xl animate-in slide-in-from-top-5 duration-300 flex items-start space-x-3 ${
         isAlpha
           ? "border-rose-500/70 ring-1 ring-rose-500/40"
+          : isWarning
+          ? "border-amber-500/70 ring-1 ring-amber-500/40"
           : "border-emerald-500/50 ring-1 ring-emerald-500/30"
       }`}
     >
@@ -28,11 +31,15 @@ export default function ToastNotification({
         className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${
           isAlpha
             ? "bg-rose-500/20 text-rose-400 border-rose-500/30"
+            : isWarning
+            ? "bg-amber-500/20 text-amber-400 border-amber-500/30"
             : "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
         }`}
       >
         {isAlpha ? (
           <TriangleAlert className="w-5 h-5 text-rose-400" />
+        ) : isWarning ? (
+          <Bell className="w-5 h-5 text-amber-400 animate-bounce" />
         ) : (
           <CheckCircle2 className="w-5 h-5 text-emerald-400" />
         )}
@@ -42,14 +49,22 @@ export default function ToastNotification({
         <div className="flex items-center justify-between">
           <h4
             className={`text-xs font-extrabold ${
-              isAlpha ? "text-rose-300" : "text-white"
+              isAlpha
+                ? "text-rose-300"
+                : isWarning
+                ? "text-amber-300"
+                : "text-white"
             }`}
           >
             {notification.title}
           </h4>
           <span
             className={`text-[10px] font-semibold ${
-              isAlpha ? "text-rose-400" : "text-emerald-400"
+              isAlpha
+                ? "text-rose-400"
+                : isWarning
+                ? "text-amber-400"
+                : "text-emerald-400"
             }`}
           >
             {notification.time}

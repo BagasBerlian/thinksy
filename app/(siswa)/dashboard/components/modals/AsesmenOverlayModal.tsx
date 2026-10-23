@@ -83,12 +83,10 @@ export const DEFAULT_SIMULASI_MODULES = [
 
 export function normalizeToCoreMapel(
   m?: string | null
-): "Matematika" | "Bahasa Indonesia" | "Bahasa Inggris" | null {
-  if (!m) return null;
+): "Matematika" | null {
+  if (!m) return "Matematika";
   const s = m.toLowerCase();
   if (s.includes("matematika") || s.includes("math") || s === "mtk") return "Matematika";
-  if (s.includes("indonesia") || s === "bindo") return "Bahasa Indonesia";
-  if (s.includes("inggris") || s.includes("english") || s === "bing") return "Bahasa Inggris";
   return null;
 }
 
@@ -135,13 +133,8 @@ export function buildAllUlanganItems(
 
   const mapelOrder: Record<string, number> = {
     Matematika: 1,
-    "Bahasa Indonesia": 2,
-    "Bahasa Inggris": 3,
   };
   list.sort((a, b) => {
-    const orderA = mapelOrder[a.mapel] || 99;
-    const orderB = mapelOrder[b.mapel] || 99;
-    if (orderA !== orderB) return orderA - orderB;
     return a.judul.localeCompare(b.judul, undefined, { numeric: true });
   });
 
@@ -171,36 +164,6 @@ export function buildAllUjianItems(exams: any[] = []): UjianItem[] {
       sessionStatus: "belum_mulai",
       score: null,
     },
-    {
-      id: "e6eebc99-9c0b-4ef8-bb6d-6bb9bd380a66",
-      judul: "Penilaian Tengah Semester (PTS) Bahasa Indonesia",
-      deskripsi: "Asesmen sumatif resmi tengah semester mata pelajaran Bahasa Indonesia.",
-      mapel: "Bahasa Indonesia",
-      durasi_menit: 90,
-      passing_grade: 75,
-      waktu_mulai: new Date().toISOString(),
-      waktu_berakhir: new Date(Date.now() + 30 * 86400000).toISOString(),
-      status: "dipublikasi",
-      tipe: "ujian",
-      token: "12345",
-      sessionStatus: "belum_mulai",
-      score: null,
-    },
-    {
-      id: "e2eebc99-9c0b-4ef8-bb6d-6bb9bd380a22",
-      judul: "Penilaian Tengah Semester (PTS) Bahasa Inggris",
-      deskripsi: "Asesmen sumatif resmi tengah semester mata pelajaran Bahasa Inggris.",
-      mapel: "Bahasa Inggris",
-      durasi_menit: 90,
-      passing_grade: 75,
-      waktu_mulai: new Date().toISOString(),
-      waktu_berakhir: new Date(Date.now() + 30 * 86400000).toISOString(),
-      status: "dipublikasi",
-      tipe: "ujian",
-      token: "12345",
-      sessionStatus: "belum_mulai",
-      score: null,
-    },
   ];
 }
 
@@ -213,7 +176,7 @@ export default function AsesmenOverlayModal({
   simulasiList = DEFAULT_SIMULASI_MODULES,
   allChapters = [],
   examsData = [],
-  sekolahNama = "SMK Muhammadiyah Pakem",
+  sekolahNama = "SMK Muhammadiyah 1",
   tingkatKelas = "Kelas 8 SMP",
   onCategoryChange,
 }: AsesmenOverlayModalProps) {
@@ -270,7 +233,7 @@ export default function AsesmenOverlayModal({
 
   // Mapel pill options
   const ulanganMapels = useMemo(() => {
-    return ["Semua", "Matematika", "Bahasa Indonesia", "Bahasa Inggris"];
+    return ["Matematika"];
   }, []);
 
   // Filtered Ulangan
@@ -347,7 +310,7 @@ export default function AsesmenOverlayModal({
       } else {
         setTokenError(
           data.error ||
-            "Password / Token salah! Dapatkan password resmi dari Admin Sekolah atau Pengawas (Password sementara: 12345)."
+            "Password / Token salah! Dapatkan password resmi dari Guru atau Pengawas (Password sementara: 12345)."
         );
       }
     } catch (err: any) {
@@ -587,7 +550,7 @@ export default function AsesmenOverlayModal({
               MATA PELAJARAN UJIAN RESMI TERSEDIA
             </div>
             <div className="space-y-3.5">
-              {["Matematika", "Bahasa Indonesia", "Bahasa Inggris"].map((m) => {
+              {["Matematika"].map((m) => {
                 const exam =
                   ujianList.find((e) =>
                     e.mapel?.toLowerCase().includes(m.toLowerCase())
@@ -1129,7 +1092,7 @@ export default function AsesmenOverlayModal({
             </div>
 
             <p className="text-xs text-slate-500 leading-relaxed font-normal">
-              Ujian resmi bersifat privat sekolah. Silakan masukkan password / kode token yang didapatkan dari Admin Sekolah atau Pengawas Ruang sebelum membuka lembar soal full screen.
+              Ujian resmi bersifat privat sekolah. Silakan masukkan password / kode token yang didapatkan dari Guru atau Pengawas Ruang sebelum membuka lembar soal full screen.
             </p>
 
             {/* Input Password / Token */}

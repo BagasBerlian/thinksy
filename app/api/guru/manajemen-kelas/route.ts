@@ -13,7 +13,7 @@ export async function GET(request: Request) {
       email: "siti.rahmawati@sekolah.sch.id",
       telepon: "+62 812-3456-7890",
       foto: "/images/foto-guru.jpg",
-      bio: "Wali Kelas 8 & Guru Penggerak SMKS Muhammadiyah Pakem. Berpengalaman 14 tahun mengajar Matematika berbasis penalaran kritis Sokratik.",
+      bio: "Wali Kelas 8 & Guru Penggerak SMK Muhammadiyah 1. Berpengalaman 14 tahun mengajar Matematika berbasis penalaran kritis Sokratik.",
     };
 
     // 2. Fetch single main "Kelas 8" from Supabase
@@ -239,7 +239,7 @@ export async function GET(request: Request) {
     const primaryClass = {
       id: mainKelas.id,
       nama_kelas: "Kelas 8",
-      sekolah: "SMKS Muhammadiyah Pakem",
+      sekolah: "SMK Muhammadiyah 1",
       wali_kelas: waliKelasProfile,
       total_siswa: detailedStudents.length,
       rata_rata_kehadiran: "97.5%",
@@ -265,6 +265,7 @@ export async function GET(request: Request) {
       kelas_utama: primaryClass,
       kelas_list: [primaryClass], // Only single "Kelas 8"
       hasil_keseluruhan_siswa: detailedStudents,
+      siswa: detailedStudents,
       mapel_aktif: formattedMapelAktif,
     });
   } catch (err: any) {

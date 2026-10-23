@@ -102,7 +102,7 @@ export async function POST(request: Request) {
 
       const cleanName = nama_mapel.trim();
       const cleanKode = (kode_mapel || cleanName.substring(0, 3).toUpperCase() + "-8").trim();
-      const cleanGuru = (guru_pengampu || "Guru Pengampu SMKS Muhammadiyah Pakem").trim();
+      const cleanGuru = (guru_pengampu || "Guru Pengampu SMK Muhammadiyah 1").trim();
 
       // Check max urutan
       const { data: maxOrder } = await adminDb

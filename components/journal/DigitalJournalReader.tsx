@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
-  ArrowLeft,
   BookOpen,
   ChevronLeft,
   ChevronRight,
@@ -26,6 +25,8 @@ import {
   Plus,
   HelpCircle,
   Flag,
+  User,
+  Underline,
 } from "lucide-react";
 import MarkdownRenderer from "@/components/materi/MarkdownRenderer";
 
@@ -163,6 +164,83 @@ export default function DigitalJournalReader({
     } catch {}
   };
 
+  // Underline Feature State (Menggantikan tema, Aa, dan catatan)
+  const [isUnderlineMode, setIsUnderlineMode] = useState(false);
+  const [underlinesCount, setUnderlinesCount] = useState(0);
+
+  useEffect(() => {
+    try {
+      const key = `thinksy_journal_underlines_${babId}_${currentPage?.id || currentPageIndex}`;
+      const saved = localStorage.getItem(key);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) setUnderlinesCount(parsed.length);
+      } else {
+        setUnderlinesCount(0);
+      }
+    } catch {}
+  }, [babId, currentPage?.id, currentPageIndex]);
+
+  const saveCurrentUnderlines = () => {
+    try {
+      if (!contentRef.current) return;
+      const elements = contentRef.current.querySelectorAll("[data-thinksy-underline='true']");
+      setUnderlinesCount(elements.length);
+      const texts = Array.from(elements).map((el) => el.textContent || "").filter(Boolean);
+      const key = `thinksy_journal_underlines_${babId}_${currentPage?.id || currentPageIndex}`;
+      localStorage.setItem(key, JSON.stringify(texts));
+    } catch {}
+  };
+
+  const handleApplyUnderline = () => {
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
+      setIsUnderlineMode((prev) => {
+        const next = !prev;
+        showToast(
+          next
+            ? "✏️ Mode Garis Bawahi AKTIF: Sorot teks materi untuk menggarisbawahi!"
+            : "Mode Garis Bawahi dinonaktifkan."
+        );
+        return next;
+      });
+      return;
+    }
+
+    const range = selection.getRangeAt(0);
+    const selectedContent = selection.toString().trim();
+    if (!selectedContent) return;
+
+    try {
+      const span = document.createElement("span");
+      span.className =
+        "underline decoration-blue-600 decoration-2 underline-offset-4 bg-blue-50/70 dark:bg-blue-900/40 text-blue-950 dark:text-blue-100 rounded-xs px-0.5 font-medium transition cursor-pointer hover:opacity-80";
+      span.setAttribute("data-thinksy-underline", "true");
+      span.setAttribute("title", "Klik untuk menghapus garis bawah");
+      span.onclick = (e) => {
+        e.stopPropagation();
+        const parent = span.parentNode;
+        if (parent) {
+          while (span.firstChild) {
+            parent.insertBefore(span.firstChild, span);
+          }
+          parent.removeChild(span);
+          saveCurrentUnderlines();
+          showToast("Garis bawah dihapus.");
+        }
+      };
+
+      span.appendChild(range.extractContents());
+      range.insertNode(span);
+      selection.removeAllRanges();
+
+      saveCurrentUnderlines();
+      showToast("✍️ Teks berhasil digarisbawahi!");
+    } catch (err) {
+      console.warn("Underline execution note:", err);
+    }
+  };
+
   // Handle text selection for floating Stabilo menu
   const handleMouseUp = () => {
     const selection = window.getSelection();
@@ -173,8 +251,12 @@ export default function DigitalJournalReader({
     }
 
     const text = selection.toString().trim();
-    if (text.length > 2) {
+    if (text.length > 1) {
       setSelectedText(text);
+      if (isUnderlineMode) {
+        handleApplyUnderline();
+        return;
+      }
       const range = selection.getRangeAt(0);
       const rect = range.getBoundingClientRect();
       setSelectionPosition({
@@ -381,153 +463,6 @@ export default function DigitalJournalReader({
         </div>
       )}
 
-      {/* 1. TOP JOURNAL NAVIGATION BAR */}
-      <header
-        className={`sticky top-0 z-40 border-b backdrop-blur-md transition-colors ${
-          readingTheme === "dark"
-            ? "bg-slate-900/90 border-slate-800 text-white"
-            : readingTheme === "sepia"
-            ? "bg-[#F4E8CE]/90 border-[#E5D7B7] text-[#2C2416]"
-            : "bg-white/95 border-slate-200 text-slate-900"
-        }`}
-      >
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 py-3">
-          {/* Left: Back & Journal Info */}
-          <div className="flex items-center gap-3">
-            <Link
-              href="/dashboard"
-              className={`p-2 rounded-xl border transition flex items-center gap-1.5 text-xs font-bold ${
-                readingTheme === "dark"
-                  ? "bg-slate-800 border-slate-700 hover:bg-slate-700 text-white"
-                  : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700"
-              }`}
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span className="hidden sm:inline">Kembali</span>
-            </Link>
-
-            <div className="border-l border-slate-300/50 pl-3">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200">
-                  {mapel} • Kelas {kelas}
-                </span>
-                <span className="text-xs font-extrabold truncate max-w-[200px] sm:max-w-xs md:max-w-md">
-                  {judulBab}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Right: Controls & Preferences */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            {/* Table of Contents Button */}
-            <button
-              onClick={() => setIsTocOpen(!isTocOpen)}
-              className={`p-2 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition ${
-                isTocOpen
-                  ? "bg-[#0F172A] text-white border-slate-900"
-                  : readingTheme === "dark"
-                  ? "bg-slate-800 border-slate-700 hover:bg-slate-700"
-                  : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700"
-              }`}
-              title="Daftar Isi Bab (TOC)"
-            >
-              <List className="w-4 h-4" />
-              <span className="hidden md:inline">Daftar Isi</span>
-            </button>
-
-            {/* Bookmark Current Page */}
-            <button
-              onClick={handleToggleBookmark}
-              className={`p-2 rounded-xl border text-xs font-bold transition flex items-center gap-1 ${
-                bookmarkedPages.includes(currentPageIndex + 1)
-                  ? "bg-amber-500 text-white border-amber-600"
-                  : readingTheme === "dark"
-                  ? "bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300"
-                  : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700"
-              }`}
-              title="Tandai Halaman Ini (Bookmark)"
-            >
-              <Bookmark className="w-4 h-4" />
-            </button>
-
-            {/* Notes Drawer Toggle */}
-            <button
-              onClick={() => setIsNotesDrawerOpen(!isNotesDrawerOpen)}
-              className={`relative p-2 rounded-xl border text-xs font-bold transition ${
-                isNotesDrawerOpen
-                  ? "bg-[#0F172A] text-white"
-                  : readingTheme === "dark"
-                  ? "bg-slate-800 border-slate-700 hover:bg-slate-700"
-                  : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700"
-              }`}
-              title="Catatan Margin Halaman Ini"
-            >
-              <MessageSquarePlus className="w-4 h-4" />
-              {marginNotes.length > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-blue-600 text-white text-[9px] flex items-center justify-center font-bold">
-                  {marginNotes.length}
-                </span>
-              )}
-            </button>
-
-            {/* Reading Theme Selector */}
-            <div
-              className={`flex items-center p-0.5 rounded-xl border ${
-                readingTheme === "dark"
-                  ? "bg-slate-800 border-slate-700"
-                  : "bg-slate-100 border-slate-200"
-              }`}
-            >
-              <button
-                onClick={() => setReadingTheme("light")}
-                className={`p-1.5 rounded-lg transition ${
-                  readingTheme === "light" ? "bg-white text-slate-900 shadow-2xs" : "text-slate-500 hover:text-slate-800"
-                }`}
-                title="Mode Terang (Kertas Putih)"
-              >
-                <Sun className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={() => setReadingTheme("sepia")}
-                className={`p-1.5 rounded-lg transition ${
-                  readingTheme === "sepia" ? "bg-[#F4E8CE] text-[#2C2416] shadow-2xs" : "text-slate-500 hover:text-slate-800"
-                }`}
-                title="Mode Sepia (Kertas Buku Hangat)"
-              >
-                <Coffee className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={() => setReadingTheme("dark")}
-                className={`p-1.5 rounded-lg transition ${
-                  readingTheme === "dark" ? "bg-slate-700 text-white shadow-2xs" : "text-slate-500 hover:text-slate-200"
-                }`}
-                title="Mode Malam (Membaca Gelap)"
-              >
-                <Moon className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            {/* Font Size Toggle */}
-            <button
-              onClick={() => {
-                if (fontSize === "normal") setFontSize("large");
-                else if (fontSize === "large") setFontSize("xlarge");
-                else setFontSize("normal");
-              }}
-              className={`px-2.5 py-1.5 rounded-xl border text-xs font-extrabold transition ${
-                readingTheme === "dark"
-                  ? "bg-slate-800 border-slate-700 hover:bg-slate-700"
-                  : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700"
-              }`}
-              title="Ubah Ukuran Tulisan"
-            >
-              A{fontSize === "large" ? "+" : fontSize === "xlarge" ? "++" : ""}
-            </button>
-          </div>
-        </div>
-      </header>
-
       {/* 2. MAIN JOURNAL CONTAINER (2 Columns: TOC / Margin Drawer & Book Page) */}
       <main className="mx-auto max-w-7xl px-4 sm:px-6 pt-6 pb-28">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -535,9 +470,7 @@ export default function DigitalJournalReader({
           {/* LEFT SIDEBAR: Table of Contents / Outline */}
           {/* ========================================================= */}
           <div
-            className={`lg:col-span-3 ${
-              isTocOpen ? "block" : "hidden lg:block"
-            } transition-all space-y-4 sticky top-20`}
+            className="lg:col-span-3 block transition-all space-y-4 sticky top-20"
           >
             <div className={`p-4 sm:p-5 rounded-3xl border ${paperClasses[readingTheme]}`}>
               <div className="flex items-center justify-between pb-3 border-b border-black/5 mb-3">
@@ -795,18 +728,17 @@ export default function DigitalJournalReader({
 
           <div className="w-px h-4 bg-slate-700 mx-1" />
 
-          {/* Add Margin Note button */}
+          {/* Underline button */}
           <button
             onClick={() => {
-              setNewNoteText(`📌 Teks rujukan: "${selectedText}"\n\nCatatan: `);
-              setIsAddingNoteModal(true);
+              handleApplyUnderline();
               setSelectionPosition(null);
             }}
-            className="p-1.5 hover:bg-slate-800 rounded-lg text-xs font-bold flex items-center gap-1 text-slate-200 hover:text-white transition cursor-pointer"
-            title="Tambah Catatan Margin"
+            className="p-1.5 hover:bg-slate-800 rounded-lg text-xs font-bold flex items-center gap-1 text-blue-300 hover:text-white transition cursor-pointer"
+            title="Garis bawahi teks ini"
           >
-            <MessageSquarePlus className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Catat</span>
+            <Underline className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Garis Bawahi</span>
           </button>
 
           {/* Ask AI about this text */}
@@ -972,73 +904,107 @@ export default function DigitalJournalReader({
       {isAiDrawerOpen && (
         <div className="fixed inset-y-0 right-0 z-50 w-full sm:w-[440px] bg-white border-l border-slate-200 shadow-2xl flex flex-col justify-between text-slate-900 animate-in slide-in-from-right duration-200">
           {/* Header */}
-          <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold shadow-2xs">
-                <Sparkles className="w-4 h-4" />
+          <div className="bg-[#193446] text-white p-4 flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-white/10 p-1 flex items-center justify-center shrink-0 border border-white/15 shadow-inner">
+                <img src="/logo.png" alt="thinksy AI" className="w-full h-full object-contain drop-shadow-xs" />
               </div>
               <div>
-                <h3 className="font-extrabold text-xs text-[#0F172A]">
-                  Tutor AI Sokratik ({mapel})
+                <h3 className="text-xs font-black text-[#E9C77B] flex items-center gap-1 tracking-tight">
+                  <Sparkles className="w-3 h-3 text-[#E9C77B] animate-spin" style={{ animationDuration: "3s" }} />
+                  thinksy AI
                 </h3>
-                <p className="text-[10px] text-slate-400 font-medium">
-                  Mendampingi materi: {currentPage?.judul}
+                <p className="text-[10px] text-slate-300 font-medium">
+                  Panduan Step-by-Step Tanpa Kunci Jawaban
                 </p>
               </div>
             </div>
-            <button
-              onClick={() => setIsAiDrawerOpen(false)}
-              className="p-1 text-slate-400 hover:text-slate-600"
-            >
-              <X className="w-5 h-5" />
-            </button>
+
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-semibold bg-white/10 px-2.5 py-1 rounded-full text-slate-200 border border-white/10">
+                Sisa Kuota: 20/20
+              </span>
+              <button
+                onClick={() => setIsAiDrawerOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition cursor-pointer text-xs"
+                title="Tutup Obrolan"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
           {/* Chat History Messages */}
-          <div className="p-4 flex-1 overflow-y-auto space-y-3.5 custom-scrollbar text-xs">
-            <div className="p-3.5 rounded-2xl bg-blue-50/70 border border-blue-100 text-blue-900 leading-relaxed">
-              Halo! Saya adalah <strong>Socratic AI Tutor</strong> pendamping belajarmu di materi <strong>{currentPage?.judul}</strong>. Saya siap membimbingmu memahami konsep ini secara bertahap melalui pertanyaan reflektif dan pembedahan logika! 🦉✨
+          <div className="p-4 flex-1 overflow-y-auto space-y-3.5 custom-scrollbar text-xs bg-slate-50/60">
+            <div className="p-3.5 rounded-2xl bg-white border border-slate-200 text-slate-800 shadow-2xs leading-relaxed">
+              Halo! Saya adalah <strong>thinksy Socratic AI Tutor</strong> 🤖🦉 pendamping belajarmu di materi <strong>{currentPage?.judul}</strong>. Saya siap membimbingmu memahami konsep ini langkah demi langkah melalui pertanyaan reflektif dan pembedahan logika! ✨
             </div>
 
             {aiHistory.map((msg, i) => (
               <div
                 key={i}
-                className={`p-3.5 rounded-2xl leading-relaxed text-xs ${
-                  msg.role === "user"
-                    ? "bg-[#0F172A] text-white ml-6"
-                    : "bg-slate-100 text-slate-800 mr-6 border border-slate-200/80"
+                className={`flex items-start gap-2.5 ${
+                  msg.role === "user" ? "flex-row-reverse" : "flex-row"
                 }`}
               >
-                <div className="font-extrabold text-[10px] opacity-70 mb-1">
-                  {msg.role === "user" ? "Kamu" : "Tutor AI"}
+                <div
+                  className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 text-xs font-bold overflow-hidden shadow-xs ${
+                    msg.role === "user"
+                      ? "bg-[#193446] text-[#E9C77B]"
+                      : "bg-white border border-slate-200 p-0.5"
+                  }`}
+                >
+                  {msg.role === "user" ? (
+                    <User className="w-3.5 h-3.5" />
+                  ) : (
+                    <img src="/logo.png" alt="AI" className="w-full h-full object-contain" />
+                  )}
                 </div>
-                <div className="prose prose-xs max-w-none text-inherit">
-                  <MarkdownRenderer content={msg.content} />
+
+                <div
+                  className={`max-w-[85%] rounded-2xl p-3.5 shadow-2xs leading-relaxed ${
+                    msg.role === "user"
+                      ? "bg-[#193446] text-white rounded-tr-xs font-medium [&_*]:!text-white"
+                      : "bg-white text-slate-800 border border-slate-200/90 rounded-tl-xs shadow-2xs"
+                  }`}
+                >
+                  {msg.role === "user" ? (
+                    <p className="whitespace-pre-wrap text-white font-medium">{msg.content}</p>
+                  ) : (
+                    <MarkdownRenderer content={msg.content} isCompact />
+                  )}
                 </div>
               </div>
             ))}
 
             {isAiLoading && (
-              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center gap-2 text-slate-500">
-                <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
-                <span>Tutor AI sedang menyusun penjelasan...</span>
+              <div className="flex items-start gap-2.5">
+                <div className="w-7 h-7 rounded-xl bg-white border border-slate-200 p-0.5 flex items-center justify-center shrink-0">
+                  <img src="/logo.png" alt="AI" className="w-full h-full object-contain" />
+                </div>
+                <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-xs p-3 text-xs text-slate-500 flex items-center gap-2 shadow-2xs">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-[#193446]" />
+                  <span>thinksy AI sedang menalar & menyusun penjelasan...</span>
+                </div>
               </div>
             )}
           </div>
 
           {/* Chat Input Bar */}
-          <form onSubmit={handleSendAiMessage} className="p-3 border-t border-slate-100 flex items-center gap-2">
+          <form onSubmit={handleSendAiMessage} className="p-3 bg-white border-t border-slate-100 flex items-center gap-2 shrink-0">
             <input
               type="text"
-              placeholder="Tanyakan konsep materi ini..."
+              placeholder="Tanyakan hal yang belum kamu pahami..."
               value={aiQuery}
               onChange={(e) => setAiQuery(e.target.value)}
-              className="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+              disabled={isAiLoading}
+              className="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#193446] focus:border-transparent transition"
             />
             <button
               type="submit"
               disabled={isAiLoading || !aiQuery.trim()}
-              className="p-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white transition cursor-pointer shadow-xs"
+              className="p-2.5 rounded-xl bg-[#193446] hover:bg-[#132836] text-[#E9C77B] font-bold shadow-sm transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shrink-0"
+              title="Kirim pesan"
             >
               <Send className="w-4 h-4" />
             </button>

@@ -1,7 +1,5 @@
-import BelajarPage from "../belajar/page";
+import { redirect } from "next/navigation";
 
-export default async function BabIndexPage(props: {
-  searchParams?: Promise<{ mapel?: string; babId?: string; semester?: string }>;
-}) {
-  return <BelajarPage {...props} />;
+export default function BabIndexPage() {
+  redirect("/?tab=matematika");
 }

@@ -5,10 +5,6 @@ import { cookies } from "next/headers";
 // Helper: tentukan path dashboard berdasarkan peran
 function getDashboardPath(peran: string): string {
   switch (peran) {
-    case "super_admin":
-      return "/super";
-    case "admin_sekolah":
-      return "/admin";
     case "guru":
       return "/guru";
     case "siswa":

@@ -36,6 +36,7 @@ import {
   Filter,
   CheckSquare,
 } from "lucide-react";
+import { resolveStudentPhoto } from "@/lib/student-settings";
 
 interface ManajemenKelasNormalScreenProps {
   isOpen?: boolean;
@@ -68,15 +69,7 @@ export default function ManajemenKelasNormalScreen({
 
   // Search & Filter in Table
   const [searchTableQuery, setSearchTableQuery] = useState("");
-  const [sortBy, setSortBy] = useState<"poin" | "nilai" | "nama" | "streak">("poin");
-
-  // Add Subject Modal State
-  const [isAddMapelModalOpen, setIsAddMapelModalOpen] = useState(false);
-  const [newMapelNama, setNewMapelNama] = useState("");
-  const [newMapelKode, setNewMapelKode] = useState("");
-  const [newMapelGuru, setNewMapelGuru] = useState("");
-  const [newMapelDeskripsi, setNewMapelDeskripsi] = useState("");
-  const [isSubmittingMapel, setIsSubmittingMapel] = useState(false);
+  const [sortBy, setSortBy] = useState<"nilai" | "nama" | "poin" | "progress">("nilai");
   const [mapelSuccessMsg, setMapelSuccessMsg] = useState<string | null>(null);
 
   // Kelas Soal Config Modal State
@@ -109,6 +102,48 @@ export default function ManajemenKelasNormalScreen({
     }
   }, [isOpen, isEmbedded]);
 
+  // Real-time listener for student photo changes
+  useEffect(() => {
+    const handlePhotoSync = () => {
+      setAllStudents((prev) =>
+        prev.map((st) => ({
+          ...st,
+          foto: resolveStudentPhoto({ ...st, name: st.nama_lengkap }) || st.foto,
+        }))
+      );
+      setSelectedStudentData((prev: any) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          foto: resolveStudentPhoto({ ...prev, name: prev.nama_lengkap }) || prev.foto,
+        };
+      });
+    };
+
+    window.addEventListener("thinksy_photo_change", handlePhotoSync);
+    window.addEventListener("thinksy_profile_change", handlePhotoSync);
+    window.addEventListener("thinksy_joined_students_updated", handlePhotoSync);
+
+    const handleStorage = (e: StorageEvent) => {
+      if (
+        e.key === "thinksy_student_photo" ||
+        e.key === "thinksy_student_profile" ||
+        e.key === "thinksy_student_photos_map" ||
+        e.key === "thinksy_joined_students"
+      ) {
+        handlePhotoSync();
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      window.removeEventListener("thinksy_photo_change", handlePhotoSync);
+      window.removeEventListener("thinksy_profile_change", handlePhotoSync);
+      window.removeEventListener("thinksy_joined_students_updated", handlePhotoSync);
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, []);
+
   const handleToggleMapel = async (mapelId: string, currentStatus: boolean) => {
     try {
       const res = await fetch("/api/guru/kelas-aktif", {
@@ -134,40 +169,6 @@ export default function ManajemenKelasNormalScreen({
     }
   };
 
-  const handleCreateMapel = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMapelNama.trim()) return;
-
-    setIsSubmittingMapel(true);
-    try {
-      const res = await fetch("/api/guru/kelas-aktif", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "create",
-          nama_mapel: newMapelNama.trim(),
-          kode_mapel: newMapelKode.trim() || undefined,
-          guru_pengampu: newMapelGuru.trim() || undefined,
-          deskripsi: newMapelDeskripsi.trim() || undefined,
-        }),
-      });
-
-      if (res.ok) {
-        setIsAddMapelModalOpen(false);
-        setNewMapelNama("");
-        setNewMapelKode("");
-        setNewMapelGuru("");
-        setNewMapelDeskripsi("");
-        fetchManajemenKelasData();
-        setMapelSuccessMsg("Mata pelajaran baru berhasil ditambahkan dan aktif.");
-        setTimeout(() => setMapelSuccessMsg(null), 3500);
-      }
-    } catch (err) {
-      console.error("Gagal membuat mapel:", err);
-    } finally {
-      setIsSubmittingMapel(false);
-    }
-  };
 
   const handleDeleteMapel = async (mapelId: string, mapelNama: string) => {
     if (!confirm(`Hapus mata pelajaran "${mapelNama}" dari daftar?`)) return;
@@ -212,9 +213,9 @@ export default function ManajemenKelasNormalScreen({
       );
     })
     .sort((a, b) => {
-      if (sortBy === "poin") return (b.total_poin || 0) - (a.total_poin || 0);
       if (sortBy === "nilai") return (b.nilai || 0) - (a.nilai || 0);
-      if (sortBy === "streak") return (b.streak || 0) - (a.streak || 0);
+      if (sortBy === "poin") return (b.total_poin || 0) - (a.total_poin || 0);
+      if (sortBy === "progress") return (b.progress || 0) - (a.progress || 0);
       if (sortBy === "nama") return a.nama_lengkap.localeCompare(b.nama_lengkap);
       return 0;
     });
@@ -342,7 +343,7 @@ export default function ManajemenKelasNormalScreen({
                     <span>KELAS UTAMA ROMBEL AKTIF • TA 2026/2027</span>
                   </div>
                   <h2 className="text-2xl font-black text-[#0F172A] tracking-tight">
-                    Kelas 8 — SMKS Muhammadiyah Pakem
+                    Kelas 8 — SMK Muhammadiyah 1
                   </h2>
                   <p className="text-xs text-slate-500 font-medium">
                     Wali Kelas: <strong className="text-slate-700">{kelasUtama?.wali_kelas?.nama || "Ibu Siti Rahmawati, M.Pd."}</strong> • {kelasUtama?.wali_kelas?.mapel || "Matematika"} (NIP. {kelasUtama?.wali_kelas?.nip || "19880415 201001 2 012"})
@@ -379,10 +380,10 @@ export default function ManajemenKelasNormalScreen({
                   </div>
                   <div>
                     <h3 className="text-sm font-extrabold text-[#0F172A]">
-                      Hasil Keseluruhan Siswa & Poin Pembelajaran
+                      Hasil Keseluruhan Siswa & Ketuntasan Akademik
                     </h3>
                     <p className="text-[11px] text-slate-500 font-medium">
-                      Menampilkan data seluruh siswa, poin belajar, nilai rata-rata, dan streak terintegrasi Supabase.
+                      Menampilkan data seluruh siswa, ketuntasan bab, skor latihan, kuis, dan nilai rata-rata akademik terintegrasi Supabase.
                     </p>
                   </div>
                 </div>
@@ -416,9 +417,9 @@ export default function ManajemenKelasNormalScreen({
                         onChange={(e: any) => setSortBy(e.target.value)}
                         className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0F172A] cursor-pointer"
                       >
-                        <option value="poin">Total Poin Tertinggi</option>
                         <option value="nilai">Rata-rata Nilai Tertinggi</option>
-                        <option value="streak">Streak Terpanjang</option>
+                        <option value="poin">Total Skor Tertinggi</option>
+                        <option value="progress">Ketuntasan Belajar Tertinggi</option>
                         <option value="nama">Nama (A - Z)</option>
                       </select>
                     </div>
@@ -434,17 +435,12 @@ export default function ManajemenKelasNormalScreen({
                             <th className="py-3.5 px-4">Nama Siswa</th>
                             <th className="py-3.5 px-3">NISN</th>
                             <th className="py-3.5 px-3 text-center">Kelas</th>
-                            <th className="py-3.5 px-3 text-center">Poin Absensi</th>
+                            <th className="py-3.5 px-3 text-center">Presensi</th>
                             <th className="py-3.5 px-3 text-center">Poin Kuis</th>
-                            <th className="py-3.5 px-3 text-center">Poin Game</th>
-                            <th className="py-3.5 px-3 text-center">Poin Simulasi</th>
-                            <th className="py-3.5 px-3 text-center">Poin Ulangan</th>
-                            <th className="py-3.5 px-3 text-center">Poin Ujian</th>
-                            <th className="py-3.5 px-3 text-center">Total Poin</th>
-                            <th className="py-3.5 px-3 text-center">Nilai</th>
-                            <th className="py-3.5 px-3 text-center">Progress</th>
-                            <th className="py-3.5 px-3 text-center">Achievement</th>
-                            <th className="py-3.5 px-3 text-center">Streak</th>
+                            <th className="py-3.5 px-3 text-center">Latihan Bab</th>
+                            <th className="py-3.5 px-3 text-center">Total Skor</th>
+                            <th className="py-3.5 px-3 text-center">Nilai Rata-rata</th>
+                            <th className="py-3.5 px-3 text-center">Ketuntasan</th>
                             <th className="py-3.5 px-4 text-center">Aktivitas Terakhir</th>
                             <th className="py-3.5 px-4 text-center">Aksi</th>
                           </tr>
@@ -452,7 +448,7 @@ export default function ManajemenKelasNormalScreen({
                         <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
                           {filteredStudents.length === 0 ? (
                             <tr>
-                              <td colSpan={17} className="py-12 text-center text-slate-400 font-bold">
+                              <td colSpan={12} className="py-12 text-center text-slate-400 font-bold">
                                 Tidak ada data siswa yang cocok dengan pencarian &quot;{searchTableQuery}&quot;.
                               </td>
                             </tr>
@@ -477,7 +473,7 @@ export default function ManajemenKelasNormalScreen({
                                     <div className="flex items-center gap-3">
                                       <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-200 shrink-0 relative border border-slate-200">
                                         <Image
-                                          src={st.foto || "/images/pasfoto-siswa-1.jpg"}
+                                          src={resolveStudentPhoto({ ...st, name: st.nama_lengkap }) || st.foto || "/images/pasfoto-siswa-1.jpg"}
                                           alt={st.nama_lengkap}
                                           fill
                                           className="object-cover"
@@ -504,16 +500,7 @@ export default function ManajemenKelasNormalScreen({
                                     {st.poin_kuis}
                                   </td>
                                   <td className="py-3 px-3 text-center text-slate-700 font-semibold">
-                                    {st.poin_game}
-                                  </td>
-                                  <td className="py-3 px-3 text-center text-slate-700 font-semibold">
-                                    {st.poin_simulasi}
-                                  </td>
-                                  <td className="py-3 px-3 text-center text-slate-700 font-semibold">
-                                    {st.poin_ulangan}
-                                  </td>
-                                  <td className="py-3 px-3 text-center text-slate-700 font-semibold">
-                                    {st.poin_ujian}
+                                    {st.poin_ulangan || st.poin_ujian || 0}
                                   </td>
                                   <td className="py-3 px-3 text-center">
                                     <span className="font-black text-slate-900 bg-slate-100 px-2.5 py-1 rounded-lg">
@@ -539,17 +526,6 @@ export default function ManajemenKelasNormalScreen({
                                         {st.progress}%
                                       </span>
                                     </div>
-                                  </td>
-                                  <td className="py-3 px-3 text-center">
-                                    <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold">
-                                      {st.achievement}
-                                    </span>
-                                  </td>
-                                  <td className="py-3 px-3 text-center">
-                                    <span className="inline-flex items-center gap-1 text-orange-600 font-bold">
-                                      <Flame className="w-3.5 h-3.5" />
-                                      <span>{st.streak} hr</span>
-                                    </span>
                                   </td>
                                   <td className="py-3 px-4 text-center text-[10px] text-slate-500">
                                     {st.status_keaktifan}
@@ -584,7 +560,7 @@ export default function ManajemenKelasNormalScreen({
                 <div className="flex items-center gap-4">
                   <div className="relative w-16 h-16 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0">
                     <Image
-                      src={selectedStudentData.foto || "/images/pasfoto-siswa-1.jpg"}
+                      src={resolveStudentPhoto({ ...selectedStudentData, name: selectedStudentData.nama_lengkap }) || selectedStudentData.foto || "/images/pasfoto-siswa-1.jpg"}
                       alt={selectedStudentData.nama_lengkap}
                       fill
                       className="object-cover"
@@ -604,7 +580,7 @@ export default function ManajemenKelasNormalScreen({
                       {selectedStudentData.nama_lengkap}
                     </h2>
                     <p className="text-xs text-slate-500 font-medium">
-                      Total Poin: <strong className="text-slate-800">{selectedStudentData.total_poin}</strong> • Streak: <strong className="text-orange-600">{selectedStudentData.streak} Hari</strong> • Achievement: <strong className="text-blue-600">{selectedStudentData.achievement}</strong>
+                      Total Skor: <strong className="text-slate-800">{selectedStudentData.total_poin}</strong> • Presensi: <strong className="text-emerald-700">{selectedStudentData.poin_absensi || 100}%</strong> • Ketuntasan Belajar: <strong className="text-blue-600">{selectedStudentData.progress || 0}%</strong>
                     </p>
                   </div>
                 </div>
@@ -752,107 +728,7 @@ export default function ManajemenKelasNormalScreen({
         </div>
       </div>
 
-      {/* 3. MODAL: TAMBAH MATA PELAJARAN BARU */}
-      {isAddMapelModalOpen && (
-        <div className="fixed inset-0 z-60 bg-black/60 flex items-center justify-center p-4 animate-in fade-in duration-100 font-mono text-zinc-900">
-          <div className="bg-white border border-zinc-950 p-5 max-w-md w-full shadow-none space-y-4">
-            <div className="flex items-center justify-between pb-2.5 border-b border-zinc-200">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 bg-zinc-950 text-white flex items-center justify-center">
-                  <BookOpen className="w-3.5 h-3.5" />
-                </div>
-                <h3 className="text-sm font-bold text-zinc-950 uppercase tracking-tight">
-                  Tambah Mata Pelajaran Baru
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsAddMapelModalOpen(false)}
-                className="p-1 text-zinc-400 hover:text-zinc-900 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
 
-            <form onSubmit={handleCreateMapel} className="space-y-3">
-              <div>
-                <label className="block text-[10px] font-bold text-zinc-600 uppercase mb-1">
-                  Nama Mata Pelajaran *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newMapelNama}
-                  onChange={(e) => setNewMapelNama(e.target.value)}
-                  placeholder="Contoh: Informatika, IPA, Agama Islam"
-                  className="w-full px-3 py-1.5 border border-zinc-300 text-xs font-bold text-zinc-900 focus:outline-none focus:border-zinc-950 bg-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold text-zinc-600 uppercase mb-1">
-                  Kode Mata Pelajaran
-                </label>
-                <input
-                  type="text"
-                  value={newMapelKode}
-                  onChange={(e) => setNewMapelKode(e.target.value)}
-                  placeholder="Contoh: INF-8, IPA-8 (opsional)"
-                  className="w-full px-3 py-1.5 border border-zinc-300 text-xs font-bold text-zinc-900 focus:outline-none focus:border-zinc-950 bg-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold text-zinc-600 uppercase mb-1">
-                  Guru Pengampu
-                </label>
-                <input
-                  type="text"
-                  value={newMapelGuru}
-                  onChange={(e) => setNewMapelGuru(e.target.value)}
-                  placeholder="Contoh: Budi Prasetyo, S.Kom."
-                  className="w-full px-3 py-1.5 border border-zinc-300 text-xs font-bold text-zinc-900 focus:outline-none focus:border-zinc-950 bg-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold text-zinc-600 uppercase mb-1">
-                  Deskripsi Singkat
-                </label>
-                <textarea
-                  rows={2}
-                  value={newMapelDeskripsi}
-                  onChange={(e) => setNewMapelDeskripsi(e.target.value)}
-                  placeholder="Penjelasan ringkas materi atau fokus kelas..."
-                  className="w-full px-3 py-1.5 border border-zinc-300 text-xs text-zinc-900 focus:outline-none focus:border-zinc-950 bg-white"
-                />
-              </div>
-
-              <div className="pt-2 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsAddMapelModalOpen(false)}
-                  className="px-3 py-1.5 border border-zinc-300 bg-white hover:bg-zinc-100 text-xs font-bold text-zinc-700 transition cursor-pointer"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmittingMapel || !newMapelNama.trim()}
-                  className="px-4 py-1.5 bg-zinc-950 hover:bg-zinc-800 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                >
-                  {isSubmittingMapel ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Check className="w-3.5 h-3.5" />
-                  )}
-                  <span>Simpan & Aktifkan</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* MODAL SETTING SOAL KELAS AKTIF */}
       {isKelasSoalConfigOpen && selectedMapelForSoal && (

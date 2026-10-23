@@ -65,7 +65,7 @@ export async function GET() {
         name: row.nama_lengkap || "Siswa",
         points: Number(row.poin) || 0,
         streak: Number(row.streak) || 0,
-        school: row.nama_sekolah || "SMK Muhammadiyah Pakem",
+        school: row.nama_sekolah || "SMK Muhammadiyah 1",
         isCurrentUser: currentUserId ? (row.student_id || row.id) === currentUserId : false,
       }));
     } else {
@@ -94,7 +94,7 @@ export async function GET() {
         name: student.nama_lengkap || "Siswa",
         points: Number(student.poin) || 0,
         streak: Number(student.streak) || 0,
-        school: student.sekolah?.nama || "SMK Muhammadiyah Pakem",
+        school: student.sekolah?.nama || "SMK Muhammadiyah 1",
         isCurrentUser: currentUserId ? student.id === currentUserId : false,
       }));
     }

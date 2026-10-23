@@ -15,13 +15,14 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const action = searchParams.get("action");
 
-    // 1. Search Users across Siswa, Guru, Admin Sekolah, Super Admin
+    // 1. Search Users across Siswa & Guru
     if (action === "search_users") {
       const q = (searchParams.get("q") || "").trim();
       let query = adminDb
         .from("profil")
         .select("id, nama_lengkap, peran, email, foto_url")
         .neq("id", user.id)
+        .in("peran", ["guru", "siswa"])
         .limit(20);
 
       if (q) {

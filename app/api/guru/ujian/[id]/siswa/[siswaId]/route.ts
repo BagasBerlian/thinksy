@@ -26,10 +26,7 @@ export async function GET(
       .eq("id", user.id)
       .maybeSingle();
 
-    if (
-      !guruProfil ||
-      !["guru", "admin_sekolah", "super_admin", "superadmin"].includes(guruProfil.peran)
-    ) {
+    if (!guruProfil || guruProfil.peran !== "guru") {
       return NextResponse.json({ error: "Forbidden: Akses khusus Dewan Guru" }, { status: 403 });
     }
 

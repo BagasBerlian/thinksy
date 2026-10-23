@@ -17,13 +17,13 @@ export async function GET(req: Request) {
       ? kelasData.map((k: any) => ({
           id: k.id,
           nama: k.nama_kelas || "Kelas 8",
-          deskripsi: "Kurikulum Merdeka — SMKS Muhammadiyah Pakem",
+          deskripsi: "Kurikulum Merdeka — SMK Muhammadiyah 1",
         }))
       : [
           {
             id: "c1eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
             nama: "Kelas 8",
-            deskripsi: "Kurikulum Merdeka — SMKS Muhammadiyah Pakem",
+            deskripsi: "Kurikulum Merdeka — SMK Muhammadiyah 1",
           },
         ];
 

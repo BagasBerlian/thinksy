@@ -34,10 +34,10 @@ export async function POST(req: Request) {
       );
     }
 
-    const isAuthorized = ["guru", "admin", "admin_sekolah", "super_admin"].includes(profil.peran);
+    const isAuthorized = profil.peran === "guru";
     if (!isAuthorized) {
       return NextResponse.json(
-        { error: "Akses ditolak: hanya Guru atau Admin yang berhak menerbitkan soal." },
+        { error: "Akses ditolak: hanya Guru yang berhak menerbitkan soal." },
         { status: 403 }
       );
     }

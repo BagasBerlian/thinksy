@@ -52,7 +52,8 @@ export async function POST(req: Request) {
     }
 
     // 3. Ambil data soal & kunci jawaban dari DB (Server-Side Only)
-    const { data: soal, error: soalErr } = await adminDb
+    let soal: any = null;
+    const { data: dbSoal } = await adminDb
       .from("soal")
       .select(`
         id,
@@ -71,7 +72,43 @@ export async function POST(req: Request) {
       .eq("id", soalId)
       .maybeSingle();
 
-    if (soalErr || !soal) {
+    soal = dbSoal;
+
+    if (!soal) {
+      // Cek apakah soal adalah soal kurikulum / fallback dari bab
+      const { data: sesiRow } = await adminDb
+        .from("sesi")
+        .select("bab_id, bab:bab_id(judul, mapel)")
+        .eq("id", sesiId)
+        .maybeSingle();
+
+      const { generateChapterQuestions } = await import("@/lib/curriculum-quiz-engine");
+      const babJudul = (sesiRow?.bab as any)?.judul || "Pola Bilangan";
+      const mapel = (sesiRow?.bab as any)?.mapel || "Matematika";
+      const chapterQuestions = generateChapterQuestions(babJudul, mapel, 8);
+      const foundQ = chapterQuestions.find((q) => q.id === soalId);
+
+      if (foundQ) {
+        soal = {
+          id: foundQ.id,
+          tipe_soal: foundQ.tipeSoal,
+          kunci_jawaban: foundQ.kunciJawaban,
+          pembahasan: foundQ.pembahasan,
+          poin: 10,
+          opsi_soal: foundQ.opsiSoal?.map((o, idx) => ({
+            id: o.id,
+            label: String.fromCharCode(65 + idx),
+            teks_opsi: o.teksOpsi,
+            benar: o.benar,
+            alasan_salah: o.benar
+              ? null
+              : `Jawaban ini keliru. Perhatikan kembali konsep pada pembahasan.`,
+          })) || [],
+        };
+      }
+    }
+
+    if (!soal) {
       return NextResponse.json(
         { error: "Soal tidak ditemukan." },
         { status: 404 }
@@ -95,7 +132,6 @@ export async function POST(req: Request) {
       const officialKey = (soal.kunci_jawaban || "").trim().toLowerCase().replace(/\s+/g, " ");
 
       if (studentInput && officialKey) {
-        // Cek exact match atau jika ada beberapa alternatif jawaban dipisah koma atau garis miring
         const keyOptions = officialKey.split(/[,/|]/).map((k: string) => k.trim());
         isBenar = keyOptions.includes(studentInput);
         calculatedNilai = isBenar ? poinMaks : 0;
@@ -109,33 +145,33 @@ export async function POST(req: Request) {
       calculatedNilai = null;
     }
 
-    // 5. Simpan ke tabel `jawaban` (Upsert per sesi_id & soal_id)
-    const { error: upsertErr } = await adminDb
-      .from("jawaban")
-      .upsert(
-        {
-          sesi_id: sesiId,
-          soal_id: soalId,
-          opsi_dipilih_id: opsiId || null,
-          jawaban_teks: jawabanTeks || (selectedOption?.teks_opsi ?? null),
-          is_benar: isBenar,
-          nilai: calculatedNilai,
-          dijawab_pada: new Date().toISOString(),
-        },
-        { onConflict: "sesi_id,soal_id" }
-      );
-
-    if (upsertErr) {
-      return NextResponse.json(
-        { error: "Gagal menyimpan jawaban: " + upsertErr.message },
-        { status: 500 }
-      );
+    // 5. Simpan ke tabel `jawaban` (Upsert per sesi_id & soal_id jika UUID valid)
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(soalId);
+    if (isUuid) {
+      await adminDb
+        .from("jawaban")
+        .upsert(
+          {
+            sesi_id: sesiId,
+            soal_id: soalId,
+            opsi_dipilih_id: opsiId || null,
+            jawaban_teks: jawabanTeks || (selectedOption?.teks_opsi ?? null),
+            is_benar: isBenar,
+            nilai: calculatedNilai,
+            dijawab_pada: new Date().toISOString(),
+          },
+          { onConflict: "sesi_id,soal_id" }
+        );
     }
 
     // 6. Response berbasis jenis sesi (Handbook: latihan kembalikan feedback langsung, kuis HANYA simpan)
     const isLatihan = sesi.tipe_sesi === "latihan";
 
     if (isLatihan) {
+      const correctOption = Array.isArray(soal.opsi_soal)
+        ? soal.opsi_soal.find((o: any) => o.benar)
+        : null;
+
       return NextResponse.json({
         success: true,
         mode: "latihan",
@@ -143,7 +179,10 @@ export async function POST(req: Request) {
         nilai: calculatedNilai,
         pembahasan: soal.pembahasan || "Pembahasan untuk soal ini belum tersedia.",
         alasanSalah: isBenar ? null : (selectedOption?.alasan_salah || "Jawaban belum tepat, silakan pelajari kembali konsepnya."),
-        kunciJawaban: isBenar ? (soal.kunci_jawaban || selectedOption?.teks_opsi) : null,
+        kunciJawaban: soal.kunci_jawaban || correctOption?.teks_opsi,
+        correctOpsiId: correctOption?.id || null,
+        correctOpsiLabel: correctOption?.label || null,
+        correctOpsiTeks: correctOption?.teks_opsi || null,
       });
     }
 

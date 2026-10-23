@@ -3,20 +3,16 @@
 import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { 
-  ShieldAlert, 
-  Crown, 
-  School, 
   GraduationCap, 
   UserCheck, 
   ChevronDown, 
   ChevronUp, 
   Sparkles,
   RefreshCw,
-  Eye
 } from "lucide-react";
 
 interface RoleOption {
-  role: "super_admin" | "admin_sekolah" | "guru" | "siswa";
+  role: "guru" | "siswa";
   label: string;
   badge: string;
   desc: string;
@@ -27,37 +23,19 @@ interface RoleOption {
 
 const ROLES: RoleOption[] = [
   {
-    role: "super_admin",
-    label: "Super Admin",
-    badge: "👑 Sistem",
-    desc: "Multi-tenant, lisensi & analitik biaya AI",
-    icon: Crown,
-    color: "border-amber-400 text-amber-600",
-    path: "/super",
-  },
-  {
-    role: "admin_sekolah",
-    label: "Admin Sekolah",
-    badge: "🏫 Sekolah",
-    desc: "Kelola Guru, Siswa, Kelas & Profil",
-    icon: School,
-    color: "border-blue-400 text-blue-600",
-    path: "/admin",
-  },
-  {
     role: "guru",
-    label: "Guru Matematika",
+    label: "Guru",
     badge: "👨‍🏫 Guru",
-    desc: "Buat soal, pantau kelas & koreksi esai",
+    desc: "Kelola kelas, buat soal, pantau ujian & koreksi",
     icon: UserCheck,
     color: "border-emerald-400 text-emerald-600",
     path: "/guru",
   },
   {
     role: "siswa",
-    label: "Siswa (Budi)",
+    label: "Siswa",
     badge: "🎓 Siswa",
-    desc: "Materi, Tutor AI, Kuis & Jurnal Belajar",
+    desc: "Materi belajar, AI Sokratik, kuis & evaluasi",
     icon: GraduationCap,
     color: "border-slate-400 text-slate-700",
     path: "/",
@@ -65,6 +43,11 @@ const ROLES: RoleOption[] = [
 ];
 
 export default function DemoRoleSwitcher() {
+  // Hanya aktif saat development lokal. Pada mode production otomatis dinonaktifkan demi keamanan.
+  if (process.env.NODE_ENV === "production") {
+    return null;
+  }
+
   const router = useRouter();
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
@@ -76,14 +59,10 @@ export default function DemoRoleSwitcher() {
     setMounted(true);
   }, []);
 
-  // Determine current active role from pathname
+  // Determine current active role from pathname (hanya Guru & Siswa)
   useEffect(() => {
     if (!pathname) return;
-    if (pathname.startsWith("/super")) {
-      setActiveRole("super_admin");
-    } else if (pathname.startsWith("/admin")) {
-      setActiveRole("admin_sekolah");
-    } else if (pathname.startsWith("/guru")) {
+    if (pathname.startsWith("/guru")) {
       setActiveRole("guru");
     } else {
       setActiveRole("siswa");
@@ -111,6 +90,9 @@ export default function DemoRoleSwitcher() {
         body: JSON.stringify({ targetRole: role.role }),
       });
 
+      if (typeof document !== "undefined") {
+        document.cookie = `user_role=${role.role}; path=/; max-age=86400`;
+      }
       if (res.ok) {
         const data = await res.json();
         setActiveRole(role.role);
@@ -121,6 +103,9 @@ export default function DemoRoleSwitcher() {
         router.push(role.path);
       }
     } catch (e) {
+      if (typeof document !== "undefined") {
+        document.cookie = `user_role=${role.role}; path=/; max-age=86400`;
+      }
       console.error("[ROLE SWITCH ERROR]", e);
       router.push(role.path);
     } finally {
@@ -128,7 +113,7 @@ export default function DemoRoleSwitcher() {
     }
   };
 
-  const currentRoleObj = ROLES.find((r) => r.role === activeRole) || ROLES[3];
+  const currentRoleObj = ROLES.find((r) => r.role === activeRole) || ROLES[1];
 
   return (
     <div className="fixed bottom-4 right-4 z-50 font-sans">
@@ -144,7 +129,7 @@ export default function DemoRoleSwitcher() {
                 <h4 className="text-xs font-black text-slate-800 dark:text-slate-100">
                   Demo Mode Switcher
                 </h4>
-                <p className="text-[10px] text-slate-400">Pilih peran presentasi 1-klik</p>
+                <p className="text-[10px] text-slate-400">Pilih peran (Guru / Siswa) 1-klik</p>
               </div>
             </div>
             <button
@@ -197,7 +182,7 @@ export default function DemoRoleSwitcher() {
           </div>
 
           <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[10px] text-slate-400 px-1">
-            <span>Sinkronisasi Realtime Aktif</span>
+            <span>Fokus Peran: Guru & Siswa</span>
             <span className="inline-flex items-center gap-1 text-emerald-500 font-bold">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live
             </span>
@@ -209,7 +194,7 @@ export default function DemoRoleSwitcher() {
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 px-3.5 py-2.5 rounded-full bg-[#0F172A] hover:bg-slate-800 text-white shadow-xl hover:shadow-2xl border border-slate-700 transition transform active:scale-95 group cursor-pointer"
-        title="Klik untuk ganti peran presentasi (Super Admin, Admin Sekolah, Guru, Siswa)"
+        title="Klik untuk ganti peran presentasi (Guru, Siswa)"
       >
         <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
         <span className="text-xs font-black tracking-wide text-amber-400">

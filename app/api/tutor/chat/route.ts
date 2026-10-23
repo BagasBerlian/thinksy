@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { autoClaimMisi } from "@/app/api/siswa/misi/route";
-import { checkAndUpdateDailyStreak } from "@/lib/streak";
 import { buildSocraticTutorPrompt } from "@/lib/prompts/tutor";
 
 export async function POST(req: Request) {
@@ -358,7 +356,6 @@ export async function POST(req: Request) {
     }
 
     // 8. Log AI Token Usage (Always log to log_ai even if sekolahId is NULL)
-    let misiClaimResult = { claimed: false, poinDitambahkan: 0 };
     try {
       const adminDb = createAdminClient();
 
@@ -372,24 +369,6 @@ export async function POST(req: Request) {
         biaya_usd: costUsd,
       });
 
-      // AUTO-KLAIM misi sokratik jika ini interaksi pertama hari ini
-      // currentCount adalah jumlah log SEBELUM insert ini, jadi jika 0 = ini yang pertama
-      if (currentCount === 0) {
-        misiClaimResult = await autoClaimMisi(supabase, user.id, "sokratik");
-        if (!misiClaimResult.claimed) {
-          misiClaimResult = await autoClaimMisi(supabase, user.id, "eksplorasi");
-        }
-      }
-
-      // Evaluasi dan trigger Daily Streak jika siswa telah berinteraksi minimal 3 kali hari ini
-      const totalChatsToday = currentCount + 1;
-      if (totalChatsToday >= 3) {
-        try {
-          await checkAndUpdateDailyStreak(user.id, "tutor_sokratik");
-        } catch (streakErr) {
-          console.error("[STREAK UPDATE ERROR (AI CHAT)]", streakErr);
-        }
-      }
     } catch (logErr) {
       console.error("Error writing to log_ai:", logErr);
     }
@@ -402,8 +381,6 @@ export async function POST(req: Request) {
       usage: {
         totalTokens,
       },
-      misiAutoClaimed: misiClaimResult.claimed,
-      misiPoinDitambahkan: misiClaimResult.poinDitambahkan,
     });
   } catch (error: any) {
     console.error("Error in Tutor AI Route:", error);

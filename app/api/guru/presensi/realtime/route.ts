@@ -21,7 +21,7 @@ export async function GET(request: Request) {
     // 1. Fetch all students in the school
     const { data: students, error: stErr } = await adminDb
       .from("profil")
-      .select("id, nama_lengkap, poin, streak, dibuat_pada")
+      .select("id, nama_lengkap, poin, streak, dibuat_pada, foto_url, nisn")
       .eq("peran", "siswa")
       .order("poin", { ascending: false });
 
@@ -129,8 +129,10 @@ export async function GET(request: Request) {
       return {
         id: st.id,
         nama_lengkap: st.nama_lengkap,
+        nisn: st.nisn || "",
         kelas: studentClass,
-        foto: defaultPhoto,
+        foto: st.foto_url || defaultPhoto,
+        foto_url: st.foto_url || defaultPhoto,
         waktu_absen: waktuAbsenStr,
         timestamp,
         status_kehadiran: statusKehadiran,

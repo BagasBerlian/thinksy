@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import LatihanSatuSoalClient, { QuestionItem } from "@/components/sesi/LatihanSatuSoalClient";
 import { redirect } from "next/navigation";
+import { generateChapterQuestions } from "@/lib/curriculum-quiz-engine";
 
 function isValidUUID(str: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
@@ -83,52 +84,44 @@ export default async function LatihanPage({
 
   const { data: dbSoalList } = await soalQuery.order("dibuat_pada", { ascending: true }).limit(10);
 
-  // Default soal jika bank soal bab belum memiliki data
-  const defaultSoalList: QuestionItem[] = [
-    {
-      id: "d1eebc99-9c0b-4ef8-bb6d-6bb9bd380a55",
-      pertanyaan: "Diketahui barisan aritmatika $3, 7, 11, 15, \\dots$. Tentukan nilai dari suku ke-10 ($U_{10}$)!",
-      tipeSoal: "pilihan_ganda",
-      poin: 10,
-      opsiSoal: [
-        { id: "e1eebc99-9c0b-4ef8-bb6d-6bb9bd380a77", label: "A", teksOpsi: "35" },
-        { id: "e2eebc99-9c0b-4ef8-bb6d-6bb9bd380a88", label: "B", teksOpsi: "39" },
-        { id: "e3eebc99-9c0b-4ef8-bb6d-6bb9bd380a99", label: "C", teksOpsi: "43" },
-        { id: "e4eebc99-9c0b-4ef8-bb6d-6bb9bd380aaa", label: "D", teksOpsi: "47" },
-      ],
-    },
-    {
-      id: "d3eebc99-9c0b-4ef8-bb6d-6bb9bd380a77",
-      pertanyaan: "Jika beda ($b$) pada barisan aritmatika $5, 9, 13, 17, \\dots$ adalah konstan, berapakah nilai beda ($b$) tersebut?",
-      tipeSoal: "isian_singkat",
-      poin: 10,
-    },
-    {
-      id: "d2eebc99-9c0b-4ef8-bb6d-6bb9bd380a66",
-      pertanyaan: "Jelaskan perbedaan mendasar antara **Barisan Aritmatika** dan **Barisan Geometri**, serta berikan masing-masing 1 contoh sederhana!",
-      tipeSoal: "esai",
-      poin: 10,
-    },
-  ];
+  const effectiveMapel = (sesiRow?.bab as any)?.mapel || "Matematika";
+
+  // Ambil soal kurikulum engine sebagai acuan lengkap (10 butir soal beserta petunjuk dan pembahasan)
+  const curriculumQuestions = generateChapterQuestions(judulBab, effectiveMapel, 8);
 
   const formattedSoalList: QuestionItem[] =
     dbSoalList && dbSoalList.length > 0
-      ? dbSoalList.map((item: any) => ({
-          id: item.id,
-          pertanyaan: item.pertanyaan,
-          tipeSoal: item.tipe_soal as "pilihan_ganda" | "isian_singkat" | "esai",
-          poin: item.poin || 10,
-          opsiSoal: Array.isArray(item.opsi_soal)
-            ? [...item.opsi_soal]
-                .sort((a, b) => (a.urutan || 0) - (b.urutan || 0))
-                .map((o: any, idx: number) => ({
-                  id: o.id,
-                  label: o.label || String.fromCharCode(65 + idx),
-                  teksOpsi: o.teks_opsi,
-                }))
-            : undefined,
-        }))
-      : defaultSoalList;
+      ? dbSoalList.map((item: any, idx: number) => {
+          const matchingCurriculum = curriculumQuestions[idx];
+          return {
+            id: item.id,
+            pertanyaan: item.pertanyaan,
+            tipeSoal: item.tipe_soal as "pilihan_ganda" | "isian_singkat" | "esai",
+            poin: item.poin || 10,
+            petunjuk: matchingCurriculum?.hintSokratik || "Perhatikan kata kunci, variabel, dan rumus pokok yang digunakan pada soal ini.",
+            opsiSoal: Array.isArray(item.opsi_soal)
+              ? [...item.opsi_soal]
+                  .sort((a, b) => (a.urutan || 0) - (b.urutan || 0))
+                  .map((o: any, oIdx: number) => ({
+                    id: o.id,
+                    label: o.label || String.fromCharCode(65 + oIdx),
+                    teksOpsi: o.teks_opsi,
+                  }))
+              : undefined,
+          };
+        })
+      : curriculumQuestions.map((cq, idx) => ({
+          id: cq.id,
+          pertanyaan: cq.pertanyaan,
+          tipeSoal: cq.tipeSoal as "pilihan_ganda" | "esai",
+          poin: 10,
+          petunjuk: cq.hintSokratik || "Gunakan konsep dasar matematika pada bab ini untuk meneliti langkah perhitungan.",
+          opsiSoal: cq.opsiSoal?.map((o, oIdx) => ({
+            id: o.id,
+            label: String.fromCharCode(65 + oIdx),
+            teksOpsi: o.teksOpsi,
+          })),
+        }));
 
   return (
     <LatihanSatuSoalClient

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Clock,
   AlertCircle,
@@ -15,14 +16,28 @@ import {
   ShieldAlert,
   ArrowRight,
   BookOpen,
+  Bot,
+  ChevronUp,
+  ChevronDown,
+  X,
+  MessageSquare,
+  Lightbulb,
 } from "lucide-react";
 import MarkdownRenderer from "@/components/materi/MarkdownRenderer";
+import {
+  getStoredAiSettings,
+  getQuizTokensRemaining,
+  decrementQuizToken,
+} from "@/lib/ai-config";
 
 export interface CleanQuizQuestion {
   id: string;
   pertanyaan: string;
   tipeSoal: "pilihan_ganda" | "isian_singkat" | "esai";
-  opsiSoal?: Array<{ id: string; teksOpsi: string }>;
+  opsiSoal?: Array<{ id: string; teksOpsi: string; benar?: boolean; alasanSalah?: string }>;
+  hintSokratik?: string;
+  kunciJawaban?: string;
+  pembahasan?: string;
 }
 
 interface QuizAssessmentClientProps {
@@ -50,6 +65,58 @@ export default function QuizAssessmentClient({
 }: QuizAssessmentClientProps) {
   const router = useRouter();
 
+  // ─── CUSTOM BAB CONFIGURATION (SINKRON GURU) ───
+  const [customBabConfig, setCustomBabConfig] = useState<any>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem("thinksy_custom_babs");
+      if (raw && babId) {
+        const parsed = JSON.parse(raw);
+        const match =
+          parsed[babId] ||
+          Object.values(parsed).find(
+            (b: any) => b.id === babId || b.supabaseId === babId
+          );
+        if (match) {
+          setCustomBabConfig(match);
+        }
+      }
+    } catch {}
+  }, [babId]);
+
+  // Derive Effective Questions (Gunakan bank soal kustom guru jika dikonfigurasi)
+  const activeQuestions: CleanQuizQuestion[] = useMemo(() => {
+    if (
+      customBabConfig?.quiz?.questions &&
+      Array.isArray(customBabConfig.quiz.questions) &&
+      customBabConfig.quiz.questions.length > 0
+    ) {
+      return customBabConfig.quiz.questions.map((q: any, idx: number) => ({
+        id: q.id || `custom-q-${idx + 1}`,
+        pertanyaan: q.pertanyaan,
+        tipeSoal: q.tipeSoal || "pilihan_ganda",
+        opsiSoal: Array.isArray(q.opsiSoal)
+          ? q.opsiSoal.map((o: any, oIdx: number) => ({
+              id: o.id || `opt-${idx + 1}-${oIdx + 1}`,
+              teksOpsi: o.teksOpsi,
+              benar: o.benar,
+              alasanSalah: o.alasanSalah,
+            }))
+          : undefined,
+        hintSokratik: q.hintSokratik,
+        kunciJawaban: q.kunciJawaban,
+        pembahasan: q.pembahasan,
+      }));
+    }
+    return soalList;
+  }, [customBabConfig, soalList]);
+
+  const isQuizEnabled = customBabConfig?.quiz?.isEnabled !== false;
+  const aiQuizMode: "disabled" | "hint_only" | "full" =
+    customBabConfig?.quiz?.aiQuizMode || "hint_only";
+
   // 1. STATE PERSISTENCE (LocalStorage + Server Initial Answers)
   const [answers, setAnswers] = useState<Record<string, string>>(() => {
     if (typeof window !== "undefined") {
@@ -75,6 +142,7 @@ export default function QuizAssessmentClient({
   });
 
   const [currentIdx, setCurrentIdx] = useState(0);
+  const [openPetunjuk, setOpenPetunjuk] = useState<Record<string, boolean>>({});
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -166,35 +234,13 @@ export default function QuizAssessmentClient({
     }
   }, [sesiId, judulSesi, mapel, babId]);
 
-  // Timer Tick & Auto-Submit trigger on 00:00
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const remaining = calculateRemainingSeconds();
-      setSecondsLeft(remaining);
-
-      if (remaining <= 0 && !autoSubmittedRef.current) {
-        clearInterval(interval);
-        submitQuiz(true);
-      }
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [calculateRemainingSeconds, submitQuiz]);
-
-  // Format MM:SS
-  const formatTime = (secs: number) => {
-    const m = Math.floor(secs / 60);
-    const s = secs % 60;
-    return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
-  };
-
-  const isTimeCritical = secondsLeft <= 300; // Under 5 minutes
-  const isTimeUrgent = secondsLeft <= 60; // Under 1 minute
+  // Waktu tidak diperlukan sesuai instruksi pengguna, kuis berjalan tanpa batasan timer.
+  const formatTime = (secs: number) => "";
 
   // 4. ANSWER SELECTION & PERSISTENCE
   const saveAnswerToDb = async (soalId: string, val: string) => {
     try {
-      const q = soalList.find((item) => item.id === soalId);
+      const q = activeQuestions.find((item) => item.id === soalId);
       await fetch("/api/sesi/jawab", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -211,7 +257,7 @@ export default function QuizAssessmentClient({
   };
 
   const handleSelectAnswer = (optionIdOrText: string) => {
-    const q = soalList[currentIdx];
+    const q = activeQuestions[currentIdx];
     if (!q) return;
 
     setAnswers((prev) => {
@@ -229,7 +275,7 @@ export default function QuizAssessmentClient({
   };
 
   const handleToggleFlag = () => {
-    const q = soalList[currentIdx];
+    const q = activeQuestions[currentIdx];
     if (!q) return;
 
     setFlagged((prev) => {
@@ -243,9 +289,190 @@ export default function QuizAssessmentClient({
     });
   };
 
-  const currentQ = soalList[currentIdx];
+  // ─── 5. SOCRATIC AI TUTOR STATE (Scoped per Question) ───
+  const [isAiOpen, setIsAiOpen] = useState(true);
+  const [isAiMinimized, setIsAiMinimized] = useState(false);
+  const [aiMessagesByQuestion, setAiMessagesByQuestion] = useState<
+    Record<string, Array<{ sender: "user" | "tutor"; text: string }>>
+  >({});
+  const [inputMsg, setInputMsg] = useState("");
+  const [isAiLoading, setIsAiLoading] = useState(false);
+  const chatScrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const [maxQuizTokens, setMaxQuizTokens] = useState<number>(() => {
+    if (aiQuizMode === "disabled") return 0;
+    if (aiQuizMode === "hint_only") return 3;
+    if (typeof window !== "undefined") {
+      return getStoredAiSettings().kuis?.tokensPerQuiz || 5;
+    }
+    return 5;
+  });
+  const [quizTokensLeft, setQuizTokensLeft] = useState<number>(() => {
+    if (aiQuizMode === "disabled") return 0;
+    if (aiQuizMode === "hint_only") return 3;
+    if (typeof window !== "undefined") {
+      const max = getStoredAiSettings().kuis?.tokensPerQuiz || 5;
+      return getQuizTokensRemaining(sesiId, max);
+    }
+    return 5;
+  });
+
+  useEffect(() => {
+    if (aiQuizMode === "disabled") {
+      setMaxQuizTokens(0);
+      setQuizTokensLeft(0);
+      return;
+    }
+    if (aiQuizMode === "hint_only") {
+      setMaxQuizTokens(3);
+      setQuizTokensLeft(3);
+      return;
+    }
+    const handleSettingsChange = (e: any) => {
+      const s = e.detail || getStoredAiSettings();
+      if (s?.kuis?.tokensPerQuiz) {
+        setMaxQuizTokens(s.kuis.tokensPerQuiz);
+        setQuizTokensLeft(getQuizTokensRemaining(sesiId, s.kuis.tokensPerQuiz));
+      }
+    };
+    window.addEventListener("thinksy_ai_settings_change", handleSettingsChange);
+    return () => window.removeEventListener("thinksy_ai_settings_change", handleSettingsChange);
+  }, [sesiId, aiQuizMode]);
+
+  const currentQ = activeQuestions[currentIdx];
   const answeredCount = Object.keys(answers).length;
-  const isAllAnswered = answeredCount >= soalList.length && soalList.length > 0;
+  const isAllAnswered = answeredCount >= activeQuestions.length && activeQuestions.length > 0;
+
+  const currentQuestionMessages = currentQ
+    ? aiMessagesByQuestion[currentQ.id] || [
+        {
+          sender: "tutor",
+          text: `Halo ${namaSiswa || "kamu"}! 🦉 Aku **Tutor Sokratik AI**. Aku siap membimbingmu memahami soal nomor ${currentIdx + 1} ini langkah demi langkah tanpa membocorkan kunci jawaban secara langsung.\n\nBagian konsep atau langkah mana yang ingin kita diskusikan?`,
+        },
+      ]
+    : [];
+
+  const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
+    if (chatScrollContainerRef.current) {
+      chatScrollContainerRef.current.scrollTo({
+        top: chatScrollContainerRef.current.scrollHeight,
+        behavior,
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (isAiOpen && !isAiMinimized) {
+      const timer = setTimeout(() => scrollToBottom("smooth"), 50);
+      return () => clearTimeout(timer);
+    }
+  }, [currentQuestionMessages.length, isAiLoading, isAiOpen, isAiMinimized, currentIdx]);
+
+  const handleSendAiMessage = async (customPrompt?: string) => {
+    const textToSend = (customPrompt || inputMsg).trim();
+    if (!textToSend || isAiLoading || !currentQ) return;
+    if (quizTokensLeft <= 0) return;
+
+    decrementQuizToken(sesiId, maxQuizTokens);
+    setQuizTokensLeft((prev) => Math.max(0, prev - 1));
+
+    setInputMsg("");
+    const prevList = currentQuestionMessages;
+    const updatedWithUser = [
+      ...prevList,
+      { sender: "user" as const, text: textToSend },
+    ];
+
+    setAiMessagesByQuestion((prev) => ({
+      ...prev,
+      [currentQ.id]: updatedWithUser,
+    }));
+    setIsAiLoading(true);
+
+    try {
+      const response = await fetch("/api/tutor/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sesiId,
+          soalId: currentQ.id,
+          soalNomor: currentIdx + 1,
+          totalSoal: activeQuestions.length,
+          pertanyaan: currentQ.pertanyaan,
+          opsiJawaban: currentQ.opsiSoal,
+          jawabanSiswa: answers[currentQ.id] || undefined,
+          hintSokratik: currentQ.hintSokratik,
+          kunciJawaban: currentQ.kunciJawaban,
+          pembahasan: currentQ.pembahasan,
+          babJudul: judulSesi,
+          mapel,
+          message: textToSend,
+          history: prevList.map((m) => ({
+            role: m.sender === "user" ? "user" : "assistant",
+            content: m.text,
+          })),
+        }),
+      });
+
+      const data = await response.json();
+      const replyText =
+        data.reply ||
+        (data.error
+          ? `⚠️ ${data.error}`
+          : `💡 **Petunjuk Sokratik:** Coba perhatikan informasi utama pada soal ini. Rumus atau konsep apa yang menghubungkan pertanyaan dengan pilihan jawaban yang ada?`);
+
+      setAiMessagesByQuestion((prev) => ({
+        ...prev,
+        [currentQ.id]: [
+          ...(prev[currentQ.id] || updatedWithUser),
+          { sender: "tutor", text: replyText },
+        ],
+      }));
+    } catch {
+      setAiMessagesByQuestion((prev) => ({
+        ...prev,
+        [currentQ.id]: [
+          ...(prev[currentQ.id] || updatedWithUser),
+          {
+            sender: "tutor",
+            text: `💡 **Bimbingan Penalaran:** Bayangkan prinsip materi ${mapel} yang terkait dengan soal ini. Langkah awal apa yang menurutmu masuk akal untuk dikerjakan terlebih dahulu?`,
+          },
+        ],
+      }));
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
+
+  // Tampilan Terkunci Jika Kuis Dinonaktifkan oleh Guru
+  if (!isQuizEnabled) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-3xl p-8 border border-slate-200 shadow-xl text-center space-y-5">
+          <div className="w-16 h-16 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center mx-auto text-2xl font-black">
+            🔒
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-slate-900 font-heading">
+              Kuis Bab Sedang Ditutup
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-500 mt-2 leading-relaxed">
+              Guru pengampu telah menonaktifkan sementara akses pengerjaan kuis untuk bab ini. Silakan hubungi guru atau pelajari kembali materi bab Anda.
+            </p>
+          </div>
+          {babId && (
+            <Link
+              href={`/bab/${babId}`}
+              className="inline-flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-white font-bold text-xs transition cursor-pointer"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              <span>Kembali ke Modul Bab</span>
+            </Link>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 pb-28 sm:pb-20 font-sans selection:bg-emerald-100">
@@ -269,24 +496,11 @@ export default function QuizAssessmentClient({
             </div>
           </div>
 
-          {/* TIMER AKTIF REAL-TIME DARI DB */}
+          {/* Header Action: Kumpulkan Kuis */}
           <div className="flex items-center gap-3 shrink-0">
-            <div
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-2xl text-xs sm:text-sm font-black transition-all ${
-                isTimeUrgent
-                  ? "bg-rose-50 text-rose-700 animate-pulse ring-2 ring-rose-300"
-                  : isTimeCritical
-                  ? "bg-amber-50 text-amber-800 ring-1 ring-amber-300"
-                  : "bg-slate-50 text-slate-700 border border-slate-100"
-              }`}
-            >
-              <Clock className={`w-4 h-4 ${isTimeUrgent ? "text-rose-600" : isTimeCritical ? "text-amber-600" : "text-slate-500"}`} />
-              <span className="tabular-nums tracking-wide">{formatTime(secondsLeft)}</span>
-            </div>
-
             <button
               onClick={() => setIsSubmitModalOpen(true)}
-              className="hidden sm:inline-flex items-center gap-2 py-2.5 px-5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-2xl shadow-xs transition active:scale-98 cursor-pointer"
+              className="inline-flex items-center gap-2 py-2.5 px-5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-2xl shadow-xs transition active:scale-98 cursor-pointer"
             >
               <span>Kumpulkan</span>
               <Send className="w-3.5 h-3.5" />
@@ -316,17 +530,19 @@ export default function QuizAssessmentClient({
                     </span>
                   </div>
 
-                  <button
-                    onClick={handleToggleFlag}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                      flagged[currentQ.id]
-                        ? "bg-amber-100 text-amber-800 border border-amber-300"
-                        : "bg-slate-50 hover:bg-slate-100 text-slate-600"
-                    }`}
-                  >
-                    <Flag className={`w-3.5 h-3.5 ${flagged[currentQ.id] ? "fill-amber-600 text-amber-600" : ""}`} />
-                    <span>{flagged[currentQ.id] ? "Ditandai Ragu" : "Ragu-ragu"}</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleToggleFlag}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                        flagged[currentQ.id]
+                          ? "bg-amber-100 text-amber-800 border border-amber-300"
+                          : "bg-slate-50 hover:bg-slate-100 text-slate-600"
+                      }`}
+                    >
+                      <Flag className={`w-3.5 h-3.5 ${flagged[currentQ.id] ? "fill-amber-600 text-amber-600" : ""}`} />
+                      <span>{flagged[currentQ.id] ? "Ditandai Ragu" : "Ragu-ragu"}</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Question Statement */}
@@ -342,30 +558,81 @@ export default function QuizAssessmentClient({
                       const isSelected =
                         answers[currentQ.id] === opt.id ||
                         answers[currentQ.id] === opt.teksOpsi;
+                      const isAnswered = Boolean(answers[currentQ.id]);
+                      const isThisCorrect =
+                        Boolean(opt.benar) ||
+                        opt.teksOpsi === currentQ.kunciJawaban ||
+                        opt.id === currentQ.kunciJawaban;
+                      const isSelectedAndWrong = isAnswered && isSelected && !isThisCorrect;
+
+                      let cardStyle =
+                        "bg-white hover:bg-slate-50/80 text-slate-700 border border-slate-200/80 hover:border-slate-300 shadow-2xs";
+
+                      if (isAnswered) {
+                        if (isThisCorrect) {
+                          cardStyle =
+                            "bg-emerald-50 text-emerald-950 font-semibold ring-2 ring-emerald-500 shadow-xs border-emerald-300";
+                        } else if (isSelectedAndWrong) {
+                          cardStyle =
+                            "bg-rose-50 text-rose-950 font-semibold ring-2 ring-rose-500 shadow-xs border-rose-300";
+                        } else {
+                          cardStyle =
+                            "bg-slate-50/60 text-slate-500 border border-slate-200/70 opacity-75";
+                        }
+                      } else if (isSelected) {
+                        cardStyle =
+                          "bg-emerald-50 text-emerald-950 font-semibold ring-2 ring-emerald-500 shadow-xs";
+                      }
 
                       return (
                         <button
                           key={opt.id}
                           type="button"
                           onClick={() => handleSelectAnswer(opt.id)}
-                          className={`w-full text-left p-4 sm:p-5 rounded-2xl transition-all duration-150 flex items-start gap-3.5 group cursor-pointer ${
-                            isSelected
-                              ? "bg-emerald-50 text-emerald-950 font-semibold ring-2 ring-emerald-500 shadow-xs"
-                              : "bg-white hover:bg-slate-50/80 text-slate-700 border border-slate-200/80 hover:border-slate-300 shadow-2xs"
-                          }`}
+                          className={`w-full text-left p-4 sm:p-5 rounded-2xl transition-all duration-150 flex items-start justify-between gap-3.5 group cursor-pointer ${cardStyle}`}
                         >
-                          <div
-                            className={`w-7 h-7 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 transition-colors ${
-                              isSelected
-                                ? "bg-emerald-600 text-white"
-                                : "bg-slate-100 text-slate-600 group-hover:bg-slate-200"
-                            }`}
-                          >
-                            {letter}
+                          <div className="flex items-start gap-3.5 flex-1">
+                            <div
+                              className={`w-7 h-7 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 transition-colors ${
+                                isAnswered
+                                  ? isThisCorrect
+                                    ? "bg-emerald-600 text-white"
+                                    : isSelectedAndWrong
+                                    ? "bg-rose-600 text-white"
+                                    : "bg-slate-100 text-slate-500"
+                                  : isSelected
+                                  ? "bg-emerald-600 text-white"
+                                  : "bg-slate-100 text-slate-600 group-hover:bg-slate-200"
+                              }`}
+                            >
+                              {letter}
+                            </div>
+                            <div className="text-xs sm:text-sm pt-0.5 leading-relaxed flex-1">
+                              <MarkdownRenderer content={opt.teksOpsi} />
+                            </div>
+
+                            {/* Tag (Jawaban Anda) */}
+                            {isAnswered && isSelected && (
+                              <span className="text-[11px] font-semibold text-slate-500 shrink-0 ml-1">
+                                (Jawaban Anda)
+                              </span>
+                            )}
                           </div>
-                          <div className="text-xs sm:text-sm pt-0.5 leading-relaxed flex-1">
-                            <MarkdownRenderer content={opt.teksOpsi} />
-                          </div>
+
+                          {/* Pill Badges */}
+                          {isAnswered && isThisCorrect && (
+                            <div className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 flex items-center gap-1 shrink-0">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Jawaban yang benar</span>
+                            </div>
+                          )}
+
+                          {isAnswered && isSelectedAndWrong && (
+                            <div className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 flex items-center gap-1 shrink-0">
+                              <X className="w-3.5 h-3.5 text-rose-600" />
+                              <span>Jawaban salah</span>
+                            </div>
+                          )}
                         </button>
                       );
                     })
@@ -404,6 +671,49 @@ export default function QuizAssessmentClient({
                   )}
                 </div>
 
+                {/* 1. Petunjuk di bawah Pilihan Ganda (Collapsible) */}
+                {currentQ.hintSokratik && (
+                  <div className="pt-1">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setOpenPetunjuk((prev) => ({
+                          ...prev,
+                          [currentQ.id]: !prev[currentQ.id],
+                        }))
+                      }
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 transition cursor-pointer"
+                    >
+                      <Lightbulb className="w-4 h-4 text-amber-500" />
+                      <span>Petunjuk</span>
+                      {openPetunjuk[currentQ.id] ? (
+                        <ChevronUp className="w-3.5 h-3.5 text-slate-400" />
+                      ) : (
+                        <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                      )}
+                    </button>
+
+                    {openPetunjuk[currentQ.id] && (
+                      <div className="mt-2.5 p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200/80 text-xs sm:text-sm text-amber-950 leading-relaxed animate-in fade-in duration-150">
+                        <p className="font-medium">{currentQ.hintSokratik}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 2. Pembahasan Lengkap Langsung Setelah Menjawab */}
+                {answers[currentQ.id] && currentQ.pembahasan && (
+                  <div className="mt-4 p-4 sm:p-5 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 space-y-2 animate-in fade-in duration-200">
+                    <div className="flex items-center gap-2 font-bold text-xs sm:text-sm text-emerald-900">
+                      <BookOpen className="w-4 h-4 text-emerald-700" />
+                      <span>Pembahasan Soal:</span>
+                    </div>
+                    <div className="text-xs sm:text-sm text-slate-800 leading-relaxed bg-white/95 p-4 rounded-xl border border-emerald-100 shadow-2xs">
+                      <MarkdownRenderer content={currentQ.pembahasan} />
+                    </div>
+                  </div>
+                )}
+
                 {/* In-Card Navigation Desktop */}
                 <div className="pt-6 border-t border-slate-100 flex items-center justify-between gap-3">
                   <button
@@ -416,12 +726,12 @@ export default function QuizAssessmentClient({
                   </button>
 
                   <div className="text-xs text-slate-400 font-medium">
-                    Terjawab: <strong className="text-slate-700">{answeredCount}</strong> / {soalList.length}
+                    Terjawab: <strong className="text-slate-700">{answeredCount}</strong> / {activeQuestions.length}
                   </div>
 
-                  {currentIdx < soalList.length - 1 ? (
+                  {currentIdx < activeQuestions.length - 1 ? (
                     <button
-                      onClick={() => setCurrentIdx((prev) => Math.min(soalList.length - 1, prev + 1))}
+                      onClick={() => setCurrentIdx((prev) => Math.min(activeQuestions.length - 1, prev + 1))}
                       className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition shadow-xs cursor-pointer active:scale-98"
                     >
                       <span>Berikutnya</span>
@@ -453,7 +763,7 @@ export default function QuizAssessmentClient({
                   Nomor Soal
                 </h3>
                 <span className="text-xs text-slate-400 font-medium">
-                  {answeredCount}/{soalList.length} Selesai
+                  {answeredCount}/{activeQuestions.length} Selesai
                 </span>
               </div>
 
@@ -475,7 +785,7 @@ export default function QuizAssessmentClient({
 
               {/* Number Buttons Grid */}
               <div className="grid grid-cols-5 gap-2 max-h-72 overflow-y-auto p-0.5">
-                {soalList.map((q, idx) => {
+                {activeQuestions.map((q, idx) => {
                   const isAnswered = Boolean(answers[q.id]);
                   const isFlag = Boolean(flagged[q.id]);
                   const isCurrent = idx === currentIdx;
@@ -513,15 +823,169 @@ export default function QuizAssessmentClient({
               </div>
             </div>
 
-            {/* Anti-AI Security Notice */}
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 text-xs text-slate-500 space-y-1">
-              <div className="flex items-center gap-1.5 font-bold text-slate-700">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Pengerjaan Terproteksi & Mandiri</span>
+            {/* ─── THINKY AI CARD (QUIZ MODE) ─── */}
+            <div id="ai-tutor-box" className="bg-white rounded-3xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.03)] border border-slate-200/90 animate-in fade-in duration-200">
+              {/* Header (#193446) */}
+              <div className="flex items-center justify-between px-4 py-3 bg-[#193446] text-white">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-white/10 p-1 flex items-center justify-center border border-[#E9C77B]/30 shrink-0">
+                    <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-xs text-[#E9C77B] flex items-center gap-1 leading-none">
+                      <span>✨ thinksy AI</span>
+                    </h3>
+                    <p className="text-[10px] text-[#E9C77B]/80 font-medium leading-tight mt-0.5">
+                      {aiQuizMode === "disabled"
+                        ? "Bantuan Dinonaktifkan Guru"
+                        : aiQuizMode === "hint_only"
+                        ? `Petunjuk Konsep • Soal #${currentIdx + 1}`
+                        : `Asisten Belajar • Soal #${currentIdx + 1}`}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {aiQuizMode === "disabled" ? (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-rose-300/30 bg-rose-400/20 text-rose-200">
+                      Ujian Murni (AI Nonaktif)
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-300/30 bg-amber-400/10 text-amber-200">
+                      Kuota Kuis: {quizTokensLeft}/{maxQuizTokens}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setIsAiMinimized((prev) => !prev)}
+                    className="p-1 rounded-md text-white/70 hover:text-white hover:bg-white/10 transition cursor-pointer"
+                    title={isAiMinimized ? "Perluas obrolan" : "Kecilkan obrolan"}
+                  >
+                    {isAiMinimized ? (
+                      <ChevronDown className="w-4 h-4" />
+                    ) : (
+                      <ChevronUp className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
               </div>
-              <p className="text-[11px] leading-relaxed text-slate-400">
-                Sesi kuis ini diawasi dengan integritas penilaian standar sekolah. Pembahasan lengkap akan terbuka setelah sesi disubmit.
-              </p>
+
+              {!isAiMinimized && (
+                <div className="p-4 space-y-3.5">
+                  {aiQuizMode === "disabled" ? (
+                    <div className="p-6 text-center space-y-2.5">
+                      <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center mx-auto">
+                        <ShieldAlert className="w-5 h-5 text-amber-700" />
+                      </div>
+                      <div className="text-xs font-bold text-slate-900">Mode Ujian Murni (Tanpa AI)</div>
+                      <p className="text-[11px] text-slate-500 leading-relaxed max-w-xs mx-auto">
+                        Guru telah menonaktifkan bantuan AI Tutor pada kuis ini untuk menguji pemahaman mandiri siswa. Selesaikan seluruh butir soal tanpa bantuan AI.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Warning Banner When Quiz Tokens are Exhausted */}
+                      {quizTokensLeft <= 0 && (
+                        <div className="px-3 py-2 bg-amber-500/10 border border-amber-500/20 text-amber-800 text-xs rounded-xl flex items-center gap-2">
+                          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                          <span>Kuota bantuan AI kuis ini telah habis ({maxQuizTokens}/{maxQuizTokens}). Silakan selesaikan sisa soal secara mandiri!</span>
+                        </div>
+                      )}
+
+                      {/* Quick Prompt Suggestions */}
+                      <div className="flex flex-wrap gap-1.5">
+                        <button
+                          type="button"
+                          disabled={isAiLoading || quizTokensLeft <= 0}
+                          onClick={() => handleSendAiMessage("Beri petunjuk langkah awal untuk menyelesaikan soal ini")}
+                          className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-slate-50 hover:bg-slate-100 disabled:opacity-40 text-slate-700 border border-slate-200/80 transition cursor-pointer"
+                        >
+                          💡 Langkah Awal
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isAiLoading || quizTokensLeft <= 0}
+                          onClick={() => handleSendAiMessage("Konsep atau rumus apa yang dipakai di soal ini?")}
+                          className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-slate-50 hover:bg-slate-100 disabled:opacity-40 text-slate-700 border border-slate-200/80 transition cursor-pointer"
+                        >
+                          🔍 Konsep Rumus
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isAiLoading || quizTokensLeft <= 0}
+                          onClick={() => handleSendAiMessage("Saya masih bingung memahami maksud pertanyaannya")}
+                          className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-slate-50 hover:bg-slate-100 disabled:opacity-40 text-slate-700 border border-slate-200/80 transition cursor-pointer"
+                        >
+                          ❓ Paham Soal
+                        </button>
+                      </div>
+
+                      {/* Messages Scroll Area */}
+                      <div
+                        ref={chatScrollContainerRef}
+                        className="h-64 overflow-y-auto space-y-2.5 p-3 rounded-2xl bg-slate-50/70 border border-slate-100 text-xs scroll-smooth"
+                      >
+                        {currentQuestionMessages.map((msg, idx) => (
+                          <div
+                            key={idx}
+                            className={`p-3 rounded-2xl leading-relaxed ${
+                              msg.sender === "user"
+                                ? "bg-[#193446] text-white [&_*]:!text-white ml-5 rounded-tr-xs shadow-xs"
+                                : "bg-white text-slate-800 mr-5 border border-slate-200/80 shadow-2xs rounded-tl-xs"
+                            }`}
+                          >
+                            <MarkdownRenderer content={msg.text} isCompact />
+                          </div>
+                        ))}
+
+                        {isAiLoading && (
+                          <div className="flex items-center gap-2 p-2.5 bg-white text-slate-600 rounded-xl border border-slate-200/80 shadow-2xs text-[11px] font-medium animate-pulse">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-[#193446]" />
+                            <span>thinksy AI sedang menalar petunjuk...</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Input Box */}
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          handleSendAiMessage();
+                        }}
+                        className="space-y-1.5"
+                      >
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={inputMsg}
+                            maxLength={200}
+                            onChange={(e) => setInputMsg(e.target.value)}
+                            placeholder={
+                              quizTokensLeft <= 0
+                                ? "Kuota bantuan AI kuis sudah habis..."
+                                : "Ketik pertanyaan untuk thinksy AI..."
+                            }
+                            disabled={isAiLoading || quizTokensLeft <= 0}
+                            className="flex-1 px-3.5 py-2.5 bg-slate-50 focus:bg-white rounded-2xl text-xs font-medium border border-slate-200 focus:border-[#193446] outline-none transition disabled:opacity-50"
+                          />
+                          <button
+                            type="submit"
+                            disabled={!inputMsg.trim() || isAiLoading || quizTokensLeft <= 0}
+                            className="p-2.5 rounded-2xl bg-[#193446] hover:bg-[#132836] disabled:opacity-40 disabled:cursor-not-allowed text-white transition cursor-pointer shrink-0 shadow-xs"
+                            title="Kirim pesan"
+                          >
+                            <Send className="w-4 h-4 text-[#E9C77B]" />
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-slate-400 flex items-center justify-between px-1">
+                          <span>*Bimbingan Sokratik tanpa bocoran jawaban</span>
+                          <span>{inputMsg.length}/200</span>
+                        </p>
+                      </form>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -532,14 +996,28 @@ export default function QuizAssessmentClient({
         <button
           disabled={currentIdx === 0}
           onClick={() => setCurrentIdx((prev) => Math.max(0, prev - 1))}
-          className="flex-1 py-3 px-4 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs disabled:opacity-40"
+          className="flex-1 py-3 px-3 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs disabled:opacity-40"
         >
           Sebelumnya
         </button>
 
         <button
+          onClick={() => {
+            setIsAiOpen(true);
+            setIsAiMinimized(false);
+            const el = document.getElementById("ai-tutor-box");
+            if (el) el.scrollIntoView({ behavior: "smooth" });
+          }}
+          className="py-3 px-3.5 rounded-xl bg-[#193446] hover:bg-[#132836] text-[#E9C77B] font-black text-xs flex items-center justify-center gap-1.5 shadow-xs"
+          title="Tanya thinksy AI"
+        >
+          <Sparkles className="w-3.5 h-3.5" />
+          <span>thinksy AI ({quizTokensLeft})</span>
+        </button>
+
+        <button
           onClick={handleToggleFlag}
-          className={`px-4 py-3 rounded-xl text-xs font-bold ${
+          className={`px-3 py-3 rounded-xl text-xs font-bold ${
             flagged[currentQ?.id || ""] ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600"
           }`}
         >
@@ -549,14 +1027,14 @@ export default function QuizAssessmentClient({
         {currentIdx < soalList.length - 1 ? (
           <button
             onClick={() => setCurrentIdx((prev) => Math.min(soalList.length - 1, prev + 1))}
-            className="flex-1 py-3 px-4 rounded-xl bg-emerald-600 text-white font-bold text-xs shadow-xs"
+            className="flex-1 py-3 px-3 rounded-xl bg-emerald-600 text-white font-bold text-xs shadow-xs"
           >
             Berikutnya
           </button>
         ) : (
           <button
             onClick={() => setIsSubmitModalOpen(true)}
-            className="flex-1 py-3 px-4 rounded-xl bg-emerald-700 text-white font-bold text-xs shadow-xs"
+            className="flex-1 py-3 px-3 rounded-xl bg-emerald-700 text-white font-bold text-xs shadow-xs"
           >
             Kumpulkan
           </button>

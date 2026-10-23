@@ -367,15 +367,7 @@ function GuruBuatUjianContent() {
                 onChange={(e) => setMapel(e.target.value)}
                 className="w-full p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs sm:text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="Matematika">Matematika</option>
-                <option value="Bahasa Indonesia">Bahasa Indonesia</option>
-                <option value="Bahasa Inggris">Bahasa Inggris</option>
-                <option value="IPA">IPA</option>
-                <option value="IPS">IPS</option>
-                <option value="PPKN">PPKN</option>
-                <option value="PJOK">PJOK</option>
-                <option value="SENI">SENI</option>
-                <option value="AGAMA">AGAMA</option>
+                <option value="Matematika">Matematika (Kelas 8)</option>
               </select>
             </div>
 

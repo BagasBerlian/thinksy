@@ -252,12 +252,7 @@ export default function AIQuestionGeneratorPage() {
                     onChange={(e) => setMapel(e.target.value)}
                     className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600 bg-slate-50"
                   >
-                    <option value="Matematika">Matematika</option>
-                    <option value="IPA (Fisika-Biologi)">IPA (Fisika-Biologi)</option>
-                    <option value="Bahasa Indonesia">Bahasa Indonesia</option>
-                    <option value="Bahasa Inggris">Bahasa Inggris</option>
-                    <option value="Informatika">Informatika</option>
-                    <option value="IPS">IPS</option>
+                    <option value="Matematika">Matematika (Fase D SMP)</option>
                   </select>
                 </div>
 

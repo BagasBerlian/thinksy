@@ -43,28 +43,41 @@ import {
   UjianItem,
   ClassroomCardItem,
 } from "../../types";
-import AsesmenOverlayModal from "../modals/AsesmenOverlayModal";
+import { useLanguage } from "@/hooks/useLanguage";
 import { LastActivityItem } from "../classroom/ClassroomTodoView";
+import { useActiveClassTheme } from "@/lib/classroom-sync";
+import { ClassBannerGraphic } from "@/components/guru/classroom/ClassBannerGraphics";
+import {
+  useDueSoonItems,
+  formatDueSoonDisplay,
+  isDueSoonReleased,
+} from "@/lib/due-soon";
+import {
+  StreamAnnouncement,
+  DEFAULT_ANNOUNCEMENTS,
+} from "@/lib/announcement-format";
 
 interface TabBelajarProps {
   studentName: string;
-  currentUserRank: number;
+  currentUserRank?: number;
   namaKelas?: string;
   learningProgressPercent: number;
-  learningPoints: number;
+  learningPoints?: number;
   sekolahData?: SekolahData | null;
   calendarWeeks: CalendarWeekItem[];
-  dailyMissions: DailyMission[];
-  isMissionsLoading: boolean;
-  isClaimingMissionId: string | null;
-  onClaimMission: (id: string) => void;
+  dailyMissions?: DailyMission[];
+  isMissionsLoading?: boolean;
+  isClaimingMissionId?: string | null;
+  onClaimMission?: (id: string) => void;
   allChapters?: ChapterItem[];
-  peerStudents: PeerStudent[];
+  peerStudents?: PeerStudent[];
   agendasData?: AgendaAkademikItem[];
   examsData?: UjianItem[];
   lastActivity?: LastActivityItem | null;
   onNavigateToCourses: () => void;
   onOpenClass?: (classId: string) => void;
+  onOpenCalendar?: () => void;
+  onOpenTodo?: () => void;
   classesData?: ClassroomCardItem[];
 }
 
@@ -87,12 +100,76 @@ export default function TabBelajar({
   lastActivity,
   onNavigateToCourses,
   onOpenClass,
+  onOpenCalendar,
+  onOpenTodo,
   classesData = [],
 }: TabBelajarProps) {
-  // Classes Card & Modal States
+  const { t, language } = useLanguage();
+  const mathTheme = useActiveClassTheme("Matematika");
+  // Classes Card Menu State
   const [openCardMenu, setOpenCardMenu] = useState<string | null>(null);
-  const [isJoinClassModalOpen, setIsJoinClassModalOpen] = useState(false);
-  const [classCodeInput, setClassCodeInput] = useState("");
+
+  // Announcements State for Matematika Class Card
+  const [announcements, setAnnouncements] = useState<StreamAnnouncement[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("thinksy_class_announcements");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch {}
+    }
+    return DEFAULT_ANNOUNCEMENTS;
+  });
+
+  useEffect(() => {
+    async function loadAnnouncements() {
+      try {
+        const res = await fetch("/api/classroom/announcements");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.announcements && Array.isArray(data.announcements)) {
+            setAnnouncements(data.announcements);
+            try {
+              localStorage.setItem("thinksy_class_announcements", JSON.stringify(data.announcements));
+            } catch {}
+          }
+        }
+      } catch {}
+    }
+    loadAnnouncements();
+
+    const handleAnnouncementEvent = () => {
+      try {
+        const saved = localStorage.getItem("thinksy_class_announcements");
+        if (saved) setAnnouncements(JSON.parse(saved));
+      } catch {}
+    };
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "thinksy_class_announcements" && e.newValue) {
+        try {
+          setAnnouncements(JSON.parse(e.newValue));
+        } catch {}
+      }
+    };
+
+    window.addEventListener("thinksy_announcement_event", handleAnnouncementEvent);
+    window.addEventListener("storage", handleStorageChange);
+    return () => {
+      window.removeEventListener("thinksy_announcement_event", handleAnnouncementEvent);
+      window.removeEventListener("storage", handleStorageChange);
+    };
+  }, []);
+
+  const latestMathAnnouncement = useMemo(() => {
+    const list = announcements.filter((a) => {
+      const tag = (a.subjectTag || "").toLowerCase();
+      return tag === "mat-8" || tag === "matematika" || tag === "all" || !a.subjectTag || tag.includes("mat");
+    });
+    return list[0] || null;
+  }, [announcements]);
 
   // Calendar Date Selection & Hover
   const todayIso = new Date().toISOString().split("T")[0];
@@ -277,15 +354,13 @@ export default function TabBelajar({
     return "bg-slate-100 text-slate-800 border-slate-200";
   };
 
-  // Helper to normalize and restrict to the 3 core subjects present in the web application
+  // Helper to normalize and restrict strictly to Matematika (Kelas 8)
   const normalizeToCoreMapel = (
     m?: string | null
-  ): "Matematika" | "Bahasa Indonesia" | "Bahasa Inggris" | null => {
-    if (!m) return null;
+  ): "Matematika" | null => {
+    if (!m) return "Matematika";
     const s = m.toLowerCase();
     if (s.includes("matematika") || s.includes("math") || s === "mtk") return "Matematika";
-    if (s.includes("indonesia") || s === "bindo") return "Bahasa Indonesia";
-    if (s.includes("inggris") || s.includes("english") || s === "bing") return "Bahasa Inggris";
     return null;
   };
 
@@ -343,9 +418,9 @@ export default function TabBelajar({
     return list;
   }, [ulanganList, allChapters]);
 
-  // List of unique mapel available in Ulangan Harian (strictly the 3 mapel)
+  // List mapel available in Ulangan Harian (Fokus Matematika Kelas 8)
   const ulanganMapels = useMemo(() => {
-    return ["Semua", "Matematika", "Bahasa Indonesia", "Bahasa Inggris"];
+    return ["Matematika"];
   }, []);
 
   // Filtered Ulangan List by Mapel & Search Query
@@ -385,6 +460,76 @@ export default function TabBelajar({
     (c) => c.mapel?.toLowerCase().includes("indonesia")
   );
 
+  // Real-time synchronization state for agendas
+  const [agendaVersion, setAgendaVersion] = useState(0);
+
+  useEffect(() => {
+    const handleAgendaUpdate = () => {
+      setAgendaVersion((v) => v + 1);
+    };
+    window.addEventListener("thinksy_agenda_update", handleAgendaUpdate);
+    window.addEventListener("storage", handleAgendaUpdate);
+    return () => {
+      window.removeEventListener("thinksy_agenda_update", handleAgendaUpdate);
+      window.removeEventListener("storage", handleAgendaUpdate);
+    };
+  }, []);
+
+  // Due Soon: Bab & Kelas Baru Terjadwal Real-Time dari Guru
+  const liveScheduledItems = useDueSoonItems();
+
+  // Due soon items: Agenda item / bab coming soon terintegrasi real time
+  const dueSoonItems = useMemo(() => {
+    let allAgendas = [...(agendasData || [])];
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("thinksy_scheduled_agendas");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          const existingIds = new Set(allAgendas.map((a) => a.id));
+          parsed.forEach((p: any) => {
+            if (!existingIds.has(p.id)) {
+              allAgendas.push(p);
+            }
+          });
+        }
+      } catch {}
+    }
+
+    // Sambungkan bab dari allChapters yang berstatus coming soon
+    const existingTitles = new Set(allAgendas.map((a) => a.judul?.toLowerCase()));
+    allChapters.forEach((ch: any) => {
+      if (ch.is_coming_soon || (ch.status && ch.status.toLowerCase().includes("coming"))) {
+        if (!existingTitles.has(ch.judul?.toLowerCase())) {
+          allAgendas.push({
+            id: `cs-${ch.id}`,
+            judul: ch.judul,
+            deskripsi: ch.deskripsi || "Bab mendatang yang telah dijadwalkan oleh guru.",
+            kategori: "bab_coming_soon",
+            tanggal: ch.tanggal_rilis || "2026-10-25",
+            jam_mulai: "07:30:00",
+            jam_selesai: "09:00:00",
+            lokasi: "Ruang Belajar Matematika",
+          });
+        }
+      }
+    });
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const endWindow = new Date(today);
+    endWindow.setDate(today.getDate() + 14);
+    endWindow.setHours(23, 59, 59, 999);
+
+    return allAgendas.filter((item) => {
+      if (!item.tanggal) return false;
+      const isComingSoon = item.kategori === "bab_coming_soon";
+      const itemDate = new Date(item.tanggal);
+      const isWithinWindow = itemDate >= today && itemDate <= endWindow;
+      return isComingSoon || isWithinWindow;
+    });
+  }, [agendasData, allChapters, agendaVersion]);
+
   // Dynamic active resume item: use lastActivity or fallback to first chapter
   const activeResumeItem =
     lastActivity ||
@@ -398,6 +543,16 @@ export default function TabBelajar({
         }
       : null);
 
+  // Format nama lengkap akun yang mendaftar ke Title Case (misal: "syaa px" -> "Syaa Px")
+  const formattedFullName = useMemo(() => {
+    if (!studentName || !studentName.trim()) return "Siswa";
+    return studentName
+      .trim()
+      .split(/\s+/)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(" ");
+  }, [studentName]);
+
   return (
     <div className="w-full space-y-6 pt-0 font-sans animate-in fade-in duration-200">
       {/* 1. TOP GRID: WELCOME CARD (NO STREAK) & ACADEMIC CALENDAR */}
@@ -407,18 +562,17 @@ export default function TabBelajar({
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-xl sm:text-2xl font-black text-[#0F172A] tracking-tight font-heading">
-                Selamat Datang Kembali, {studentName.split(" ")[0]}!
+                {language === "en"
+                  ? `Welcome Back, ${formattedFullName}!`
+                  : `Selamat Datang Kembali, ${formattedFullName}!`}
               </h2>
-              <span className="text-xs font-black text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-lg border border-slate-200/80 tracking-wide">
-                Peringkat #{currentUserRank}
-              </span>
             </div>
             <p className="text-slate-500 text-xs sm:text-sm leading-relaxed font-medium max-w-xl">
-              Pantau jadwal ulangan, modul pembelajaran semester, dan klaim poin dari misi belajarmu hari ini.
+              {t.welcomeSubtitle}
             </p>
           </div>
 
-          {/* 3 Metric Cards: Kelas Siswa, Progress Belajar, Poin Belajar (NO DAILY STREAK) */}
+          {/* 3 Metric Cards: Kelas Siswa, Progress Belajar, Ketuntasan Bab (NO GAMIFICATION / POIN) */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
             {/* 1. Kelas Siswa */}
             <div className="p-3 sm:p-3.5 rounded-2xl bg-blue-50/70 border border-blue-200/70 flex items-center gap-3">
@@ -427,13 +581,13 @@ export default function TabBelajar({
               </div>
               <div>
                 <div className="text-[10px] font-extrabold text-blue-700 uppercase tracking-wider">
-                  KELAS SISWA
+                  {language === "en" ? "CLASSROOM" : "KELAS SISWA"}
                 </div>
                 <div className="text-sm sm:text-base font-black text-[#0F172A] font-heading">
                   {namaKelas}
                 </div>
                 <div className="text-[10px] text-slate-500 font-medium">
-                  Semester Ganjil
+                  {language === "en" ? "Odd Semester" : "Semester Ganjil"}
                 </div>
               </div>
             </div>
@@ -465,143 +619,233 @@ export default function TabBelajar({
               </div>
               <div>
                 <div className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
-                  PROGRESS BELAJAR
+                  {language === "en" ? "PROGRESS" : "PROGRESS BELAJAR"}
                 </div>
                 <div className="text-base font-black text-[#0F172A]">
                   {learningProgressPercent}%
                 </div>
                 <div className="text-[10px] text-slate-500 font-medium">
-                  Modul & Latihan
+                  {language === "en" ? "Modules & Practice" : "Modul & Latihan"}
                 </div>
               </div>
             </div>
 
-            {/* 3. Poin Belajar */}
-            <div className="p-3.5 sm:p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold shadow-xs shrink-0">
-                <Trophy className="w-5 h-5 text-slate-950" />
+            {/* 3. Ketuntasan Bab (Menggantikan Poin Belajar) */}
+            <div className="p-3.5 sm:p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-xs shrink-0">
+                <CheckCircle2 className="w-5 h-5 text-white" />
               </div>
               <div>
-                <div className="text-[10px] font-extrabold text-amber-800 uppercase tracking-wider">
-                  POIN BELAJAR
+                <div className="text-[10px] font-extrabold text-emerald-800 uppercase tracking-wider">
+                  {t.chapterMastery.toUpperCase()}
                 </div>
                 <div className="text-base font-black text-[#0F172A]">
-                  {learningPoints.toLocaleString("id-ID")}
+                  {mathChapters.filter((c) => (c.progress ?? 0) >= 100).length} / {mathChapters.length || 5} {language === "en" ? "Chapters" : "Bab"}
                 </div>
                 <div className="text-[10px] text-slate-500 font-medium">
-                  Total Poin Akun
+                  {language === "en" ? "Completed" : "Tuntas Dipelajari"}
                 </div>
               </div>
             </div>
           </div>
 
-          {/* MISI HARIAN (Menggantikan Lanjutkan Belajar, Ukuran Menyesuaikan) */}
-          <div className="p-3.5 sm:p-4 rounded-2xl bg-amber-50/50 border border-amber-200/80 shadow-2xs space-y-3">
-            <div className="flex items-center justify-between">
+          {/* DUE SOON (Menggantikan Target & Rekomendasi Belajar) */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-slate-50/90 border border-slate-200/90 shadow-2xs space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-200/80">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-amber-500 text-white flex items-center justify-center font-bold shadow-2xs">
-                  <Target className="w-4 h-4 text-slate-950" />
+                <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold shadow-2xs">
+                  <Clock className="w-4 h-4 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-xs sm:text-sm font-black text-slate-900 tracking-tight flex items-center gap-1.5 font-heading">
-                    <span>Misi Harianku</span>
-                    <span className="text-[10px] font-bold text-amber-800 bg-amber-100/90 px-2 py-0.5 rounded-md border border-amber-200/70">
-                      Tantangan Harian
-                    </span>
+                  <h3 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight font-sans">
+                    Due soon
                   </h3>
                 </div>
               </div>
-              <span className="text-[11px] font-semibold text-slate-500 hidden sm:inline">
-                Otomatis reset tiap 24 jam
-              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  if (onOpenTodo) onOpenTodo();
+                  else if (onOpenCalendar) onOpenCalendar();
+                }}
+                className="text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 cursor-pointer group"
+              >
+                <span>View To-do</span>
+                <span className="font-mono text-xs opacity-70 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform">
+                  ↗
+                </span>
+              </button>
             </div>
 
-            {/* Grid Misi Menyesuaikan Ukuran Card */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-              {isMissionsLoading ? (
-                [...Array(3)].map((_, i) => (
-                  <div key={i} className="p-3 rounded-xl bg-white border border-amber-100 animate-pulse space-y-2">
-                    <div className="h-3 bg-amber-100 rounded w-2/3" />
-                    <div className="h-2.5 bg-amber-50 rounded w-full" />
-                    <div className="h-7 bg-amber-100 rounded-lg w-full" />
-                  </div>
-                ))
-              ) : dailyMissions.length === 0 ? (
-                <div className="col-span-3 text-center py-4 bg-white/70 rounded-xl border border-dashed border-amber-200/80 text-slate-400 text-xs font-medium">
-                  Belum ada misi aktif hari ini.
-                </div>
-              ) : (
-                dailyMissions.map((misi) => {
-                  const isCompleted =
-                    Number((misi as any).progres_saat_ini ?? (misi as any).currentCount) >=
-                    Number((misi as any).target_max ?? (misi as any).targetCount);
-                  const isClaimed = Boolean(
-                    (misi as any).diklaim ?? (misi as any).isClaimed
-                  );
+            {/* Daftar tugas / bab coming soon mendatang */}
+            {liveScheduledItems.length === 0 && dueSoonItems.length === 0 ? (
+              <div className="py-6 text-center text-slate-500 font-normal text-xs sm:text-sm">
+                You don&apos;t have any work due in the next 7 days
+              </div>
+            ) : (
+              <div className="space-y-2.5 max-h-72 overflow-y-auto custom-scrollbar">
+                {/* 1. Item Terjadwal Real-Time (Bab & Kelas Baru) */}
+                {liveScheduledItems.map((item) => {
+                  const isReleased = isDueSoonReleased(item.dueSoonDate);
+                  const dateInfo = formatDueSoonDisplay(item.dueSoonDate);
+                  const isBab = item.type === "bab";
 
                   return (
                     <div
-                      key={misi.id}
-                      className={`p-3 rounded-xl border flex flex-col justify-between gap-2.5 transition-all ${
-                        isClaimed
-                          ? "bg-emerald-50/50 border-emerald-200/80"
-                          : isCompleted
-                          ? "bg-amber-100/70 border-amber-300 shadow-2xs ring-1 ring-amber-300/60"
-                          : "bg-white hover:bg-amber-50/40 border-amber-200/70 shadow-2xs"
+                      key={item.id}
+                      onClick={() => {
+                        if (!isReleased) return;
+                        if (isBab) {
+                          try {
+                            if (item.babNomor) {
+                              localStorage.setItem("thinksy_active_bab_id", String(item.babNomor));
+                            }
+                          } catch {}
+                          if (onOpenClass) onOpenClass(item.classId || "matematika");
+                          else onNavigateToCourses();
+                        } else {
+                          if (onOpenClass) onOpenClass(item.classId || "matematika");
+                          else onNavigateToCourses();
+                        }
+                      }}
+                      className={`p-3 sm:p-3.5 rounded-xl border transition-all duration-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                        !isReleased
+                          ? "bg-slate-100/90 border-slate-200 text-slate-400 select-none cursor-not-allowed shadow-2xs"
+                          : "bg-white hover:bg-blue-50/50 border-blue-200/90 hover:border-blue-400 text-slate-900 shadow-xs hover:shadow-md cursor-pointer group"
                       }`}
                     >
-                      <div className="space-y-1">
-                        <div className="flex items-start justify-between gap-1.5">
-                          <h4 className="text-xs font-bold text-slate-900 line-clamp-1 leading-snug">
-                            {(misi as any).judul || (misi as any).title}
-                          </h4>
-                          <span className="text-[10px] font-black text-amber-900 bg-amber-100/90 px-1.5 py-0.5 rounded border border-amber-200 shrink-0">
-                            +{(misi as any).poin_hadiah || (misi as any).rewardPoints || 20}
-                          </span>
+                      <div className="flex items-start gap-2.5 min-w-0">
+                        <div
+                          className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+                            !isReleased
+                              ? "bg-slate-200 text-slate-400"
+                              : "bg-blue-100 text-blue-700 shadow-2xs group-hover:scale-105 transition-transform"
+                          }`}
+                        >
+                          {!isReleased ? (
+                            <Lock className="w-4 h-4 text-slate-400" />
+                          ) : isBab ? (
+                            <BookOpen className="w-4 h-4 text-blue-700" />
+                          ) : (
+                            <Sparkles className="w-4 h-4 text-blue-700" />
+                          )}
                         </div>
-                        <p className="text-[11px] text-slate-500 line-clamp-1 leading-tight">
-                          {(misi as any).deskripsi || "Selesaikan target aktivitas belajar hari ini."}
-                        </p>
+
+                        <div className="min-w-0 space-y-0.5">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span
+                              className={`font-bold text-xs sm:text-sm truncate ${
+                                !isReleased ? "text-slate-500" : "text-slate-900 group-hover:text-blue-700"
+                              }`}
+                            >
+                              {item.title}
+                            </span>
+                            <span
+                              className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
+                                !isReleased ? "bg-slate-200 text-slate-500" : "bg-blue-100 text-blue-800"
+                              }`}
+                            >
+                              {isBab ? `Bab ${item.babNomor || 1}` : "Mapel Baru"}
+                            </span>
+
+                            {!isReleased ? (
+                              <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-100/90 text-amber-800 border border-amber-200 flex items-center gap-1">
+                                <Lock className="w-2.5 h-2.5 text-amber-700" />
+                                <span>Terkunci • Rilis {dateInfo.remainingText}</span>
+                              </span>
+                            ) : (
+                              <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1 shadow-2xs">
+                                <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
+                                <span>Waktu Rilis Tiba • Siap Belajar</span>
+                              </span>
+                            )}
+                          </div>
+
+                          <p
+                            className={`text-[11px] line-clamp-1 ${
+                              !isReleased ? "text-slate-400" : "text-slate-500"
+                            }`}
+                          >
+                            {item.description || item.subtitle}
+                          </p>
+
+                          <div
+                            className={`text-[10px] font-medium flex items-center gap-1.5 ${
+                              !isReleased ? "text-slate-400" : "text-slate-600"
+                            }`}
+                          >
+                            <CalendarIcon className="w-3 h-3 text-slate-400" />
+                            <span>Jadwal: {dateInfo.full}</span>
+                          </div>
+                        </div>
                       </div>
 
-                      <div>
-                        {isClaimed ? (
-                          <button
-                            disabled
-                            className="w-full py-1.5 rounded-lg bg-emerald-100 text-emerald-800 text-[11px] font-bold flex items-center justify-center gap-1 cursor-not-allowed border border-emerald-200"
-                          >
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>Klaim Selesai</span>
-                          </button>
+                      <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                        {!isReleased ? (
+                          <div className="px-2.5 py-1 rounded-lg bg-slate-200/80 text-slate-400 text-xs font-bold border border-slate-300/60 flex items-center gap-1 cursor-not-allowed">
+                            <Lock className="w-3 h-3" />
+                            <span>Belum Dibuka</span>
+                          </div>
                         ) : (
                           <button
                             type="button"
-                            onClick={() => {
-                              if (isCompleted) {
-                                onClaimMission(misi.id);
-                              } else {
-                                onNavigateToCourses();
-                              }
-                            }}
-                            disabled={isClaimingMissionId === misi.id}
-                            className={`w-full py-1.5 rounded-lg text-[11px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50 ${
-                              isCompleted
-                                ? "bg-amber-500 hover:bg-amber-600 text-white shadow-xs active:scale-[0.98]"
-                                : "bg-white hover:bg-amber-50 text-amber-950 border border-amber-200 hover:border-amber-300 shadow-2xs"
-                            }`}
+                            className="px-3 py-1.5 rounded-lg bg-[#1967D2] group-hover:bg-blue-700 text-white text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
                           >
-                            {isClaimingMissionId === misi.id && (
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                            )}
-                            <span>{isCompleted ? "Klaim Reward" : "Kerjakan"}</span>
+                            <span>{isBab ? "Buka Bab" : "Masuk Kelas"}</span>
+                            <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
                           </button>
                         )}
                       </div>
                     </div>
                   );
-                })
-              )}
-            </div>
+                })}
+
+                {/* 2. Agenda / Asesmen Lainnya */}
+                {dueSoonItems.map((item) => (
+                  <div
+                    key={item.id}
+                    className="py-2.5 sm:py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 hover:bg-white p-2 rounded-xl transition border-t border-slate-100"
+                  >
+                    <div className="flex items-start gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 border border-blue-200/60 flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                        <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="font-bold text-xs sm:text-sm text-slate-900 truncate">
+                            {item.judul}
+                          </span>
+                          <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-100 text-amber-900 border border-amber-300 uppercase tracking-wider">
+                            {item.kategori === "bab_coming_soon" ? "Bab Coming Soon" : item.kategori}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 line-clamp-1 mt-0.5">
+                          {item.deskripsi || "Materi bab terintegrasi dengan kalender akademik."}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                      <div className="text-right text-[10px] text-slate-500">
+                        <div className="font-semibold text-slate-700">
+                          {item.tanggal}
+                        </div>
+                        {item.jam_mulai && (
+                          <div>{item.jam_mulai.substring(0, 5)} WIB</div>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={onOpenCalendar}
+                        className="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-700 text-xs font-semibold border border-blue-200 transition cursor-pointer"
+                      >
+                        Lihat Jadwal
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -611,12 +855,22 @@ export default function TabBelajar({
             <div className="flex items-center gap-2">
               <CalendarIcon className="w-4 h-4 text-emerald-600" />
               <h3 className="text-base font-black text-[#0F172A] tracking-tight font-heading">
-                Agenda Akademik
+                {t.calendar}
               </h3>
             </div>
-            <span className="text-[11px] font-bold text-slate-500">
-              September 2026
-            </span>
+            {onOpenCalendar ? (
+              <button
+                type="button"
+                onClick={onOpenCalendar}
+                className="text-[11px] font-bold text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-0.5 cursor-pointer"
+              >
+                <span>{language === "en" ? "Full Schedule →" : "Lihat Lengkap →"}</span>
+              </button>
+            ) : (
+              <span className="text-[11px] font-bold text-slate-500">
+                Oktober 2026
+              </span>
+            )}
           </div>
 
           <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-bold text-slate-400">
@@ -842,56 +1096,38 @@ export default function TabBelajar({
         </div>
       </section>
 
-      {/* 2. CLASSES SECTION (GOOGLE CLASSROOM REPLICA MATCHING SCREENSHOT) */}
+      {/* 2. CLASSES SECTION (TERINTEGRASI 100% DENGAN RUANG BELAJAR MATEMATIKA) */}
       <section id="classes" className="space-y-4 pt-2">
         {/* Section Header */}
         <div className="flex items-center justify-between px-1">
-          <h2 className="text-xl sm:text-2xl font-normal text-slate-800 tracking-tight font-sans">
-            Classes
-          </h2>
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setIsJoinClassModalOpen(true)}
-              title="Create or join a class"
-              className="inline-flex items-center gap-1.5 text-[#1967D2] hover:bg-blue-50 px-3.5 py-1.5 rounded-full font-medium text-xs sm:text-sm transition cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add class</span>
-            </button>
+          <div>
+            <h2 className="text-xl sm:text-2xl font-normal text-slate-800 tracking-tight font-sans">
+              Classes
+            </h2>
+            <p className="text-xs text-slate-500 font-normal">
+              Kelas aktif yang terintegrasi langsung dengan Ruang Belajar Matematika Anda
+            </p>
           </div>
         </div>
 
-        {/* Classes Grid (Dynamic Cards with Real Teachers from Database) */}
+        {/* Classes Grid (Terintegrasi Ruang Belajar: Khusus Matematika Kelas 8) */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {(classesData && classesData.length > 0
-            ? classesData
-            : [
-                {
-                  id: "class_matematika",
-                  nama_kelas: "Matematika",
-                  nama_guru: "Ibu Rani Kamayasha, S.Pd.",
-                  foto_guru: null,
-                  banner_color: "#4338CA",
-                  banner_pattern: "matematika" as const,
-                },
-                {
-                  id: "class_indonesia",
-                  nama_kelas: "Bahasa Indonesia",
-                  nama_guru: "Ibu Rani Kamayasha, S.Pd.",
-                  foto_guru: null,
-                  banner_color: "#047857",
-                  banner_pattern: "indonesia" as const,
-                },
-                {
-                  id: "class_inggris",
-                  nama_kelas: "Bahasa Inggris",
-                  nama_guru: "Ibu Siti Rahmawati, M.Pd.",
-                  foto_guru: "/images/foto-guru.jpg",
-                  banner_color: "#0284C7",
-                  banner_pattern: "inggris" as const,
-                },
-              ]
+          {(
+            (classesData && classesData.length > 0
+              ? classesData.filter((c) => c.nama_kelas.toLowerCase().includes("matematika"))
+              : []
+            ).length > 0
+              ? classesData.filter((c) => c.nama_kelas.toLowerCase().includes("matematika"))
+              : [
+                  {
+                    id: "class_matematika",
+                    nama_kelas: "Matematika",
+                    nama_guru: "Ibu Rani Kamayasha, S.Pd.",
+                    foto_guru: null,
+                    banner_color: "#4338CA",
+                    banner_pattern: "matematika" as const,
+                  },
+                ]
           ).map((cls, idx) => {
             const isMenuOpen = openCardMenu === cls.id;
             const nameParts = (cls.nama_guru || "Guru").trim().split(" ");
@@ -900,89 +1136,49 @@ export default function TabBelajar({
                 ? (nameParts[0][0] + nameParts[1][0]).toUpperCase()
                 : (nameParts[0][0] || "G").toUpperCase();
 
-            const avatarBgColors = [
-              "bg-indigo-600",
-              "bg-emerald-600",
-              "bg-sky-600",
-              "bg-amber-600",
-              "bg-teal-600",
-            ];
-            const avatarBg = avatarBgColors[idx % avatarBgColors.length];
+            const avatarBg = "bg-indigo-600";
 
             return (
               <div
                 key={cls.id || idx}
                 className="bg-white rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between overflow-hidden relative group"
               >
-                {/* Header Banner */}
+                {/* Header Banner (Sinkron 100% dengan Dashboard Guru) */}
                 <div
-                  style={{ backgroundColor: cls.banner_color || "#4338CA" }}
-                  className="h-34 sm:h-36 relative p-4 flex flex-col justify-between select-none overflow-hidden"
+                  style={{ backgroundColor: mathTheme.themeColor || cls.banner_color || "#1967D2" }}
+                  className="h-34 sm:h-36 relative select-none"
                 >
-                  {/* Decorative artwork for 3 mapel */}
-                  {cls.banner_pattern === "matematika" || cls.nama_kelas.toLowerCase().includes("matematika") ? (
-                    <div className="absolute top-2 right-3 opacity-30 pointer-events-none select-none">
-                      <svg className="w-24 h-24" viewBox="0 0 100 100" fill="none">
-                        <path d="M 50 15 L 25 85" stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round" />
-                        <path d="M 50 15 L 75 85" stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round" />
-                        <circle cx="50" cy="15" r="5" fill="#FFFFFF" />
-                        <path d="M 35 60 A 20 20 0 0 0 65 60" stroke="#FDE047" strokeWidth="2.5" strokeDasharray="3 3" fill="none" />
-                        <text x="43" y="55" fill="#FDE047" fontSize="14" fontWeight="bold">π</text>
-                        <path d="M 10 75 Q 40 40 70 85 T 95 30" stroke="#A5B4FC" strokeWidth="1.8" fill="none" />
-                      </svg>
-                    </div>
-                  ) : cls.banner_pattern === "indonesia" || cls.nama_kelas.toLowerCase().includes("indonesia") ? (
-                    <div className="absolute top-2 right-3 opacity-30 pointer-events-none select-none">
-                      <svg className="w-24 h-24" viewBox="0 0 100 100" fill="none">
-                        <path d="M 20 35 C 35 30, 48 33, 50 38 C 52 33, 65 30, 80 35 L 80 75 C 65 70, 52 73, 50 78 C 48 73, 35 70, 20 75 Z" fill="#FFFFFF" opacity="0.8" />
-                        <line x1="50" y1="38" x2="50" y2="78" stroke="#065F46" strokeWidth="2" />
-                        <path d="M 75 15 C 72 30, 60 45, 52 50 L 53 48 C 58 40, 66 30, 75 15" stroke="#FEF08A" strokeWidth="3" fill="#FEF08A" />
-                        <line x1="28" y1="46" x2="44" y2="46" stroke="#065F46" strokeWidth="1.5" />
-                        <line x1="28" y1="54" x2="44" y2="54" stroke="#065F46" strokeWidth="1.5" />
-                        <line x1="56" y1="46" x2="72" y2="46" stroke="#065F46" strokeWidth="1.5" />
-                        <line x1="56" y1="54" x2="72" y2="54" stroke="#065F46" strokeWidth="1.5" />
-                      </svg>
-                    </div>
-                  ) : cls.banner_pattern === "inggris" || cls.nama_kelas.toLowerCase().includes("inggris") ? (
-                    <div className="absolute top-2 right-3 opacity-30 pointer-events-none select-none">
-                      <svg className="w-24 h-24" viewBox="0 0 100 100" fill="none">
-                        <circle cx="50" cy="50" r="32" stroke="#FFFFFF" strokeWidth="2.5" fill="none" />
-                        <ellipse cx="50" cy="50" rx="16" ry="32" stroke="#FFFFFF" strokeWidth="1.8" fill="none" opacity="0.8" />
-                        <line x1="18" y1="50" x2="82" y2="50" stroke="#FFFFFF" strokeWidth="2" opacity="0.8" />
-                        <rect x="52" y="20" width="36" height="24" rx="6" fill="#38BDF8" opacity="0.95" />
-                        <polygon points="58,44 54,52 66,44" fill="#38BDF8" opacity="0.95" />
-                        <text x="59" y="36" fill="#0C4A6E" fontSize="10" fontWeight="bold">ABC</text>
-                      </svg>
-                    </div>
-                  ) : (
-                    <div className="absolute inset-0 opacity-20 pointer-events-none select-none">
-                      <svg className="w-full h-full" viewBox="0 0 200 100" fill="none">
-                        <circle cx="170" cy="20" r="35" stroke="white" strokeWidth="2" />
-                        <path d="M 120 80 C 140 40, 180 40, 200 80" stroke="white" strokeWidth="2" />
-                        <rect x="140" y="50" width="25" height="25" rx="4" stroke="white" strokeWidth="1.5" />
-                      </svg>
-                    </div>
-                  )}
+                  {/* Clipped Background Gradient & Graphic */}
+                  <div className={`absolute inset-0 bg-gradient-to-r ${mathTheme.bgGradient || "from-blue-700 via-indigo-700 to-slate-900"} p-4 flex flex-col justify-between overflow-hidden rounded-t-2xl`}>
+                    {/* Class Banner Graphic: Foto Kustom Guru atau Ilustrasi SVG Google Classroom */}
+                    <ClassBannerGraphic
+                      bannerType={mathTheme.bannerType}
+                      bannerIllustration={mathTheme.bannerIllustration}
+                      bannerPhotoUrl={mathTheme.bannerPhotoUrl}
+                      subjectName={cls.nama_kelas || mathTheme.name}
+                      isCompact={true}
+                    />
 
-                  {/* Title & Real Teacher Name from Database */}
-                  <div className="relative z-10 space-y-0.5 max-w-[70%]">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (onOpenClass) onOpenClass(cls.id);
-                        else onNavigateToCourses();
-                      }}
-                      className="text-left font-semibold text-lg sm:text-xl text-white group-hover:underline tracking-tight line-clamp-1 block cursor-pointer"
-                    >
-                      {cls.nama_kelas}
-                    </button>
-                    <p className="text-xs text-white/90 font-normal truncate" title={cls.nama_guru}>
-                      {cls.nama_guru}
-                    </p>
+                    {/* Title & Real Teacher Name from Database */}
+                    <div className="relative z-10 space-y-0.5 max-w-[70%] drop-shadow-xs">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (onOpenClass) onOpenClass(cls.id);
+                          else onNavigateToCourses();
+                        }}
+                        className="text-left font-semibold text-lg sm:text-xl text-white group-hover:underline tracking-tight line-clamp-1 block cursor-pointer drop-shadow-sm"
+                      >
+                        {cls.nama_kelas || mathTheme.name}
+                      </button>
+                      <p className="text-xs text-white/90 font-normal truncate" title={mathTheme.teacherName || cls.nama_guru}>
+                        {mathTheme.teacherName || cls.nama_guru}
+                      </p>
+                    </div>
                   </div>
 
-                  {/* Circular Teacher Photo from Database (or Initial Avatar Fallback) */}
-                  <div className="absolute -bottom-8 right-4 w-18 h-18 rounded-full border-2 border-white shadow-md overflow-hidden bg-slate-200 z-20 flex items-center justify-center">
+                  {/* Circular Teacher Photo from Database (Tampil utuh di luar tepian kotak putih) */}
+                  <div className="absolute -bottom-8 right-4 w-18 h-18 rounded-full border-2 border-white shadow-md overflow-hidden bg-slate-200 z-30 flex items-center justify-center">
                     {cls.foto_guru ? (
                       <img
                         src={cls.foto_guru}
@@ -997,10 +1193,64 @@ export default function TabBelajar({
                   </div>
                 </div>
 
-                {/* Card Body */}
-                <div className="pt-9 pb-5 px-4 min-h-[95px] flex flex-col justify-between bg-white" />
+                {/* Card Body - Terintegrasi dengan Ruang Belajar */}
+                <div
+                  onClick={() => {
+                    if (onOpenClass) onOpenClass(cls.id);
+                    else onNavigateToCourses();
+                  }}
+                  className="pt-9 pb-4 px-4 min-h-[95px] flex flex-col justify-between bg-white cursor-pointer hover:bg-slate-50/50 transition"
+                >
+                  <div className="space-y-1">
+                    <div className="text-xs font-semibold text-slate-700 flex items-center justify-between">
+                      <span>Progres Ruang Belajar</span>
+                      <span className="text-indigo-600 font-bold">{Math.round(learningProgressPercent)}%</span>
+                    </div>
+                    <div className="text-[11px] text-slate-500">
+                      {allChapters.length || 5} Bab Matematika Kelas 8 • Tersedia Materi, Latihan Sokratik & Kuis
+                    </div>
+                  </div>
 
-                {/* Card Footer with 3 Google Classroom Icons */}
+                  {/* Preview Pengumuman Guru di Card Matematika Siswa */}
+                  {latestMathAnnouncement && (
+                    <div className="mt-2.5 p-2.5 rounded-xl bg-blue-50/90 border border-blue-200/80 hover:bg-blue-100/70 transition-all flex items-start gap-2 text-left">
+                      <div className="w-2 h-2 rounded-full bg-blue-600 mt-1 shrink-0 animate-pulse" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1 text-[10px]">
+                          <span className="font-extrabold text-blue-800 truncate flex items-center gap-1.5">
+                            <span>📢 Pengumuman Guru</span>
+                            {latestMathAnnouncement.isPinned && (
+                              <span className="text-[9px] bg-blue-200/80 text-blue-900 px-1.5 py-0.2 rounded font-bold">
+                                Disematkan
+                              </span>
+                            )}
+                          </span>
+                          <span className="text-slate-400 font-medium text-[9px] shrink-0">
+                            {latestMathAnnouncement.timeAgo || "Baru"}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-700 font-medium line-clamp-1 mt-0.5">
+                          {latestMathAnnouncement.text.replace(/[*_#~`]/g, "").replace(/<[^>]*>?/gm, "")}
+                        </p>
+                        {latestMathAnnouncement.comments && latestMathAnnouncement.comments.length > 0 && (
+                          <span className="text-[10px] text-blue-600 font-semibold mt-1 inline-block">
+                            💬 {latestMathAnnouncement.comments.length} komentar kelas
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Progress Bar */}
+                  <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden mt-3">
+                    <div
+                      className="bg-indigo-600 h-full rounded-full transition-all duration-300"
+                      style={{ width: `${Math.max(5, Math.min(100, learningProgressPercent))}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Card Footer with Google Classroom Action Icons */}
                 <div className="border-t border-slate-100 py-2.5 px-4 flex items-center justify-end gap-3 text-slate-500 bg-white relative">
                   <button
                     type="button"
@@ -1008,7 +1258,7 @@ export default function TabBelajar({
                       if (onOpenClass) onOpenClass(cls.id);
                       else onNavigateToCourses();
                     }}
-                    title="Buka tugas Anda untuk kelas ini"
+                    title="Buka Ruang Belajar Matematika"
                     className="p-1.5 rounded-full hover:bg-slate-100 hover:text-slate-800 transition cursor-pointer"
                   >
                     <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -1023,7 +1273,7 @@ export default function TabBelajar({
                       if (onOpenClass) onOpenClass(cls.id);
                       else onNavigateToCourses();
                     }}
-                    title="Buka folder kelas di Google Drive"
+                    title="Buka Bab & Materi Ruang Belajar"
                     className="p-1.5 rounded-full hover:bg-slate-100 hover:text-slate-800 transition cursor-pointer"
                   >
                     <Folder className="w-5 h-5" />
@@ -1034,60 +1284,41 @@ export default function TabBelajar({
                       e.stopPropagation();
                       setOpenCardMenu(isMenuOpen ? null : cls.id);
                     }}
-                    title="Opsi Lainnya"
+                    title="Opsi Kelas"
                     className="p-1.5 rounded-full hover:bg-slate-100 hover:text-slate-800 transition cursor-pointer"
                   >
                     <MoreVertical className="w-5 h-5" />
                   </button>
 
-                  {/* Dropdown Menu (Matching Image 2) */}
+                  {/* Dropdown Menu */}
                   {isMenuOpen && (
                     <>
                       <div
                         className="fixed inset-0 z-20"
                         onClick={() => setOpenCardMenu(null)}
                       />
-                      <div className="absolute right-3 bottom-11 w-44 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-30 text-xs font-medium text-slate-700 animate-in fade-in zoom-in-95 duration-100">
+                      <div className="absolute right-3 bottom-11 w-48 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-30 text-xs font-medium text-slate-700 animate-in fade-in zoom-in-95 duration-100">
                         <button
                           type="button"
                           onClick={() => {
                             setOpenCardMenu(null);
-                            alert(`Pindahkan urutan kelas: ${cls.nama_kelas}`);
+                            if (onOpenClass) onOpenClass(cls.id);
+                            else onNavigateToCourses();
                           }}
-                          className="w-full text-left px-4 py-2 hover:bg-slate-50 transition cursor-pointer block"
+                          className="w-full text-left px-4 py-2 hover:bg-slate-50 transition cursor-pointer block font-semibold text-indigo-600"
                         >
-                          Move
+                          Buka Ruang Belajar
                         </button>
                         <button
                           type="button"
                           onClick={() => {
                             setOpenCardMenu(null);
-                            alert(`Kelas ${cls.nama_kelas} disembunyikan`);
+                            if (onOpenClass) onOpenClass(cls.id);
+                            else onNavigateToCourses();
                           }}
-                          className="w-full text-left px-4 py-2 hover:bg-slate-50 transition cursor-pointer block"
+                          className="w-full text-left px-4 py-2 hover:bg-slate-50 transition cursor-pointer block text-slate-600"
                         >
-                          Hide
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOpenCardMenu(null);
-                            alert(`Batalkan pendaftaran kelas: ${cls.nama_kelas}`);
-                          }}
-                          className="w-full text-left px-4 py-2 hover:bg-slate-50 transition cursor-pointer block"
-                        >
-                          Unenroll
-                        </button>
-                        <div className="my-1 border-t border-slate-100" />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOpenCardMenu(null);
-                            alert(`Laporkan penyalahgunaan kelas: ${cls.nama_kelas}`);
-                          }}
-                          className="w-full text-left px-4 py-2 hover:bg-slate-50 transition cursor-pointer block text-slate-700 hover:text-rose-600"
-                        >
-                          Report abuse
+                          Lihat Bab & Materi
                         </button>
                       </div>
                     </>
@@ -1098,82 +1329,6 @@ export default function TabBelajar({
           })}
         </div>
       </section>
-
-      {/* MODAL GABUNG KELAS (+ ADD CLASS MODAL) */}
-      {isJoinClassModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-5 animate-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="text-lg font-black text-slate-900 tracking-tight font-sans">
-                Gabung ke Kelas
-              </h3>
-              <button
-                type="button"
-                onClick={() => setIsJoinClassModalOpen(false)}
-                className="p-1 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs text-slate-600 space-y-1">
-                <div className="font-bold text-slate-900">Masuk sebagai:</div>
-                <div className="font-semibold text-blue-700">
-                  {studentName} ({studentName.toLowerCase().replace(/\s+/g, ".")}@sekolah.sch.id)
-                </div>
-                <div className="text-[11px] text-slate-400">
-                  Untuk beralih akun, silakan gunakan menu akun profil.
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 block">
-                  Kode Kelas
-                </label>
-                <p className="text-[11px] text-slate-500">
-                  Mintalah kode kelas kepada guru pengampu Anda, lalu masukkan di bawah ini.
-                </p>
-                <input
-                  type="text"
-                  value={classCodeInput}
-                  onChange={(e) => setClassCodeInput(e.target.value)}
-                  placeholder="Contoh: sci-8a-2026"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 text-xs font-mono tracking-wider transition"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsJoinClassModalOpen(false);
-                  setClassCodeInput("");
-                }}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (!classCodeInput.trim()) {
-                    alert("Masukkan kode kelas terlebih dahulu!");
-                    return;
-                  }
-                  alert(`Berhasil mengirim permintaan bergabung dengan kode kelas: ${classCodeInput}`);
-                  setIsJoinClassModalOpen(false);
-                  setClassCodeInput("");
-                }}
-                className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition shadow-xs cursor-pointer"
-              >
-                Gabung
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

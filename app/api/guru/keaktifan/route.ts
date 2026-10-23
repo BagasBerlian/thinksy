@@ -30,12 +30,7 @@ export async function GET() {
       .eq("id", user.id)
       .maybeSingle();
 
-    if (
-      !teacherProfil ||
-      !["guru", "admin_sekolah", "super_admin", "superadmin"].includes(
-        teacherProfil.peran
-      )
-    ) {
+    if (!teacherProfil || teacherProfil.peran !== "guru") {
       return NextResponse.json({ error: "Akses ditolak." }, { status: 403 });
     }
 
@@ -101,7 +96,7 @@ export async function GET() {
           ? pres.status || "Hadir"
           : "Belum Presensi",
         attendanceTime: pres?.waktu_masuk || null,
-        school: st.nama_sekolah || "SMK Muhammadiyah Pakem",
+        school: st.nama_sekolah || "SMK Muhammadiyah 1",
       };
     });
 

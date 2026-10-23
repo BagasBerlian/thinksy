@@ -54,10 +54,7 @@ function LoginForm() {
         }
 
         const peran = profil.peran;
-        let targetPath = "/";
-        if (peran === "super_admin") targetPath = "/super";
-        else if (peran === "admin_sekolah") targetPath = "/admin";
-        else if (peran === "guru") targetPath = "/guru";
+        let targetPath = peran === "guru" ? "/guru" : "/";
 
         window.location.replace(targetPath);
       } catch (err: any) {

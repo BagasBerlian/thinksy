@@ -16,6 +16,7 @@ export default async function SiswaDashboardPage() {
 
   // Default User Profile
   let userProfile: StudentDashboardProps["userProfile"] = {
+    id: undefined,
     nama_lengkap: "Budi Kartika",
     email: "budi.kartika@sekolah.sch.id",
     peran: "siswa",
@@ -30,7 +31,7 @@ export default async function SiswaDashboardPage() {
     nama_kelas: "Kelas 8",
     nisn: "0089247182",
     nis: "260481",
-    jurusan: "Teknik Komputer & Jaringan",
+    jurusan: "Fase D (Kurikulum Merdeka)",
     tahun_ajaran: "2026/2027",
     foto_url: null,
   };
@@ -243,7 +244,12 @@ export default async function SiswaDashboardPage() {
     }
 
     userProfile = {
-      nama_lengkap: profil?.nama_lengkap || user.email?.split("@")[0] || "Budi Kartika",
+      id: user.id,
+      nama_lengkap:
+        profil?.nama_lengkap ||
+        (user.user_metadata?.nama_lengkap as string) ||
+        user.email?.split("@")[0] ||
+        "Siswa Thinksy",
       email: user.email || "budi.kartika@sekolah.sch.id",
       peran: profil?.peran || "siswa",
       poin: currentPoin,
@@ -257,7 +263,7 @@ export default async function SiswaDashboardPage() {
       nama_kelas: userNamaKelas,
       nisn: profil?.nisn || "0089247182",
       nis: profil?.nis || "260481",
-      jurusan: profil?.jurusan || "Teknik Komputer & Jaringan",
+      jurusan: profil?.jurusan || "Fase D (Kurikulum Merdeka)",
       tahun_ajaran: profil?.tahun_ajaran || "2026/2027",
       foto_url: profil?.foto_url || null,
     };
@@ -287,7 +293,7 @@ export default async function SiswaDashboardPage() {
   }
 
   // 3. Fetch List of Chapters (Bab) with Semester and Compute Real Progress
-  const { data: listBab } = await supabase
+  const { data: rawListBab } = await supabase
     .from("bab")
     .select(
       `
@@ -306,6 +312,30 @@ export default async function SiswaDashboardPage() {
     `
     )
     .order("urutan", { ascending: true });
+
+  // Filter strictly for Matematika SMP Kelas 8 Fase D per Modul Kerja
+  const listBab = (rawListBab || []).filter((b: any) => {
+    const mapelLower = (b.mapel || "").toLowerCase();
+    const judulLower = (b.judul || "").toLowerCase();
+    const isExplicitMath = mapelLower.includes("matematika") || mapelLower.includes("mtk") || !b.mapel;
+    const isOtherSubject =
+      mapelLower.includes("indonesia") ||
+      mapelLower.includes("inggris") ||
+      mapelLower.includes("ipa") ||
+      mapelLower.includes("ips") ||
+      mapelLower.includes("seni") ||
+      mapelLower.includes("pjok") ||
+      mapelLower.includes("agama") ||
+      mapelLower.includes("pancasila") ||
+      mapelLower.includes("informatika") ||
+      judulLower.includes("observasi") ||
+      judulLower.includes("puisi") ||
+      judulLower.includes("surat") ||
+      judulLower.includes("pidato") ||
+      judulLower.includes("iklan");
+    const isKelas8 = !b.kelas || Number(b.kelas) === 8;
+    return isExplicitMath && !isOtherSubject && isKelas8;
+  });
 
   // Fetch all questions per chapter to compute accurate per-chapter progress
   let chaptersWithProgress: Array<{
@@ -402,11 +432,11 @@ export default async function SiswaDashboardPage() {
   if (!sekolahData) {
     sekolahData = {
       id: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
-      nama: "SMKS Muhammadiyah Pakem",
+      nama: "SMK Muhammadiyah 1",
       npsn: "20401318",
       alamat: "Jl. Pakem - Turi No.23, Area Sawah, Pakembinangun, Kec. Pakem, Kab. Sleman, D.I. Yogyakarta 55582",
       motto: "Pusat Keunggulan & Pesantren Vokasi • Bahagia Bersama",
-      deskripsi: "SMKS Muhammadiyah Pakem (MUPA) merupakan Sekolah Pusat Keunggulan dan Pesantren Vokasi yang berkomitmen mencetak generasi muda berakhlak mulia, terampil, mandiri, dan menguasai keahlian industri masa depan.",
+      deskripsi: "SMK Muhammadiyah 1 merupakan Sekolah Pusat Keunggulan dan Pesantren Vokasi yang berkomitmen mencetak generasi muda berakhlak mulia, terampil, mandiri, dan menguasai keahlian industri masa depan.",
       bg_image_url: "/images/smk-muh-pakem-gedung.jpg",
       links: [
         { label: "Website Resmi", url: "https://smkmuhpakem.sch.id", icon: "Globe" },
@@ -446,55 +476,34 @@ export default async function SiswaDashboardPage() {
     const fallbackGuru = allGurus && allGurus.length > 0 ? allGurus[0] : null;
 
     if (rawDbClasses && rawDbClasses.length > 0) {
-      // Strictly filter to the 3 core subjects in the application
-      const coreMapel = ["Matematika", "Bahasa Indonesia", "Bahasa Inggris"];
-      const displayClasses = rawDbClasses.filter((k) =>
-        coreMapel.some((m) => k.nama_kelas.toLowerCase().includes(m.toLowerCase()))
-      );
+      // Sesuai aturan kontrak MVP & integrasi dengan Ruang Belajar: hanya ada mapel "Matematika"
+      const mathClass =
+        rawDbClasses.find((k) => k.nama_kelas.toLowerCase().includes("matematika")) ||
+        rawDbClasses[0];
 
-      // Sort by coreMapel order
-      displayClasses.sort((a, b) => {
-        const idxA = coreMapel.findIndex((m) => a.nama_kelas.toLowerCase().includes(m.toLowerCase()));
-        const idxB = coreMapel.findIndex((m) => b.nama_kelas.toLowerCase().includes(m.toLowerCase()));
-        return (idxA === -1 ? 99 : idxA) - (idxB === -1 ? 99 : idxB);
-      });
+      const rawTeacher: any = mathClass?.profil;
+      const teacherObj: any = Array.isArray(rawTeacher)
+        ? rawTeacher[0]
+        : rawTeacher || (allGurus && allGurus.length > 0 ? allGurus[0] : fallbackGuru);
+      const namaGuru: string = teacherObj?.nama_lengkap || "Ibu Rani Kamayasha, S.Pd.";
+      const fotoGuru: string | null = teacherObj?.foto_url || null;
 
-      classesData = displayClasses.map((k: any, idx: number) => {
-        const teacherObj =
-          k.profil || (allGurus ? allGurus[idx % allGurus.length] : fallbackGuru);
-        const namaGuru = teacherObj?.nama_lengkap || "Guru Pengajar";
-        const fotoGuru = teacherObj?.foto_url || null;
-
-        const nk = (k.nama_kelas || "").toLowerCase();
-        let banner_pattern: ClassroomCardItem["banner_pattern"] = "generic";
-        let banner_color = "#4338CA";
-
-        if (nk.includes("matematika") || nk.includes("math")) {
-          banner_pattern = "matematika";
-          banner_color = "#4338CA";
-        } else if (nk.includes("indonesia")) {
-          banner_pattern = "indonesia";
-          banner_color = "#047857";
-        } else if (nk.includes("inggris") || nk.includes("english")) {
-          banner_pattern = "inggris";
-          banner_color = "#0284C7";
-        }
-
-        return {
-          id: k.id,
-          nama_kelas: k.nama_kelas,
+      classesData = [
+        {
+          id: mathClass?.id || "class_matematika",
+          nama_kelas: "Matematika",
           nama_guru: namaGuru,
           foto_guru: fotoGuru,
-          banner_color,
-          banner_pattern,
-        };
-      });
+          banner_color: "#4338CA",
+          banner_pattern: "matematika" as const,
+        },
+      ];
     }
   } catch (err) {
     console.error("Error fetching classes from database:", err);
   }
 
-  // Graceful fallback strictly for the 3 subjects with real teachers from DB
+  // Graceful fallback strictly for Matematika (1 mapel terintegrasi dengan Ruang Belajar)
   if (classesData.length === 0) {
     classesData = [
       {
@@ -504,22 +513,6 @@ export default async function SiswaDashboardPage() {
         foto_guru: null,
         banner_color: "#4338CA",
         banner_pattern: "matematika",
-      },
-      {
-        id: "class_indonesia",
-        nama_kelas: "Bahasa Indonesia",
-        nama_guru: "Ibu Rani Kamayasha, S.Pd.",
-        foto_guru: null,
-        banner_color: "#047857",
-        banner_pattern: "indonesia",
-      },
-      {
-        id: "class_inggris",
-        nama_kelas: "Bahasa Inggris",
-        nama_guru: "Ibu Siti Rahmawati, M.Pd.",
-        foto_guru: "/images/foto-guru.jpg",
-        banner_color: "#0284C7",
-        banner_pattern: "inggris",
       },
     ];
   }

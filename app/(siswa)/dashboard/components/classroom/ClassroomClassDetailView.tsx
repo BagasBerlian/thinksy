@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -15,6 +15,14 @@ import {
   Award,
 } from "lucide-react";
 import { ChapterItem, PeerStudent } from "../../types";
+import { useActiveClassTheme } from "@/lib/classroom-sync";
+import { ClassBannerGraphic } from "@/components/guru/classroom/ClassBannerGraphics";
+import ClassAnnouncementCard from "@/components/classroom/ClassAnnouncementCard";
+import {
+  StreamAnnouncement,
+  DEFAULT_ANNOUNCEMENTS,
+  AnnouncementComment,
+} from "@/lib/announcement-format";
 
 interface ClassroomClassDetailViewProps {
   classId: "class_ai" | "class_science" | "class_orientasi";
@@ -32,46 +40,109 @@ export default function ClassroomClassDetailView({
   studentName,
 }: ClassroomClassDetailViewProps) {
   const [activeSubTab, setActiveSubTab] = useState<"classwork" | "stream" | "people">("classwork");
+  const classTheme = useActiveClassTheme("Matematika");
 
-  const classConfigs = {
-    class_ai: {
-      title: "Level 10 - Artificial Intelligence",
-      teacher: "Ali Syaugi Bilfagih",
-      code: "AI-10X-2026",
-      bgClass: "bg-[#374151]",
-      avatar: "/images/pasfoto-siswa-1.jpg",
-      description: "Eksplorasi kecerdasan buatan, algoritma machine learning, dan penalaran komputasional Sokratik tingkat lanjut.",
-      filterTag: ["matematika", "info", "ai"],
-    },
-    class_science: {
-      title: "Science",
-      teacher: "Galih Saputro",
-      code: "SCI-8A-2026",
-      bgClass: "bg-[#2563EB]",
-      avatar: "/images/foto-guru.jpg",
-      description: "Penalaran ilmiah fenomena alam, penyelidikan eksperimen sains terapan, dan konsep fisika-biologi terintegrasi.",
-      filterTag: ["ipa", "sains", "matematika"],
-    },
-    class_orientasi: {
-      title: "Orientasi",
-      teacher: "Galih Saputro",
-      code: "ORI-8B-2026",
-      bgClass: "bg-[#00796B]",
-      avatar: "/images/foto-guru.jpg",
-      description: "Panduan pembinaan karakter siswa, tata tertib kurikulum merdeka, dan literasi kebahasaan.",
-      filterTag: ["indonesia", "orientasi", "bahasa"],
+  // Announcements state for student stream
+  const [announcements, setAnnouncements] = useState<StreamAnnouncement[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("thinksy_class_announcements");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch {}
+    }
+    return DEFAULT_ANNOUNCEMENTS;
+  });
+
+  // Fetch latest announcements from API & sync across windows
+  useEffect(() => {
+    fetch("/api/classroom/announcements")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.announcements && Array.isArray(data.announcements)) {
+          setAnnouncements(data.announcements);
+        }
+      })
+      .catch(console.warn);
+
+    const handleAnnouncementSync = () => {
+      try {
+        const saved = localStorage.getItem("thinksy_class_announcements");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) setAnnouncements(parsed);
+        }
+      } catch {}
+    };
+
+    window.addEventListener("thinksy_announcement_event", handleAnnouncementSync);
+    window.addEventListener("storage", handleAnnouncementSync);
+    return () => {
+      window.removeEventListener("thinksy_announcement_event", handleAnnouncementSync);
+      window.removeEventListener("storage", handleAnnouncementSync);
+    };
+  }, []);
+
+  const handleStudentAddComment = (postId: string, text: string) => {
+    if (!text.trim()) return;
+    const newComment: AnnouncementComment = {
+      id: `c-${Date.now()}`,
+      authorName: studentName || "Siswa",
+      authorRole: "Siswa",
+      text: text.trim(),
+      timeAgo: "Baru saja",
+    };
+
+    const updated = announcements.map((post) => {
+      if (post.id === postId) {
+        return {
+          ...post,
+          comments: [...post.comments, newComment],
+        };
+      }
+      return post;
+    });
+
+    setAnnouncements(updated);
+    try {
+      localStorage.setItem("thinksy_class_announcements", JSON.stringify(updated));
+    } catch {}
+
+    fetch("/api/classroom/announcements", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "comment",
+        id: postId,
+        comment: newComment,
+      }),
+    }).catch(console.warn);
+  };
+
+  const classConfigs: Record<string, any> = {
+    class_matematika: {
+      title: "Matematika",
+      teacher: "Ibu Rani Kamayasha, S.Pd.",
+      code: "MTK-8A-2026",
+      bgClass: "bg-[#4338CA]",
+      avatar: null,
+      description: "Pendalaman konsep nalar kuantitatif, aljabar, geometri, dan pemecahan masalah kontekstual Matematika SMP Kelas 8.",
+      filterTag: ["matematika"],
     },
   };
 
-  const currentClass = classConfigs[classId] || classConfigs.class_ai;
+  const currentClass = classConfigs[classId] || classConfigs.class_matematika;
 
   // Filter chapters relevant to this class
   const classChapters = chapters.filter((c) => {
     const mapelLower = (c.mapel || "").toLowerCase();
-    return currentClass.filterTag.some((tag) => mapelLower.includes(tag));
+    return currentClass.filterTag.some((tag: string) => mapelLower.includes(tag));
   });
 
   const displayedChapters = classChapters.length > 0 ? classChapters : chapters.slice(0, 4);
+
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
@@ -84,33 +155,47 @@ export default function ClassroomClassDetailView({
         <span>Kembali ke Semua Kelas</span>
       </button>
 
-      {/* Classroom Hero Banner */}
-      <div className={`rounded-3xl ${currentClass.bgClass} text-white p-6 sm:p-8 relative overflow-hidden shadow-sm`}>
-        <div className="relative z-10 space-y-2 max-w-2xl">
-          <span className="text-[11px] font-bold tracking-wider uppercase bg-white/20 px-3 py-1 rounded-full">
-            Kode Kelas: {currentClass.code}
+      {/* Classroom Hero Banner (Sinkron 100% dengan Dashboard Guru) */}
+      <div
+        className={`rounded-3xl bg-gradient-to-r ${classTheme.bgGradient || "from-blue-700 via-indigo-700 to-slate-900"} text-white p-6 sm:p-8 relative overflow-hidden shadow-sm`}
+        style={{ backgroundColor: classTheme.themeColor || "#1967D2" }}
+      >
+        {/* Class Banner Graphic (Foto Kustom Guru atau Ilustrasi SVG Google Classroom) */}
+        <ClassBannerGraphic
+          bannerType={classTheme.bannerType}
+          bannerIllustration={classTheme.bannerIllustration}
+          bannerPhotoUrl={classTheme.bannerPhotoUrl}
+          subjectName={classTheme.name || currentClass.title}
+          isCompact={false}
+        />
+
+        <div className="relative z-10 space-y-2 max-w-2xl drop-shadow-xs">
+          <span className="text-[11px] font-bold tracking-wider uppercase bg-white/20 backdrop-blur-md px-3 py-1 rounded-full border border-white/20">
+            Kode Kelas: {classTheme.subjectCode ? classTheme.subjectCode.toUpperCase() : currentClass.code}
           </span>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
-            {currentClass.title}
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+            {classTheme.name || currentClass.title}
           </h1>
-          <p className="text-white/90 text-xs sm:text-sm">
-            Pengajar: <strong className="text-white">{currentClass.teacher}</strong>
+          <p className="text-white/90 text-xs sm:text-sm font-medium">
+            Pengajar: <strong className="text-white">{classTheme.teacherName || currentClass.teacher}</strong>
           </p>
           <p className="text-white/80 text-xs leading-relaxed pt-1">
-            {currentClass.description}
+            {classTheme.description || currentClass.description}
           </p>
         </div>
 
         {/* Floating teacher avatar on banner */}
-        <div className="absolute top-6 right-6 hidden sm:block">
-          <div className="w-20 h-20 rounded-full border-4 border-white/80 shadow-lg overflow-hidden bg-white">
-            <img
-              src={currentClass.avatar}
-              alt={currentClass.teacher}
-              className="w-full h-full object-cover"
-            />
+        {currentClass.avatar && (
+          <div className="absolute top-6 right-6 hidden sm:block z-10">
+            <div className="w-20 h-20 rounded-full border-4 border-white/80 shadow-lg overflow-hidden bg-white">
+              <img
+                src={currentClass.avatar}
+                alt={classTheme.teacherName || currentClass.teacher}
+                className="w-full h-full object-cover"
+              />
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Sub-navigation Tabs (Google Classroom: Tugas Kelas, Forum, Anggota) */}
@@ -155,7 +240,7 @@ export default function ClassroomClassDetailView({
               Modul & Bab Pembelajaran ({displayedChapters.length} Bab)
             </h2>
             <Link
-              href="/belajar"
+              href="/?tab=matematika"
               className="text-xs font-semibold text-[#1967D2] hover:underline"
             >
               Buka Semua di Ruang Belajar →
@@ -203,35 +288,18 @@ export default function ClassroomClassDetailView({
       {/* SUB-TAB 2: STREAM (PENGUMUMAN KELAS) */}
       {activeSubTab === "stream" && (
         <div className="space-y-4">
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-purple-600 text-white font-bold flex items-center justify-center text-sm">
-                {studentName.charAt(0)}
-              </div>
-              <input
-                type="text"
-                placeholder="Bagikan sesuatu dengan kelas Anda..."
-                className="w-full px-4 py-2.5 rounded-full border border-slate-200 text-xs bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                onClick={() => alert("Gunakan fitur Diskusi Global di menu atas (9-dots) untuk berinteraksi bersama siswa lainnya!")}
-                readOnly
+          {announcements
+            .filter((a) => a.subjectTag === "mat-8" || !a.subjectTag || a.subjectTag === "all")
+            .map((post) => (
+              <ClassAnnouncementCard
+                key={post.id}
+                post={post}
+                currentUserName={studentName}
+                currentUserRole="Siswa"
+                isTeacher={false}
+                onAddComment={handleStudentAddComment}
               />
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-2">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full overflow-hidden bg-slate-200">
-                <img src={currentClass.avatar} alt="" className="w-full h-full object-cover" />
-              </div>
-              <div>
-                <div className="font-bold text-xs text-slate-800">{currentClass.teacher}</div>
-                <div className="text-[10px] text-slate-400">Kemarin pukul 08:30 WIB</div>
-              </div>
-            </div>
-            <p className="text-xs text-slate-700 leading-relaxed pt-1">
-              Selamat datang para siswa di semester ganjil! Silakan pelajari seluruh modul materi pembelajaran pada tab <strong>Tugas Kelas</strong> dan kerjakan kuis latihan formatif secara mandiri.
-            </p>
-          </div>
+            ))}
         </div>
       )}
 

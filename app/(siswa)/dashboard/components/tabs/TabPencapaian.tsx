@@ -141,7 +141,7 @@ interface TabPencapaianProps {
 
 export default function TabPencapaian({
   studentName = "Siswa",
-  schoolName = "SMK Muhammadiyah Pakem",
+  schoolName = "SMK Muhammadiyah 1",
   completedQuizCount,
   dailyStreak = 0,
   learningPoints,

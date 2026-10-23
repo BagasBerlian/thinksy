@@ -13,14 +13,12 @@ import {
   LeaderboardStudent,
   NotificationItem,
   ToastNotificationData,
+  AgendaAkademikItem,
 } from "./types";
 
 // Sub-components
 import StudentNavbar from "./components/layout/StudentNavbar";
 import TabBelajar from "./components/tabs/TabBelajar";
-import TabKursusSaya from "./components/tabs/TabKursusSaya";
-import TabPeringkat from "./components/tabs/TabPeringkat";
-import TabPencapaian from "./components/tabs/TabPencapaian";
 
 // Google Classroom Layout Components
 import ClassroomTopBar from "./components/classroom/ClassroomTopBar";
@@ -31,19 +29,19 @@ import ClassroomClassDetailView from "./components/classroom/ClassroomClassDetai
 import ClassroomTodoView, { LastActivityItem } from "./components/classroom/ClassroomTodoView";
 import ClassroomCalendarView from "./components/classroom/ClassroomCalendarView";
 import ClassroomArchivedView from "./components/classroom/ClassroomArchivedView";
+import ClassroomProfileView from "./components/classroom/ClassroomProfileView";
 
 // Modals
 import AttendanceModal from "./components/attendance/AttendanceModal";
 import UatDevMenu from "./components/attendance/UatDevMenu";
 import StudentNotesModal from "./components/modals/StudentNotesModal";
+import JoinClassModal from "./components/modals/JoinClassModal";
 import StudentAiAssistantModal from "./components/modals/StudentAiAssistantModal";
 import GlobalDiscussionModal from "./components/modals/GlobalDiscussionModal";
 import StudentProfileModal from "./components/modals/StudentProfileModal";
 import SettingsModal from "./components/modals/SettingsModal";
 import HelpCenterModal from "./components/modals/HelpCenterModal";
 import ToastNotification from "./components/modals/ToastNotification";
-import GamesHubModal from "@/components/game/GamesHubModal";
-import UnifiedGlobalChatModal from "@/components/chat/UnifiedGlobalChatModal";
 import {
   getStoredStudentProfile,
   getStoredStudentPhoto,
@@ -78,11 +76,11 @@ export default function StudentDashboardClient({
 
   // Dynamic Student Profile (synced with settings & localStorage after mount)
   const [profileState, setProfileState] = useState<StudentCardProfile>(() => ({
-    nama_lengkap: userProfile?.nama_lengkap || "SYAA PX",
+    nama_lengkap: userProfile?.nama_lengkap || "Siswa Thinksy",
     nama_kelas: userProfile?.nama_kelas || "Kelas 8",
     nis: userProfile?.nis || "260481",
     nisn: userProfile?.nisn || "0089247182",
-    jurusan: userProfile?.jurusan || "Teknik Komputer & Jaringan",
+    jurusan: userProfile?.jurusan || "Fase D (Kurikulum Merdeka)",
     tahun_ajaran: userProfile?.tahun_ajaran || "2026/2027",
     foto_url: userProfile?.foto_url || DEFAULT_STUDENT_PHOTO,
     tempat_tgl_lahir: "Gunungkidul, 12 Agustus 2010",
@@ -116,11 +114,32 @@ export default function StudentDashboardClient({
   // Modals Visibility State
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
+  const [isJoinClassModalOpen, setIsJoinClassModalOpen] = useState(false);
+  const [enrolledClasses, setEnrolledClasses] = useState<any[]>(classesData || []);
   const [isGamesModalOpen, setIsGamesModalOpen] = useState(false);
   const [isGlobalChatOpen, setIsGlobalChatOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
+
+  // Sync joined classes from localStorage on mount (Permanen)
+  useEffect(() => {
+    try {
+      const saved =
+        localStorage.getItem("thinksy_joined_classes") ||
+        localStorage.getItem("thinksy_permanent_classes");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setEnrolledClasses((prev) => {
+            const existingIds = new Set(prev.map((c: any) => c.id));
+            const toAdd = parsed.filter((c: any) => !existingIds.has(c.id));
+            return [...toAdd, ...prev];
+          });
+        }
+      }
+    } catch {}
+  }, []);
 
   // UAT Mock Time State (persisted & synced with localStorage after mount to prevent hydration mismatch)
   const [mockTime, setMockTime] = useState<string | null>(null);
@@ -174,20 +193,14 @@ export default function StudentDashboardClient({
     };
   }, []);
 
-  // Read searchParams for direct tab linking (?tab=peringkat or ?tab=pencapaian)
+  // Read searchParams for direct tab linking
   const searchParams = useSearchParams();
   useEffect(() => {
     const tabParam = searchParams.get("tab");
-    if (tabParam === "peringkat") {
-      setActiveTab("Peringkat");
-      setClassroomView("peringkat");
-    } else if (tabParam === "pencapaian" || tabParam === "calendar") {
-      setActiveTab("Pencapaian");
-      setClassroomView("pencapaian");
-    } else if (tabParam === "todo") {
+    if (tabParam === "todo") {
       setClassroomView("todo");
-    } else if (tabParam === "matematika" || tabParam === "indonesia" || tabParam === "inggris") {
-      setClassroomView(tabParam);
+    } else if (tabParam === "matematika" || tabParam === "stream") {
+      setClassroomView("matematika");
     } else if (tabParam === "belajar" || tabParam === "home") {
       setActiveTab("Home");
       setClassroomView("home");
@@ -208,17 +221,7 @@ export default function StudentDashboardClient({
     if (view === "home") {
       setActiveTab("Home");
       if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
-    } else if (view === "peringkat") {
-      setActiveTab("Peringkat");
-      if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
-    } else if (view === "pencapaian" || view === "calendar") {
-      setActiveTab("Pencapaian");
-      setClassroomView("pencapaian");
-      if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
-    } else if (view === "todo") {
-      setClassroomView("todo");
-      if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
-    } else if (view === "matematika" || view === "indonesia" || view === "inggris") {
+    } else if (view === "todo" || view === "matematika") {
       if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
@@ -286,6 +289,164 @@ export default function StudentDashboardClient({
         time: "Baru saja",
         type: "info",
       });
+    } else if (event.type === "ACADEMIC_CALENDAR_UPDATED") {
+      const payload = event.payload || {};
+      const notifMsg =
+        payload.message ||
+        `Guru memperbarui tanggal "${payload.judul || "Jadwal"}": ${payload.tanggalFormatted || payload.tanggal || "Tanggal baru"}.`;
+      setToastNotification({
+        show: true,
+        title: "Jadwal Akademik Diperbarui 📅",
+        message: notifMsg,
+        time: "Baru saja",
+        type: "info",
+      });
+      setNotifications((prev) => [
+        {
+          id: `acad-${Date.now()}`,
+          title: "Jadwal Akademik Diperbarui 📅",
+          desc: notifMsg,
+          time: "Baru saja",
+          type: "info",
+          dibaca: false,
+          link_url: "/dashboard?tab=calendar",
+        },
+        ...prev,
+      ]);
+      if (payload.agenda) {
+        setAgendasState((prev) => {
+          const item = payload.agenda;
+          const exists = prev.some((a) => a.id === item.id);
+          const mappedItem: AgendaAkademikItem = {
+            id: item.id,
+            judul: item.judul,
+            deskripsi: item.deskripsi,
+            kategori: (item.kategori === "kbm" ? "agenda" : item.kategori) as any,
+            tanggal: item.tanggal,
+            jam_mulai: item.jam?.split("-")[0]?.trim() || "07:30:00",
+            jam_selesai: item.jam?.split("-")[1]?.trim() || "09:00:00",
+            lokasi: item.lokasi,
+          };
+          if (exists) {
+            return prev.map((a) => (a.id === item.id ? mappedItem : a));
+          }
+          return [mappedItem, ...prev];
+        });
+      }
+    } else if (event.type === "ANNOUNCEMENT_POSTED") {
+      const payload = event.payload || {};
+      const author = payload.authorName || "Guru";
+      const preview = (payload.text || "")
+        .replace(/\*\*(.*?)\*\*/g, "$1")
+        .replace(/\*(.*?)\*/g, "$1")
+        .replace(/<u>(.*?)<\/u>/gi, "$1")
+        .substring(0, 100);
+
+      setToastNotification({
+        show: true,
+        title: `📢 Pengumuman Baru dari ${author}`,
+        message: preview
+          ? `"${preview}${preview.length >= 100 ? "..." : ""}"`
+          : "Guru telah membagikan pengumuman di Stream kelas.",
+        time: "Baru saja",
+        type: "info",
+      });
+
+      setNotifications((prev) => [
+        {
+          id: `ann-${Date.now()}`,
+          title: `📢 Pengumuman: ${author}`,
+          desc: preview || "Guru membagikan pengumuman baru di kelas.",
+          time: "Baru saja",
+          type: "info",
+          dibaca: false,
+          link_url: "/dashboard?tab=stream",
+        },
+        ...prev,
+      ]);
+    } else if (event.type === "UPCOMING_TASK_UPDATED") {
+      const payload = event.payload || {};
+      setToastNotification({
+        show: true,
+        title: "Tugas Mendatang Baru 📌",
+        message: `${payload.title || "Tugas baru"} (Due: ${payload.dueDate || "Segera"})`,
+        time: "Baru saja",
+        type: "info",
+      });
+      setNotifications((prev) => [
+        {
+          id: `task-${Date.now()}`,
+          title: "Tugas Mendatang Baru 📌",
+          desc: `${payload.title || "Tugas"} - Due ${payload.dueDate || "Segera"}`,
+          time: "Baru saja",
+          type: "info",
+          dibaca: false,
+          link_url: "/dashboard?tab=todo",
+        },
+        ...prev,
+      ]);
+    } else if (
+      event.type === "NOTIFICATION_RECEIVED" ||
+      (event as any).type === "TASK_REMINDER"
+    ) {
+      const payload = event.payload || {};
+      const targetId = payload.user_id || payload.targetUserId || payload.studentId;
+      const targetName = payload.studentName || payload.nama_lengkap;
+      const targetNisn = payload.nisn;
+      const title =
+        payload.judul || payload.title || "🔔 Pengingat Tugas dari Guru";
+      const desc =
+        payload.pesan ||
+        payload.desc ||
+        "Guru mengingatkan Anda untuk segera menyelesaikan tugas yang belum dikumpulkan.";
+      const linkUrl = payload.link_url || "/dashboard?tab=todo";
+
+      const currentStudentName =
+        userProfile?.nama_lengkap &&
+        userProfile.nama_lengkap.trim() !== "" &&
+        userProfile.nama_lengkap !== "Siswa Thinksy"
+          ? userProfile.nama_lengkap
+          : profileState.nama_lengkap || "Siswa Thinksy";
+
+      const isTarget =
+        payload.isBroadcastAll === true ||
+        !targetId ||
+        targetId === userProfile?.id ||
+        (targetName &&
+          currentStudentName &&
+          (targetName.toLowerCase().trim() === currentStudentName.toLowerCase().trim() ||
+            currentStudentName.toLowerCase().includes(targetName.toLowerCase().trim()) ||
+            targetName.toLowerCase().includes(currentStudentName.toLowerCase().trim()))) ||
+        (targetNisn && profileState.nisn && targetNisn === profileState.nisn);
+
+      if (isTarget) {
+        const notifId = payload.id || `notif-${Date.now()}`;
+        const newNotifItem: NotificationItem = {
+          id: notifId,
+          title,
+          desc,
+          time: "Baru saja",
+          type: (payload.type as any) || (payload.tipe as any) || "warning",
+          dibaca: false,
+          link_url: linkUrl,
+        };
+
+        setNotifications((prev) => [
+          newNotifItem,
+          ...prev.filter((n) => String(n.id) !== String(notifId)),
+        ]);
+
+        setToastNotification({
+          show: true,
+          title,
+          message: desc,
+          time: "Baru saja",
+          type: "warning",
+        });
+
+        // Background refetch to sync Supabase database
+        fetchNotifications();
+      }
     }
   });
 
@@ -367,6 +528,137 @@ export default function StudentDashboardClient({
 
   // Leaderboard, Missions & Notifications State
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [agendasState, setAgendasState] = useState<AgendaAkademikItem[]>(agendasData || []);
+
+  // Cross-tab real-time sync for academic calendar updates from Guru
+  useEffect(() => {
+    const handleStorageEvent = (e: StorageEvent) => {
+      if (e.key === "thinksy_realtime_calendar_event" && e.newValue) {
+        try {
+          const payload = JSON.parse(e.newValue);
+          const notifMsg =
+            payload.message ||
+            `Guru memperbarui tanggal "${payload.judul || "Jadwal"}": ${payload.tanggalFormatted || payload.tanggal || "Tanggal baru"}.`;
+          setToastNotification({
+            show: true,
+            title: "Jadwal Akademik Diperbarui 📅",
+            message: notifMsg,
+            time: "Baru saja",
+            type: "info",
+          });
+          setNotifications((prev) => [
+            {
+              id: `acad-storage-${Date.now()}`,
+              title: "Jadwal Akademik Diperbarui 📅",
+              desc: notifMsg,
+              time: "Baru saja",
+              type: "info",
+              dibaca: false,
+              link_url: "/dashboard?tab=calendar",
+            },
+            ...prev,
+          ]);
+          if (payload.agenda) {
+            setAgendasState((prev) => {
+              const item = payload.agenda;
+              const exists = prev.some((a) => a.id === item.id);
+              const mappedItem: AgendaAkademikItem = {
+                id: item.id,
+                judul: item.judul,
+                deskripsi: item.deskripsi,
+                kategori: (item.kategori === "kbm" ? "agenda" : item.kategori) as any,
+                tanggal: item.tanggal,
+                jam_mulai: item.jam?.split("-")[0]?.trim() || "07:30:00",
+                jam_selesai: item.jam?.split("-")[1]?.trim() || "09:00:00",
+                lokasi: item.lokasi,
+              };
+              if (exists) {
+                return prev.map((a) => (a.id === item.id ? mappedItem : a));
+              }
+              return [mappedItem, ...prev];
+            });
+          }
+        } catch {}
+      } else if (e.key === "thinksy_student_reminder_event" && e.newValue) {
+        try {
+          const payload = JSON.parse(e.newValue);
+          handleIncomingReminder(payload);
+        } catch {}
+      }
+    };
+
+    const handleIncomingReminder = (payload: any) => {
+      if (!payload) return;
+      const targetId = payload.targetStudentId || payload.studentId || payload.user_id;
+      const targetName = payload.studentName || payload.nama_lengkap;
+      const targetNisn = payload.nisn;
+      const currentStudentName =
+        userProfile?.nama_lengkap &&
+        userProfile.nama_lengkap.trim() !== "" &&
+        userProfile.nama_lengkap !== "Siswa Thinksy"
+          ? userProfile.nama_lengkap
+          : profileState.nama_lengkap || "Siswa Thinksy";
+
+      const isTarget =
+        payload.isBroadcastAll === true ||
+        !targetId ||
+        targetId === userProfile?.id ||
+        (targetName &&
+          currentStudentName &&
+          (targetName.toLowerCase().trim() === currentStudentName.toLowerCase().trim() ||
+            currentStudentName.toLowerCase().includes(targetName.toLowerCase().trim()) ||
+            targetName.toLowerCase().includes(currentStudentName.toLowerCase().trim()))) ||
+        (targetNisn && profileState.nisn && targetNisn === profileState.nisn);
+
+      if (isTarget) {
+        const notifId = payload.id || `remind-${Date.now()}`;
+        const title = payload.title || "🔔 Pengingat Tugas dari Guru";
+        const desc =
+          payload.desc ||
+          payload.pesan ||
+          "Guru mengingatkan Anda untuk segera menyelesaikan tugas yang belum dikumpulkan.";
+
+        const newNotifItem: NotificationItem = {
+          id: notifId,
+          title,
+          desc,
+          time: payload.time || "Baru saja",
+          type: "warning",
+          dibaca: false,
+          link_url: payload.link_url || "/dashboard?tab=todo",
+        };
+
+        setNotifications((prev) => [
+          newNotifItem,
+          ...prev.filter((n) => String(n.id) !== String(notifId)),
+        ]);
+
+        setToastNotification({
+          show: true,
+          title,
+          message: desc,
+          time: "Baru saja",
+          type: "warning",
+        });
+
+        fetchNotifications();
+      }
+    };
+
+    const handleCustomReminder = (e: any) => {
+      if (e?.detail) {
+        handleIncomingReminder(e.detail);
+      }
+    };
+
+    window.addEventListener("storage", handleStorageEvent);
+    window.addEventListener("thinksy_reminder_sent", handleCustomReminder);
+    return () => {
+      window.removeEventListener("storage", handleStorageEvent);
+      window.removeEventListener("thinksy_reminder_sent", handleCustomReminder);
+    };
+  }, [userProfile?.id, userProfile?.nama_lengkap, profileState.nama_lengkap, profileState.nisn]);
+
   const [currentUserRank, setCurrentUserRank] = useState<number>(
     userProfile?.rank || 1
   );
@@ -375,22 +667,19 @@ export default function StudentDashboardClient({
   );
   const [leaderboardList, setLeaderboardList] = useState<LeaderboardStudent[]>([]);
   const [isLoadingLeaderboard, setIsLoadingLeaderboard] = useState(false);
-
-  const [dailyMissions, setDailyMissions] = useState<DailyMission[]>([]);
-  const [isMissionsLoading, setIsMissionsLoading] = useState(false);
-  const [isClaimingMissionId, setIsClaimingMissionId] = useState<string | null>(
-    null
-  );
-
-  // Pending tasks count for To-do navigation badge
-  const pendingMissionsCount = (dailyMissions || []).filter((m) => !m.isClaimed).length;
+  // Pending tasks count for To-do navigation badge (Exams and Last unfinished activity)
   const activeExamsCount = (examsData || []).filter(
     (e) => e.status === "dipublikasi" && e.sessionStatus !== "selesai"
   ).length;
-  const todoCount = pendingMissionsCount + activeExamsCount + (lastActivity ? 1 : 0);
+  const todoCount = activeExamsCount + (lastActivity ? 1 : 0);
 
-  const studentName = profileState.nama_lengkap || userProfile?.nama_lengkap || "SYAA PX";
-  const studentEmail = userProfile?.email || "syaa.px@sekolah.sch.id";
+  const studentName =
+    userProfile?.nama_lengkap &&
+    userProfile.nama_lengkap.trim() !== "" &&
+    userProfile.nama_lengkap !== "Siswa Thinksy"
+      ? userProfile.nama_lengkap
+      : profileState.nama_lengkap || "Siswa Thinksy";
+  const studentEmail = userProfile?.email || "siswa@sekolah.sch.id";
   const studentPhoto = profileState.foto_url || userProfile?.foto_url || DEFAULT_STUDENT_PHOTO;
 
   // Effective Time Calculator (incorporating Dev Mock Time)
@@ -446,6 +735,13 @@ export default function StudentDashboardClient({
         tahun_ajaran: userProfile?.tahun_ajaran || undefined,
         foto_url: userProfile?.foto_url || undefined,
       });
+      if (
+        userProfile?.nama_lengkap &&
+        userProfile.nama_lengkap.trim() !== "" &&
+        userProfile.nama_lengkap !== "Siswa Thinksy"
+      ) {
+        storedProfile.nama_lengkap = userProfile.nama_lengkap;
+      }
       setProfileState(storedProfile);
 
       const mode = getStoredThemeMode();
@@ -472,9 +768,6 @@ export default function StudentDashboardClient({
 
     fetchPresensiStatus();
     fetchNotifications();
-    fetchLeaderboard();
-    fetchPencapaian();
-    fetchMissions();
     fetchNotes();
     fetchGlobalChat();
 
@@ -483,15 +776,6 @@ export default function StudentDashboardClient({
       window.removeEventListener("thinksy_theme_change", handleThemeChange);
     };
   }, []);
-
-  // Auto-refresh leaderboard & pencapaian when student navigates to those tabs
-  useEffect(() => {
-    if (activeTab === "Peringkat") {
-      fetchLeaderboard();
-    } else if (activeTab === "Pencapaian") {
-      fetchPencapaian();
-    }
-  }, [activeTab]);
 
   // Data Fetchers
   const fetchPresensiStatus = async () => {
@@ -510,12 +794,66 @@ export default function StudentDashboardClient({
 
   const fetchNotifications = async () => {
     try {
-      const res = await fetch("/api/siswa/notifikasi");
+      const params = new URLSearchParams();
+      if (userProfile?.id) params.set("studentId", userProfile.id);
+      const activeName =
+        userProfile?.nama_lengkap &&
+        userProfile.nama_lengkap.trim() !== "" &&
+        userProfile.nama_lengkap !== "Siswa Thinksy"
+          ? userProfile.nama_lengkap
+          : profileState.nama_lengkap || "Siswa Thinksy";
+      if (activeName) params.set("studentName", activeName);
+
+      const res = await fetch(`/api/siswa/notifikasi?${params.toString()}`);
+      let serverNotifs: NotificationItem[] = [];
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data.notifications)) setNotifications(data.notifications);
+        if (Array.isArray(data.notifications)) {
+          serverNotifs = data.notifications;
+        }
       }
-    } catch {}
+
+      // Check localStorage for local & cross-tab notifications
+      let localNotifs: any[] = [];
+      try {
+        const raw = localStorage.getItem("thinksy_student_notifications");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            localNotifs = parsed.filter((item: any) => {
+              if (item.isBroadcastAll) return true;
+              if (!item.studentName && !item.studentId) return true;
+              if (item.studentId && userProfile?.id && item.studentId === userProfile.id) return true;
+              if (
+                item.studentName &&
+                activeName &&
+                (item.studentName.toLowerCase().trim() === activeName.toLowerCase().trim() ||
+                  activeName.toLowerCase().includes(item.studentName.toLowerCase().trim()) ||
+                  item.studentName.toLowerCase().includes(activeName.toLowerCase().trim()))
+              )
+                return true;
+              return false;
+            });
+          }
+        }
+      } catch {}
+
+      // Deduplicate notifications by ID
+      const combined = [...localNotifs, ...serverNotifs];
+      const seen = new Set<string>();
+      const merged: NotificationItem[] = [];
+      for (const item of combined) {
+        const key = String(item.id);
+        if (!seen.has(key)) {
+          seen.add(key);
+          merged.push(item);
+        }
+      }
+
+      setNotifications(merged);
+    } catch (err) {
+      console.warn("[FETCH NOTIFICATIONS ERROR]", err);
+    }
   };
 
   const fetchLeaderboard = async () => {
@@ -579,17 +917,7 @@ export default function StudentDashboardClient({
   };
 
   const fetchMissions = async () => {
-    setIsMissionsLoading(true);
-    try {
-      const res = await fetch("/api/siswa/misi");
-      if (res.ok) {
-        const data = await res.json();
-        const list = data.missions || data.misi;
-        if (Array.isArray(list)) setDailyMissions(list);
-      }
-    } catch {} finally {
-      setIsMissionsLoading(false);
-    }
+    // Gamifikasi & misi harian dinonaktifkan sesuai modul kerja MVP
   };
 
   const fetchNotes = async () => {
@@ -718,14 +1046,10 @@ export default function StudentDashboardClient({
     if (typeof data.streak === "number") setDailyStreak(data.streak);
     if (typeof data.poinTotal === "number") setLearningPoints(data.poinTotal);
 
-    fetchMissions();
-    fetchLeaderboard();
-    fetchPencapaian();
-
     setToastNotification({
       show: true,
       title: `Presensi Berhasil (${data.status})!`,
-      message: `Kehadiran Anda dicatat pukul ${data.waktu} WIB. Selamat! +${data.poinReward} Poin ditambahkan.`,
+      message: `Kehadiran Anda dicatat resmi pukul ${data.waktu} WIB di portal akademik.`,
       time: `${data.waktu} WIB`,
       type: "success",
     });
@@ -734,7 +1058,7 @@ export default function StudentDashboardClient({
       {
         id: Date.now(),
         title: `Presensi Berhasil (${data.status})`,
-        desc: `Kehadiran dicatat pukul ${data.waktu} WIB (+${data.poinReward} Poin).`,
+        desc: `Kehadiran tercatat resmi pukul ${data.waktu} WIB.`,
         time: "Baru saja",
         type: "urgent",
       },
@@ -746,61 +1070,10 @@ export default function StudentDashboardClient({
       time: data.waktu,
       status: data.status,
     });
-    broadcastEvent("POINTS_UPDATED", {
-      studentName,
-      poinTotal: data.poinTotal,
-    });
   };
 
-  const handleClaimMission = async (misiId: string) => {
-    setIsClaimingMissionId(misiId);
-    try {
-      const res = await fetch("/api/siswa/misi", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ misiId }),
-      });
-      const data = await res.json();
-
-      if (res.ok && data.success === true) {
-        setToastNotification({
-          show: true,
-          title: "Klaim Misi Berhasil! 🎉",
-          message: data.message || `Selamat! +${data.poinDitambahkan || 20} Poin ditambahkan.`,
-          time: "Baru saja",
-        });
-        if (typeof data.poinTotal === "number") {
-          setLearningPoints(data.poinTotal);
-        } else {
-          setLearningPoints((prev) => prev + (data.poinDitambahkan || 20));
-        }
-        fetchMissions();
-        fetchLeaderboard();
-        fetchPencapaian();
-        broadcastEvent("POINTS_UPDATED", {
-          studentName,
-          poinTotal: data.poinTotal,
-        });
-      } else {
-        setToastNotification({
-          show: true,
-          title: "Misi Belum Selesai ⚠️",
-          message:
-            data.error ||
-            "Kamu belum menyelesaikan target misi ini hari ini. Silakan kerjakan terlebih dahulu!",
-          time: "Baru saja",
-        });
-      }
-    } catch {
-      setToastNotification({
-        show: true,
-        title: "Kesalahan Koneksi ⚠️",
-        message: "Gagal terhubung ke server. Coba lagi.",
-        time: "Baru saja",
-      });
-    } finally {
-      setIsClaimingMissionId(null);
-    }
+  const handleClaimMission = async (_misiId: string) => {
+    // Gamifikasi & misi harian dinonaktifkan sesuai modul kerja MVP
   };
 
   const handleCreateNote = async (
@@ -835,6 +1108,119 @@ export default function StudentDashboardClient({
     try {
       await fetch(`/api/siswa/catatan?id=${id}`, { method: "DELETE" });
     } catch {}
+  };
+
+  const handleJoinClassSuccess = (newClass: any) => {
+    const formattedClass = {
+      id: newClass.id || `class-${Date.now()}`,
+      nama_kelas: newClass.nama_kelas,
+      nama_guru: newClass.nama_guru || "Ibu Siti Rahmawati, M.Pd.",
+      mata_pelajaran: newClass.mata_pelajaran || "Matematika",
+      ruang: newClass.ruang || "Ruang 8-A",
+      kode_kelas: newClass.kode_kelas || "mtk8xpk",
+      banner_color: newClass.banner_color || "#1967D2",
+      banner_pattern: newClass.banner_pattern || "matematika",
+    };
+
+    setEnrolledClasses((prev) => {
+      const existingIds = new Set(prev.map((c: any) => c.id));
+      if (existingIds.has(formattedClass.id)) return prev;
+      const next = [formattedClass, ...prev];
+      try {
+        localStorage.setItem("thinksy_joined_classes", JSON.stringify(next));
+        localStorage.setItem("thinksy_permanent_classes", JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+
+    const joinedStudent = {
+      id: `st-joined-${Date.now()}`,
+      name: studentName,
+      nisn: profileState.nisn || "0089247182",
+      kelas: formattedClass.nama_kelas,
+      points: learningPoints || 450,
+      hadir: true,
+      online: true,
+      foto: studentPhoto,
+      joinedAt: new Date().toISOString(),
+    };
+
+    try {
+      const existingStudents = JSON.parse(
+        localStorage.getItem("thinksy_joined_students") || "[]"
+      );
+      const updatedStudents = [
+        joinedStudent,
+        ...existingStudents.filter((s: any) => s.name !== studentName),
+      ];
+      localStorage.setItem(
+        "thinksy_joined_students",
+        JSON.stringify(updatedStudents)
+      );
+    } catch {}
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("thinksy_class_joined", {
+          detail: {
+            classData: formattedClass,
+            student: joinedStudent,
+          },
+        })
+      );
+    }
+
+    setToastNotification({
+      show: true,
+      title: "Berhasil Bergabung Selamanya! 🎉",
+      message: `Selamat, Anda telah terdaftar secara permanen di kelas ${formattedClass.nama_kelas} (${formattedClass.nama_guru}). Kelas aktif selamanya di dashboard Anda.`,
+      time: "Baru saja",
+      type: "success",
+    });
+  };
+
+  const handleShareNoteToForum = (
+    title: string,
+    content: string,
+    subject: string
+  ) => {
+    const sharedNotePost = {
+      id: `post-note-${Date.now()}`,
+      authorName: studentName,
+      authorAvatarText: (studentName || "S").charAt(0).toUpperCase(),
+      authorAvatarColor: "bg-blue-600",
+      timeAgo: "Baru saja",
+      text: `📌 [Catatan Belajar Siswa - ${subject}]\n${title}\n\n${content}`,
+      subjectTag: "mat-8",
+      comments: [],
+    };
+
+    try {
+      const existingNotes = JSON.parse(
+        localStorage.getItem("thinksy_shared_notes") || "[]"
+      );
+      localStorage.setItem(
+        "thinksy_shared_notes",
+        JSON.stringify([sharedNotePost, ...existingNotes])
+      );
+    } catch {}
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("thinksy_note_shared", {
+          detail: sharedNotePost,
+        })
+      );
+    }
+
+    setToastNotification({
+      show: true,
+      title: "Catatan Dibagikan ke Kelas!",
+      message:
+        "Catatan belajar Anda berhasil dibagikan ke forum kelas dan terintegrasi di dashboard guru pengampu.",
+      time: "Baru saja",
+      type: "info",
+    });
   };
 
   const handleSendChat = async (konten: string) => {
@@ -999,10 +1385,23 @@ export default function StudentDashboardClient({
   const handleMarkAllNotificationsAsRead = async () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, dibaca: true })));
     try {
+      const raw = localStorage.getItem("thinksy_student_notifications");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          const updated = parsed.map((item: any) => ({ ...item, dibaca: true }));
+          localStorage.setItem("thinksy_student_notifications", JSON.stringify(updated));
+        }
+      }
+    } catch {}
+    try {
       await fetch("/api/siswa/notifikasi", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "mark_as_read" }),
+        body: JSON.stringify({
+          action: "mark_as_read",
+          studentId: userProfile?.id,
+        }),
       });
     } catch {}
   };
@@ -1017,8 +1416,8 @@ export default function StudentDashboardClient({
   const calendarWeeks: CalendarWeekItem[] = [
     {
       weekIndex: 0,
-      hasStreakBadge: true,
-      streakCount: Math.min(dailyStreak, 3),
+      hasStreakBadge: false,
+      streakCount: 0,
       days: [
         {
           day: 31,
@@ -1058,7 +1457,7 @@ export default function StudentDashboardClient({
           day: 3,
           isCurrentMonth: true,
           isToday: false,
-          status: "streak",
+          status: "past",
           fullDateStr: "Kamis, 3 September 2026",
           schedule: null,
         },
@@ -1373,6 +1772,9 @@ export default function StudentDashboardClient({
         onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
         studentName={studentName}
         studentPhoto={studentPhoto}
+        studentEmail={studentEmail}
+        studentClass={profileState.nama_kelas || userProfile?.nama_kelas || "Kelas 8"}
+        waliKelas={classesData?.[0]?.nama_guru || "Ibu Siti Rahmawati, M.Pd."}
         isCheckedIn={isCheckedIn}
         checkInStatus={checkInStatus}
         checkInTime={checkInTime}
@@ -1380,11 +1782,10 @@ export default function StudentDashboardClient({
         onStartAttendance={handleStartAttendance}
         notifications={notifications}
         onMarkAllNotificationsAsRead={handleMarkAllNotificationsAsRead}
-        onOpenSettings={() => setIsSettingsModalOpen(true)}
-        onOpenProfile={() => setIsProfileModalOpen(true)}
+        onOpenSettings={() => setClassroomView("profil")}
+        onOpenProfile={() => setClassroomView("profil")}
         onOpenNotes={() => setIsNotesModalOpen(true)}
-        onOpenGames={() => setIsGamesModalOpen(true)}
-        onOpenChat={() => setIsGlobalChatOpen(true)}
+        onOpenJoinClass={() => setIsJoinClassModalOpen(true)}
         onOpenHelp={() => setIsHelpModalOpen(true)}
         sekolahData={sekolahData}
       />
@@ -1396,8 +1797,14 @@ export default function StudentDashboardClient({
           isOpen={isSidebarOpen}
           activeView={classroomView}
           onSelectView={handleSelectClassroomView}
-          onOpenSettings={() => setIsSettingsModalOpen(true)}
+          onOpenSettings={() => setClassroomView("profil")}
+          onOpenProfile={() => setClassroomView("profil")}
           todoCount={todoCount}
+          studentName={studentName}
+          studentClass={profileState.nama_kelas || userProfile?.nama_kelas || "Kelas 8"}
+          schoolName={sekolahData?.nama || "SMK Muhammadiyah 1"}
+          studentPhoto={studentPhoto}
+          isActive={true}
         />
 
         {/* Desktop Spacer for Fixed Sidebar so content flows properly next to fixed sidebar */}
@@ -1421,36 +1828,19 @@ export default function StudentDashboardClient({
         <main className="flex-1 min-w-0 px-2 sm:px-6 pt-2.5 sm:pt-3.5 pb-20 max-w-7xl mx-auto">
           {classroomView === "todo" ? (
             <ClassroomTodoView
-              dailyMissions={dailyMissions}
-              isMissionsLoading={isMissionsLoading}
-              isClaimingMissionId={isClaimingMissionId}
-              onClaimMission={handleClaimMission}
               examsData={examsData}
               lastActivity={lastActivity}
               onBackToHome={() => setClassroomView("home")}
             />
-          ) : classroomView === "peringkat" ? (
-            <TabPeringkat
-              leaderboardList={leaderboardList}
-              isLoadingLeaderboard={isLoadingLeaderboard}
-              onRefreshLeaderboard={fetchLeaderboard}
-            />
-          ) : classroomView === "pencapaian" ? (
-            <TabPencapaian
+          ) : classroomView === "calendar" ? (
+            <ClassroomCalendarView
+              calendarWeeks={calendarWeeks}
+              agendasData={agendasState}
+              examsData={examsData}
+              chapters={chapters}
+              studentId={(userProfile as any)?.id || userProfile?.email || "student"}
               studentName={studentName}
-              schoolName={sekolahData?.nama}
-              completedQuizCount={completedQuizCount}
-              dailyStreak={dailyStreak}
-              learningPoints={learningPoints}
-              answeredSoalCount={answeredSoalCount}
-              badgesList={pencapaianBadges}
-              isLoading={isLoadingPencapaian}
-              onRefresh={fetchPencapaian}
-              onNavigateTab={(tab) => {
-                if (tab === "Home") setClassroomView("home");
-                if (tab === "Peringkat") setClassroomView("peringkat");
-                if (tab === "Ruang Ujian") router.push("/ujian");
-              }}
+              onBackToHome={() => setClassroomView("home")}
             />
           ) : classroomView === "matematika" ? (
             <RuangBelajarSubjectChaptersView
@@ -1458,80 +1848,42 @@ export default function StudentDashboardClient({
               chapters={chapters}
               userProfile={userProfile}
               onBackToHome={() => setClassroomView("home")}
-              onSelectSubject={(subj) =>
-                setClassroomView(
-                  subj === "Matematika"
-                    ? "matematika"
-                    : subj === "Bahasa Indonesia"
-                    ? "indonesia"
-                    : "inggris"
-                )
-              }
+              onSelectSubject={() => setClassroomView("matematika")}
             />
-          ) : classroomView === "indonesia" ? (
-            <RuangBelajarSubjectChaptersView
-              selectedSubject="Bahasa Indonesia"
-              chapters={chapters}
-              userProfile={userProfile}
+          ) : classroomView === "profil" ? (
+            <ClassroomProfileView
+              studentName={studentName}
+              studentEmail={studentEmail}
+              studentClass={profileState.nama_kelas || userProfile?.nama_kelas || "Kelas 8A"}
+              schoolName={sekolahData?.nama || "SMK Muhammadiyah 1"}
+              waliKelas={classesData?.[0]?.nama_guru || "Ibu Siti Rahmawati, M.Pd."}
+              studentPhoto={studentPhoto}
+              learningProgressPercent={learningProgressPercent}
+              allChapters={chapters}
+              agendasData={agendasState}
               onBackToHome={() => setClassroomView("home")}
-              onSelectSubject={(subj) =>
-                setClassroomView(
-                  subj === "Matematika"
-                    ? "matematika"
-                    : subj === "Bahasa Indonesia"
-                    ? "indonesia"
-                    : "inggris"
-                )
-              }
-            />
-          ) : classroomView === "inggris" ? (
-            <RuangBelajarSubjectChaptersView
-              selectedSubject="Bahasa Inggris"
-              chapters={chapters}
-              userProfile={userProfile}
-              onBackToHome={() => setClassroomView("home")}
-              onSelectSubject={(subj) =>
-                setClassroomView(
-                  subj === "Matematika"
-                    ? "matematika"
-                    : subj === "Bahasa Indonesia"
-                    ? "indonesia"
-                    : "inggris"
-                )
-              }
+              onPhotoUpdated={(newPhoto) => {
+                setProfileState((prev) => ({ ...prev, foto_url: newPhoto }));
+              }}
             />
           ) : (
             <TabBelajar
               studentName={studentName}
-              currentUserRank={currentUserRank}
               namaKelas={userProfile.nama_kelas || "Kelas 8"}
               learningProgressPercent={learningProgressPercent}
-              learningPoints={learningPoints}
               sekolahData={sekolahData}
               calendarWeeks={calendarWeeks}
-              dailyMissions={dailyMissions}
-              isMissionsLoading={isMissionsLoading}
-              isClaimingMissionId={isClaimingMissionId}
-              onClaimMission={handleClaimMission}
               allChapters={chapters}
               peerStudents={peerStudents}
-              agendasData={agendasData}
+              agendasData={agendasState}
               examsData={examsData}
               lastActivity={lastActivity}
               onNavigateToCourses={() => setClassroomView("matematika")}
-              classesData={classesData}
-              onOpenClass={(classIdOrName) => {
-                const targetClass = classesData.find(
-                  (c) => c.id === classIdOrName || c.nama_kelas === classIdOrName
-                );
-                const name = (targetClass?.nama_kelas || classIdOrName || "").toLowerCase();
-                if (name.includes("indo")) {
-                  setClassroomView("indonesia");
-                } else if (name.includes("ingg") || name.includes("english")) {
-                  setClassroomView("inggris");
-                } else {
-                  setClassroomView("matematika");
-                }
+              onOpenCalendar={() => setClassroomView("calendar")}
+              onOpenTodo={() => setClassroomView("todo")}
+              classesData={enrolledClasses}
+              onOpenClass={(classId?: string) => {
+                setClassroomView("matematika");
               }}
             />
           )}
@@ -1565,46 +1917,34 @@ export default function StudentDashboardClient({
         notes={notes}
         onCreateNote={handleCreateNote}
         onDeleteNote={handleDeleteNote}
+        onShareToForum={handleShareNoteToForum}
       />
 
-      <GamesHubModal
-        isOpen={isGamesModalOpen}
-        onClose={() => setIsGamesModalOpen(false)}
-        onRewardClaimed={(newPoints) => {
-          setLearningPoints(newPoints);
-          setToastNotification({
-            show: true,
-            title: "Hadiah Game Berhasil Diklaim! 🎉",
-            message: `Poin belajar kamu kini bertambah menjadi ${newPoints} Poin!`,
-            time: "Baru saja",
-            type: "success",
-          });
-        }}
+      <JoinClassModal
+        isOpen={isJoinClassModalOpen}
+        onClose={() => setIsJoinClassModalOpen(false)}
+        studentName={studentName}
+        studentEmail={studentEmail}
+        studentPhoto={studentPhoto}
+        schoolName={sekolahData?.nama || "SMK Muhammadiyah 1"}
+        onJoinSuccess={handleJoinClassSuccess}
       />
 
-      <UnifiedGlobalChatModal
-        isOpen={isGlobalChatOpen}
-        onClose={() => setIsGlobalChatOpen(false)}
-        currentUserId={userProfile?.email}
-      />
+
 
       <StudentProfileModal
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
         studentName={studentName}
         studentEmail={studentEmail}
-        learningPoints={learningPoints}
-        dailyStreak={dailyStreak}
-        nisn={profileState.nisn || userProfile.nisn}
-        nis={profileState.nis || userProfile.nis}
-        namaKelas={profileState.nama_kelas || userProfile.nama_kelas}
-        jurusan={profileState.jurusan || userProfile.jurusan}
-        tahunAjaran={profileState.tahun_ajaran || userProfile.tahun_ajaran}
+        namaKelas={profileState.nama_kelas || userProfile?.nama_kelas || "Kelas 8"}
         fotoUrl={studentPhoto}
         sekolahData={sekolahData}
-        onOpenSettings={() => setIsSettingsModalOpen(true)}
+        waliKelas={classesData?.[0]?.nama_guru || "Ibu Siti Rahmawati, M.Pd."}
       />
 
+      {/* SEMENTARA DINONAKTIFKAN: PENGATURAN SISWA DIHILANGKAN BESERTA ISINYA */}
+      {/* 
       <SettingsModal
         isOpen={isSettingsModalOpen}
         onClose={() => setIsSettingsModalOpen(false)}
@@ -1619,6 +1959,7 @@ export default function StudentDashboardClient({
         onSave={handleSaveSettings}
         onOpenProfileCard={() => setIsProfileModalOpen(true)}
       />
+      */}
 
       <HelpCenterModal
         isOpen={isHelpModalOpen}

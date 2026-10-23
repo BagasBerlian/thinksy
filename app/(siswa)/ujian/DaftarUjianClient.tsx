@@ -226,7 +226,7 @@ export default function DaftarUjianClient({
       setToastNotification({
         show: true,
         title: "Akses Ujian Ditutup (OFF)",
-        message: "Admin Sekolah / Guru sedang menutup akses pengerjaan untuk mata pelajaran ini.",
+        message: "Guru pengampu sedang menutup akses pengerjaan untuk mata pelajaran ini.",
         time: "Baru saja",
         type: "alpha",
       });
@@ -283,7 +283,7 @@ export default function DaftarUjianClient({
       } else {
         setTokenError(
           data.error ||
-            "Password / Token salah! Dapatkan password resmi dari Admin Sekolah atau Pengawas (Password sementara: 12345)."
+            "Password / Token salah! Dapatkan password resmi dari Guru atau Pengawas (Password sementara: 12345)."
         );
       }
     } catch (err: any) {
@@ -327,7 +327,7 @@ export default function DaftarUjianClient({
     const content = `
 =============================================================================
 MAJELIS PENDIDIKAN DASAR DAN MENENGAH PWM D.I. YOGYAKARTA
-${(sekolahData?.nama || "SMKS MUHAMMADIYAH PAKEM").toUpperCase()}
+${(sekolahData?.nama || "SMK MUHAMMADIYAH 1").toUpperCase()}
 NPSN: ${sekolahData?.npsn || "20401318"} • SEKOLAH PUSAT KEUNGGULAN
 =============================================================================
 SURAT EDARAN & JADWAL RESMI PENILAIAN TENGAH SEMESTER (PTS) & FORMATIF
@@ -725,7 +725,7 @@ Dr. Hendra Wijaya, M.Pd.
                         Majelis Dikdasmen & PNF PWM D.I. Yogyakarta
                       </h2>
                       <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-tight leading-tight">
-                        {sekolahData?.nama || "SMKS Muhammadiyah Pakem"}
+                        {sekolahData?.nama || "SMK Muhammadiyah 1"}
                       </h1>
                       <p className="text-[10px] text-slate-600">
                         {sekolahData?.alamat || "Jl. Pakem - Turi No.23, Area Sawah, Pakembinangun, Kec. Pakem, Kab. Sleman, D.I. Yogyakarta 55582"} • NPSN: {sekolahData?.npsn || "20401318"} • Sekolah Pusat Keunggulan
@@ -846,7 +846,7 @@ Dr. Hendra Wijaya, M.Pd.
                   <ol className="list-decimal list-inside space-y-1 text-[10px] text-slate-600 leading-normal">
                     <li>Siswa wajib login di aplikasi Thinksy 15 menit sebelum waktu asesmen.</li>
                     <li>Gunakan nomor identitas resmi NISN: <span className="font-mono font-bold text-slate-800">{userProfile.nisn || "0089218291"}</span>.</li>
-                    <li>Ujian & Ulangan bersifat privat — akses pengerjaan dikontrol resmi (ON/OFF) oleh Admin Sekolah.</li>
+                    <li>Ujian & Ulangan bersifat privat — akses pengerjaan dikontrol resmi (ON/OFF) oleh Guru.</li>
                     <li>Timer berjalan otomatis oleh server pusat dan tidak dapat dijeda.</li>
                     <li>Segala bentuk kecurangan akan membatalkan sesi dan terekam di audit trail.</li>
                   </ol>
@@ -1153,8 +1153,8 @@ Dr. Hendra Wijaya, M.Pd.
         onClose={() => setIsProfileModalOpen(false)}
         studentName={userProfile.nama_lengkap}
         studentEmail={userProfile.email}
-        learningPoints={learningPoints}
-        dailyStreak={dailyStreak}
+        ketuntasanBab="100%"
+        totalKehadiran="Hadir"
         nisn={userProfile.nisn}
         nis={userProfile.nis}
         namaKelas={userProfile.nama_kelas}

@@ -164,7 +164,7 @@ export default function SchoolHeroSlider({ sekolahData }: SchoolHeroSliderProps)
 
   return (
     <section
-      aria-label="Dokumentasi dan Profil Resmi SMKS Muhammadiyah Pakem"
+      aria-label="Dokumentasi dan Profil Resmi SMK Muhammadiyah 1"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onTouchStart={handleTouchStart}
@@ -249,7 +249,7 @@ export default function SchoolHeroSlider({ sekolahData }: SchoolHeroSliderProps)
           <div className="relative shrink-0 w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-slate-900/90 border border-slate-700/90 p-2.5 shadow-xl backdrop-blur-md flex items-center justify-center group-hover:border-blue-500/40 transition duration-300">
             <Image
               src="/images/smk-muh-pakem-logo.png"
-              alt="Logo Resmi SMKS Muhammadiyah Pakem"
+              alt="Logo Resmi SMK Muhammadiyah 1"
               width={88}
               height={88}
               priority
@@ -273,7 +273,7 @@ export default function SchoolHeroSlider({ sekolahData }: SchoolHeroSliderProps)
             </div>
 
             <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight drop-shadow-md leading-tight">
-              {sekolahData.nama || "SMKS Muhammadiyah Pakem"}
+              {sekolahData.nama || "SMK Muhammadiyah 1"}
             </h1>
 
             {/* Motto */}
@@ -285,7 +285,7 @@ export default function SchoolHeroSlider({ sekolahData }: SchoolHeroSliderProps)
             {/* School Description */}
             <p className="text-slate-300 text-xs sm:text-sm leading-relaxed font-normal max-w-2xl pt-1">
               {sekolahData.deskripsi ||
-                "SMKS Muhammadiyah Pakem (MUPA) merupakan Sekolah Pusat Keunggulan dan Pesantren Vokasi yang berkomitmen mencetak generasi muda berakhlak mulia, terampil, mandiri, dan menguasai keahlian industri masa depan."}
+                "SMK Muhammadiyah 1 merupakan Sekolah Pusat Keunggulan dan Pesantren Vokasi yang berkomitmen mencetak generasi muda berakhlak mulia, terampil, mandiri, dan menguasai keahlian industri masa depan."}
             </p>
 
             {/* Flagship Vocational Competencies */}

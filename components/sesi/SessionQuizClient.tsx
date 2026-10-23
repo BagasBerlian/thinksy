@@ -19,6 +19,7 @@ import {
 import Link from "next/link";
 import TutorChat from "../tutor/TutorChat";
 import { useRealtimeDashboard } from "@/hooks/useRealtimeDashboard";
+import { getStoredAiSettings } from "@/lib/ai-config";
 
 interface Question {
   id: string;
@@ -42,7 +43,25 @@ export default function SessionQuizClient({
   soalList,
   namaSiswa,
 }: SessionQuizClientProps) {
-  const hasAI = jenisSesi.toLowerCase() === "latihan" || jenisSesi.toLowerCase() === "eksplorasi";
+  const [aiSettings, setAiSettings] = useState(() => {
+    if (typeof window !== "undefined") {
+      return getStoredAiSettings();
+    }
+    return null;
+  });
+
+  useEffect(() => {
+    const handleUpdate = (e: any) => {
+      setAiSettings(e.detail || getStoredAiSettings());
+    };
+    window.addEventListener("thinksy_ai_settings_change", handleUpdate);
+    return () => window.removeEventListener("thinksy_ai_settings_change", handleUpdate);
+  }, []);
+
+  const isKuis = jenisSesi.toLowerCase() === "kuis" || jenisSesi.toLowerCase() === "assessment";
+  const hasAI = isKuis
+    ? (aiSettings?.kuis?.enabled ?? true)
+    : (aiSettings?.kelas?.enabled ?? true);
   const { broadcastEvent } = useRealtimeDashboard();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [jawabanState, setJawabanState] = useState<{
@@ -608,6 +627,8 @@ export default function SessionQuizClient({
                 soalId={currentQuestion?.id}
                 materiJudul={`Soal #${currentIndex + 1} (${currentQuestion?.tipeSoal === 'pilihan_ganda' ? 'Pilihan Ganda' : 'Esai'})`}
                 materiKonten={currentQuestion?.pertanyaan}
+                mode={isKuis ? "kuis" : "kelas"}
+                quizId={sesiId}
               />
             </div>
           )}

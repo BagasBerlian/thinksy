@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import DaftarMateriClient from "./DaftarMateriClient";
 import { generateTextbookModules } from "@/lib/curriculum-textbook-engine";
 
@@ -38,12 +38,45 @@ export default async function DetailBabPage({
     .eq("id", id)
     .maybeSingle();
 
-  // Jika bab tidak ditemukan di database, coba cari fallback atau render notFound
+  // Jika bab yang diakses bukan Matematika (misal data sisa mapel lain),
+  // otomatis redirect ke Bab 1 Matematika Kelas 8 resmi
+  const mapelLower = (babData?.mapel || "").toLowerCase();
+  const judulLower = (babData?.judul || "").toLowerCase();
+  const isOtherSubject =
+    mapelLower.includes("indonesia") ||
+    mapelLower.includes("inggris") ||
+    mapelLower.includes("ipa") ||
+    mapelLower.includes("ips") ||
+    mapelLower.includes("seni") ||
+    mapelLower.includes("pjok") ||
+    judulLower.includes("observasi") ||
+    judulLower.includes("puisi") ||
+    judulLower.includes("surat") ||
+    judulLower.includes("pidato") ||
+    judulLower.includes("iklan");
+
+  if (isOtherSubject) {
+    const { data: mathBab } = await supabase
+      .from("bab")
+      .select("id")
+      .ilike("mapel", "%matematika%")
+      .order("urutan", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (mathBab?.id && mathBab.id !== id) {
+      redirect(`/bab/${mathBab.id}`);
+    }
+  }
+
+  // Jika bab tidak ditemukan di database, render notFound
   let resolvedBab = babData;
   if (!resolvedBab) {
-    // Check if ID is in standard list or return 404
     notFound();
   }
+
+  // Paksa canonical mapel ke Matematika sesuai Modul Kerja
+  resolvedBab.mapel = "Matematika";
 
   let listMateri =
     resolvedBab.materi?.sort((a: any, b: any) => a.urutan - b.urutan) || [];
@@ -69,7 +102,7 @@ export default async function DetailBabPage({
 
   let answeredCount = 0;
   let totalSoalCount = 0;
-  let studentName = "SYAA PX";
+  let studentName = "Siswa";
   let studentPhoto: string | null = null;
   let namaKelas = `Kelas ${resolvedBab.kelas || 8}`;
 

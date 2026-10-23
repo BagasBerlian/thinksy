@@ -72,10 +72,10 @@ export default function HelpCenterModal({
 
             <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-1">
               <div className="font-bold text-slate-900">
-                3. Presensi Kehadiran Harian & Daily Streak
+                3. Presensi Kehadiran Harian & Rekap Kehadiran
               </div>
               <div className="text-slate-600 leading-relaxed">
-                Lakukan verifikasi presensi setiap hari sekolah sebelum pukul 08.00 WIB. Hadir tepat waktu memberi +10 Poin, terlambat memberi +3 Poin, dan jika terlewat akan tercatat Alpha.
+                Lakukan verifikasi presensi setiap hari sekolah sebelum pukul 08.00 WIB. Kehadiran sebelum jam batas tercatat Hadir Tepat Waktu, melewati jam batas tercatat Terlambat, dan jika terlewat akan tercatat Alpha resmi di dashboard guru.
               </div>
             </div>
           </div>
@@ -85,7 +85,7 @@ export default function HelpCenterModal({
               Butuh Bantuan Kendala Teknis?
             </div>
             <div className="text-slate-500 text-[11px]">
-              Hubungi Admin Sekolah atau Wali Kelas Anda untuk masalah akun.
+              Hubungi Guru atau Wali Kelas Anda untuk masalah akun.
             </div>
           </div>
         </div>

@@ -132,28 +132,30 @@ export default function TutorStreamPanel({
       {/* Header */}
       <div className="p-4 border-b border-slate-100 bg-[#193446] text-white flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-[#E9C77B] text-[#193446] flex items-center justify-center font-bold shadow-sm">
-            <Bot className="w-5 h-5" />
+          <div className="w-8 h-8 rounded-lg bg-white/10 p-1 flex items-center justify-center border border-[#E9C77B]/40 shrink-0 shadow-xs">
+            <img src="/logo.png" alt="Thinksy" className="w-full h-full object-contain" />
           </div>
           <div>
-            <h3 className="font-bold text-sm tracking-wide flex items-center gap-1.5">
-              Tutor Sokratik AI
-              <span className="text-[10px] bg-white/20 text-white px-1.5 py-0.5 rounded font-mono">
-                Gemini 3.1
-              </span>
+            <h3 className="font-black text-xs text-[#E9C77B] flex items-center gap-1.5 leading-none">
+              <span>✨ thinksy AI</span>
             </h3>
-            <p className="text-[11px] text-slate-300">
-              Sisa Kuota: <span className="font-semibold text-[#E9C77B]">{remainingQuota}/20</span> pesan hari ini
+            <p className="text-[10px] text-[#E9C77B]/80 font-medium leading-tight mt-0.5">
+              Asisten Belajar Pintar
             </p>
           </div>
         </div>
-        <button
-          onClick={onClose}
-          className="p-1.5 text-slate-300 hover:text-white rounded-lg hover:bg-white/10 transition"
-          aria-label="Tutup Panel"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-300/30 bg-amber-400/10 text-amber-200">
+            Sisa: {remainingQuota}/20
+          </span>
+          <button
+            onClick={onClose}
+            className="p-1.5 text-white/70 hover:text-white rounded-lg hover:bg-white/10 transition"
+            aria-label="Tutup Panel"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* Quick Prompts */}
@@ -184,7 +186,7 @@ export default function TutorStreamPanel({
             <div
               className={`max-w-[88%] p-3 rounded-2xl ${
                 m.role === "user"
-                  ? "bg-[#193446] text-white rounded-br-none shadow-sm"
+                  ? "bg-[#193446] text-white [&_*]:!text-white rounded-br-none shadow-sm"
                   : "bg-white text-slate-800 border border-slate-200 rounded-bl-none shadow-sm"
               }`}
             >

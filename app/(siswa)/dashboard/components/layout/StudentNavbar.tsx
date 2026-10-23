@@ -107,7 +107,16 @@ export default function StudentNavbar({
   const isPeringkatActive = activeTab === "Peringkat";
   const isPencapaianActive = activeTab === "Pencapaian";
 
-  const navTabs = [
+  interface NavTabItem {
+    id: string;
+    label: string;
+    icon: any;
+    isActive: boolean;
+    href?: string;
+    onClick?: () => void;
+  }
+
+  const navTabs: NavTabItem[] = [
     {
       id: "Home",
       label: "Home",
@@ -125,8 +134,10 @@ export default function StudentNavbar({
       id: "Belajar",
       label: "Belajar",
       icon: BookOpen,
-      isActive: isBelajarActive,
-      href: "/belajar",
+      isActive: isBelajarActive || (typeof window !== "undefined" && window.location.search.includes("matematika")),
+      onClick: () => {
+        router.push("/?tab=matematika");
+      },
     },
     {
       id: "Peringkat",

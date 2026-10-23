@@ -33,6 +33,8 @@ import {
 import { logoutAction } from "@/app/(auth)/actions";
 import { useRealtimeDashboard } from "@/hooks/useRealtimeDashboard";
 import FloatingGuruSpeedDial from "@/components/guru/FloatingGuruSpeedDial";
+import LanguageToggle from "@/components/layout/LanguageToggle";
+import { useLanguage } from "@/hooks/useLanguage";
 
 export type GuruNavView = "beranda" | "manajemen_siswa" | "manajemen_kelas" | "pengelolaan" | "pengaturan";
 
@@ -53,6 +55,7 @@ export default function GuruLayout({
   activeView,
   onViewChange,
 }: GuruLayoutProps) {
+  const { t } = useLanguage();
   const pathname = usePathname();
   const router = useRouter();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -339,31 +342,31 @@ export default function GuruLayout({
   const navItems = [
     {
       id: "beranda" as GuruNavView,
-      label: "Beranda",
+      label: t.navBeranda,
       icon: LayoutDashboard,
       active: currentNavView === "beranda",
     },
     {
       id: "manajemen_siswa" as GuruNavView,
-      label: "Manajemen Siswa",
+      label: t.navManajemenSiswa,
       icon: Users,
       active: currentNavView === "manajemen_siswa",
     },
     {
       id: "manajemen_kelas" as GuruNavView,
-      label: "Management Kelas",
+      label: t.navManagementKelas,
       icon: GraduationCap,
       active: currentNavView === "manajemen_kelas",
     },
     {
       id: "pengelolaan" as GuruNavView,
-      label: "Pengelolaan",
+      label: t.navPengelolaan,
       icon: Sliders,
       active: currentNavView === "pengelolaan",
     },
     {
       id: "pengaturan" as GuruNavView,
-      label: "Pengaturan",
+      label: t.navPengaturan,
       icon: Settings,
       active: currentNavView === "pengaturan",
     },
@@ -398,7 +401,7 @@ export default function GuruLayout({
                 </span>
                 <div className="flex items-center gap-1.5">
                   <div className="text-[11px] font-sans text-slate-500 font-medium">
-                    Panel Guru
+                    {t.teacherPanel}
                   </div>
                   {isConnected && (
                     <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
@@ -462,7 +465,7 @@ export default function GuruLayout({
               }`}
             >
               <FileText className={`w-5 h-5 shrink-0 ${pathname.startsWith("/guru/soal") ? "text-[#1967D2]" : "text-slate-500"}`} />
-              <span>Bank Soal</span>
+              <span>{t.navBankSoal}</span>
             </Link>
 
             <Link
@@ -475,7 +478,7 @@ export default function GuruLayout({
               }`}
             >
               <CheckSquare className={`w-5 h-5 shrink-0 ${pathname.startsWith("/guru/penilaian") ? "text-[#1967D2]" : "text-slate-500"}`} />
-              <span>Penilaian Esai AI</span>
+              <span>{t.navPenilaianEsai}</span>
             </Link>
 
             {/* Link Khusus: Monitoring Biaya & Token AI */}
@@ -489,7 +492,7 @@ export default function GuruLayout({
               }`}
             >
               <Coins className={`w-5 h-5 shrink-0 ${pathname === "/guru/biaya" ? "text-[#1967D2]" : "text-emerald-600"}`} />
-              <span>Biaya & Token AI</span>
+              <span>{t.navBiayaToken}</span>
             </Link>
           </nav>
         </div>
@@ -501,7 +504,7 @@ export default function GuruLayout({
             className="w-full flex items-center justify-center gap-2 text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 py-2.5 px-3 rounded-xl transition cursor-pointer border border-rose-200/60"
           >
             <LogOut className="w-3.5 h-3.5" />
-            <span>Keluar Akun</span>
+            <span>{t.signOut}</span>
           </button>
         </form>
       </aside>
@@ -531,7 +534,7 @@ export default function GuruLayout({
                 }
               }}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Cari materi, soal, atau siswa..."
+              placeholder={t.searchPlaceholder}
               className="w-full pl-9 pr-8 py-2 bg-slate-100/90 border border-slate-200/80 rounded-full text-xs font-sans text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-[#1967D2] focus:ring-2 focus:ring-blue-100 transition"
             />
             {searchQuery && (
@@ -625,7 +628,7 @@ export default function GuruLayout({
                                 </div>
                               </div>
                               <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-[#1967D2] border border-blue-200 shrink-0">
-                                {st.poin} Poin
+                                {st.nilai ? `Nilai: ${st.nilai}` : "Siswa Aktif"}
                               </span>
                             </div>
                           ))}
@@ -704,6 +707,9 @@ export default function GuruLayout({
 
           {/* Right Header Icons & Profile */}
           <div className="flex items-center space-x-2.5">
+            {/* Global Language Toggle Switch (ID | EN) */}
+            <LanguageToggle className="shrink-0" />
+
             {/* Notification Bell */}
             <div className="relative">
               <button

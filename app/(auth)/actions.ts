@@ -7,10 +7,6 @@ import { redirect } from "next/navigation";
 // Helper: tentukan path dashboard berdasarkan peran
 function getDashboardPath(peran: string): string {
   switch (peran) {
-    case "super_admin":
-      return "/super";
-    case "admin_sekolah":
-      return "/admin";
     case "guru":
       return "/guru";
     case "siswa":
@@ -110,15 +106,22 @@ export async function loginAction(prevState: any, formData: FormData) {
 }
 
 export async function registerAction(prevState: any, formData: FormData) {
-  const namaLengkap = formData.get("nama_lengkap") as string;
-  const email = formData.get("email") as string;
-  const password = formData.get("password") as string;
+  const namaLengkap = (formData.get("nama_lengkap") as string)?.trim() || "";
+  const email = (formData.get("email") as string)?.trim() || "";
+  const password = (formData.get("password") as string) || "";
+  const noWa = (formData.get("no_wa") as string)?.trim() || "";
+  const tempatLahir = (formData.get("tempat_lahir") as string)?.trim() || "";
+  const tanggalLahir = (formData.get("tanggal_lahir") as string)?.trim() || "";
+  const namaKelas = (formData.get("nama_kelas") as string)?.trim() || "Kelas 8A";
+  const nisn = (formData.get("nisn") as string)?.trim() || "";
+  const fotoUrl = (formData.get("foto_url") as string)?.trim() || "/images/pasfoto-siswa-1.jpg";
+  const asalSekolah = "SMK Muhammadiyah 1";
 
   if (!namaLengkap || !email || !password) {
-    return { error: "Semua kolom wajib diisi." };
+    return { error: "Nama lengkap, email, dan kata sandi wajib diisi." };
   }
 
-  if (namaLengkap.trim().length < 3) {
+  if (namaLengkap.length < 3) {
     return { error: "Nama lengkap minimal 3 karakter." };
   }
 
@@ -133,7 +136,15 @@ export async function registerAction(prevState: any, formData: FormData) {
     password,
     options: {
       data: {
-        nama_lengkap: namaLengkap.trim(),
+        nama_lengkap: namaLengkap,
+        peran: "siswa",
+        asal_sekolah: asalSekolah,
+        no_wa: noWa,
+        tempat_lahir: tempatLahir,
+        tanggal_lahir: tanggalLahir,
+        nama_kelas: namaKelas,
+        nisn: nisn,
+        foto_url: fotoUrl,
       },
     },
   });
@@ -179,7 +190,7 @@ export async function registerAction(prevState: any, formData: FormData) {
 
   const emailNormalized = email.toLowerCase().trim();
   let peranBaru = "siswa";
-  let sekolahId: string | null = null;
+  let sekolahId: string | null = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11";
 
   // Cek apakah ada undangan untuk email pendaftar ini
   const { data: undangan } = await supabase
@@ -194,27 +205,57 @@ export async function registerAction(prevState: any, formData: FormData) {
 
   if (undangan) {
     peranBaru = undangan.peran;
-    sekolahId = undangan.sekolah_id || null;
+    if (undangan.sekolah_id) {
+      sekolahId = undangan.sekolah_id;
+    }
     await supabase
       .from("undangan")
       .update({ digunakan: true })
       .eq("id", undangan.id);
   }
 
-  // Buat profil pengguna di database
-  if (authData.session) {
+  // Upsert profil pengguna di database
+  try {
     const { error: profilError } = await supabase.from("profil").upsert({
       id: authData.user.id,
-      nama_lengkap: namaLengkap.trim(),
+      nama_lengkap: namaLengkap,
       peran: peranBaru,
       sekolah_id: sekolahId,
+      nisn: nisn || null,
+      foto_url: fotoUrl || null,
     });
 
     if (profilError) {
       console.error("[REGISTER] Gagal membuat profil:", profilError.message);
     }
+  } catch (err) {
+    console.error("[REGISTER] Exception saat upsert profil:", err);
+  }
 
-    // Set cookie peran terikat dengan user ID
+  // Hubungkan siswa ke tabel kelas jika nama_kelas dipilih
+  try {
+    const { data: kelasRecord } = await supabase
+      .from("kelas")
+      .select("id")
+      .eq("nama_kelas", namaKelas)
+      .limit(1)
+      .single();
+
+    if (kelasRecord?.id) {
+      await supabase.from("anggota_kelas").upsert(
+        {
+          kelas_id: kelasRecord.id,
+          siswa_id: authData.user.id,
+        },
+        { onConflict: "kelas_id,siswa_id" }
+      );
+    }
+  } catch (err) {
+    console.warn("[REGISTER] Warning saat asosiasi anggota_kelas:", err);
+  }
+
+  // Jika session langsung aktif
+  if (authData.session) {
     const cookieStore = await cookies();
     cookieStore.set("user_role", `${authData.user.id}:${peranBaru}`, {
       httpOnly: true,
@@ -226,10 +267,37 @@ export async function registerAction(prevState: any, formData: FormData) {
     redirect(getDashboardPath(peranBaru));
   }
 
+  // Coba auto sign-in jika session belum langsung terbentuk
+  try {
+    const { data: signInData } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    if (signInData?.session) {
+      const cookieStore = await cookies();
+      cookieStore.set("user_role", `${signInData.user.id}:${peranBaru}`, {
+        httpOnly: true,
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24,
+        path: "/",
+      });
+      redirect(getDashboardPath(peranBaru));
+    }
+  } catch (err) {
+    // Abaikan jika signInWithPassword gagal karena butuh verifikasi email
+  }
+
   return {
     success: true,
+    user: {
+      id: authData.user.id,
+      nama_lengkap: namaLengkap,
+      nama_kelas: namaKelas,
+      nisn: nisn,
+      foto_url: fotoUrl,
+    },
     message:
-      "Pendaftaran berhasil! Silakan cek email Anda untuk konfirmasi akun sebelum masuk.",
+      "Pendaftaran berhasil! Akun Anda telah aktif. Silakan masuk dengan email dan kata sandi Anda.",
   };
 }
 

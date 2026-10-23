@@ -181,14 +181,10 @@ export default function AttendanceModal({
         const finalStatus =
           data.presensi?.status ||
           (isLate ? "Terlambat" : "Hadir (Tepat Waktu)");
-        const rewardPoints = data.poinReward || (isLate ? 3 : 10);
-
         onSubmitSuccess({
           waktu: timeRecorded,
           status: finalStatus,
-          poinReward: rewardPoints,
-          streak: data.user?.streak,
-          poinTotal: data.user?.poin,
+          poinReward: 0,
         });
       } else {
         if (data.isClosed || data.status === "Alpha") {
@@ -388,12 +384,12 @@ export default function AttendanceModal({
             {isLate ? (
               <>
                 <Clock className="w-3.5 h-3.5 text-amber-600" />
-                <span>Terlambat (+3 Poin)</span>
+                <span>Status: Terlambat</span>
               </>
             ) : (
               <>
-                <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Tepat Waktu (+10 Poin)</span>
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Status: Hadir Tepat Waktu</span>
               </>
             )}
           </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import {
   ArrowLeft,
   BookOpen,
@@ -24,17 +24,20 @@ import {
   Share2,
   GraduationCap,
   Layers,
-  ChevronDown,
   Eye,
   Highlighter,
   Trash2,
   X,
   Copy,
   Plus,
+  Lightbulb,
+  User,
+  Underline,
 } from "lucide-react";
 import Link from "next/link";
 import DigitalJournalReader from "@/components/journal/DigitalJournalReader";
 import MarkdownRenderer from "@/components/materi/MarkdownRenderer";
+import SubBabCreativeQuiz from "@/components/materi/SubBabCreativeQuiz";
 
 export interface MateriItem {
   id: string;
@@ -42,6 +45,7 @@ export interface MateriItem {
   urutan: number;
   konten?: string;
   konten_markdown?: string;
+  durasiMenit?: number;
 }
 
 export interface DaftarMateriClientProps {
@@ -72,6 +76,89 @@ export interface TextHighlight {
   createdAt: string;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPER: RESTORE TERSIMPAN KE ELEMEN TEKS DI DOM SECARA AMAN
+// ─────────────────────────────────────────────────────────────────────────────
+function applyStoredUnderlines(
+  container: HTMLElement,
+  savedSnippets: string[],
+  onRemove: (snippet: string) => void
+) {
+  if (!container || !savedSnippets || savedSnippets.length === 0) return;
+
+  const uniqueSnippets = Array.from(new Set(savedSnippets.filter(Boolean))).sort(
+    (a, b) => b.length - a.length
+  );
+
+  uniqueSnippets.forEach((snippet) => {
+    const cleanSnippet = snippet.trim();
+    if (!cleanSnippet) return;
+
+    const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        if (!node.textContent || !node.textContent.includes(cleanSnippet)) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        if (node.parentElement?.closest("[data-thinksy-underline='true']")) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        if (["SCRIPT", "STYLE", "BUTTON", "INPUT", "TEXTAREA"].includes(node.parentElement?.tagName || "")) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        return NodeFilter.FILTER_ACCEPT;
+      },
+    });
+
+    const nodesToWrap: { node: Text; index: number }[] = [];
+    let currentNode = walker.nextNode() as Text | null;
+    while (currentNode) {
+      const idx = currentNode.textContent?.indexOf(cleanSnippet) ?? -1;
+      if (idx !== -1) {
+        nodesToWrap.push({ node: currentNode, index: idx });
+      }
+      currentNode = walker.nextNode() as Text | null;
+    }
+
+    nodesToWrap.forEach(({ node, index }) => {
+      try {
+        const text = node.textContent || "";
+        const before = text.substring(0, index);
+        const match = text.substring(index, index + cleanSnippet.length);
+        const after = text.substring(index + cleanSnippet.length);
+
+        const span = document.createElement("span");
+        span.className =
+          "underline decoration-blue-600 decoration-2 underline-offset-4 bg-blue-50/70 dark:bg-blue-900/40 text-blue-950 dark:text-blue-100 rounded-xs px-0.5 font-medium transition cursor-pointer hover:opacity-80";
+        span.setAttribute("data-thinksy-underline", "true");
+        span.setAttribute("title", "Klik untuk menghapus garis bawah");
+        span.textContent = match;
+
+        span.onclick = (e) => {
+          e.stopPropagation();
+          const parent = span.parentNode;
+          if (parent) {
+            while (span.firstChild) {
+              parent.insertBefore(span.firstChild, span);
+            }
+            parent.removeChild(span);
+            onRemove(cleanSnippet);
+          }
+        };
+
+        const parent = node.parentNode;
+        if (parent) {
+          if (before) parent.insertBefore(document.createTextNode(before), node);
+          parent.insertBefore(span, node);
+          if (after) parent.insertBefore(document.createTextNode(after), node);
+          parent.removeChild(node);
+        }
+      } catch (err) {
+        console.warn("Underline restore note:", err);
+      }
+    });
+  });
+}
+
 export default function DaftarMateriClient({
   babId,
   judulBab,
@@ -80,7 +167,7 @@ export default function DaftarMateriClient({
   mapel = "Matematika",
   kelas = 8,
   namaKelas,
-  studentName = "SYAA PX",
+  studentName = "Siswa",
   studentPhoto = null,
   listMateri = [],
   initialMateriId,
@@ -90,30 +177,110 @@ export default function DaftarMateriClient({
   totalSoalCount = 0,
 }: DaftarMateriClientProps) {
   const displayKelas = namaKelas || (typeof kelas === "string" ? kelas : `Kelas ${kelas}`);
-  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
-  const profileDropdownRef = useRef<HTMLDivElement | null>(null);
+
+  // ─── CUSTOM BAB CONFIGURATION (SINKRON GURU) ───
+  const [customBabConfig, setCustomBabConfig] = useState<any>(null);
 
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        profileDropdownRef.current &&
-        !profileDropdownRef.current.contains(e.target as Node)
-      ) {
-        setIsProfileDropdownOpen(false);
+    const loadCustomConfig = () => {
+      if (typeof window === "undefined") return;
+      try {
+        const raw = localStorage.getItem("thinksy_custom_babs");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          const match =
+            parsed[babId] ||
+            parsed[`mat-bab-${urutanBab}`] ||
+            Object.values(parsed).find(
+              (b: any) =>
+                b.id === babId ||
+                b.supabaseId === babId ||
+                b.urutan === urutanBab ||
+                (b.judul && judulBab && b.judul.toLowerCase() === judulBab.toLowerCase())
+            );
+          if (match) {
+            setCustomBabConfig(match);
+          }
+        }
+      } catch (err) {
+        console.error("Gagal memuat kustomisasi bab guru:", err);
       }
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+
+    loadCustomConfig();
+    window.addEventListener("thinksy_bab_updated", loadCustomConfig);
+    window.addEventListener("thinksy_due_soon_updated", loadCustomConfig);
+    return () => {
+      window.removeEventListener("thinksy_bab_updated", loadCustomConfig);
+      window.removeEventListener("thinksy_due_soon_updated", loadCustomConfig);
+    };
+  }, [babId, urutanBab, judulBab]);
+
+  // Derive Effective Content & Meta
+  const effectiveJudulBab = customBabConfig?.judul || judulBab;
+  const effectiveDeskripsiBab = customBabConfig?.deskripsi || deskripsiBab;
+
+  // Derive Effective Modules (Memastikan setiap bab terstruktur tepat 3 Sub-Bab)
+  const effectiveListMateri: MateriItem[] = useMemo(() => {
+    let source: MateriItem[] = [];
+    if (
+      customBabConfig?.modules &&
+      Array.isArray(customBabConfig.modules) &&
+      customBabConfig.modules.length > 0
+    ) {
+      source = customBabConfig.modules.map((m: any, idx: number) => ({
+        id: m.id || `materi-custom-${idx + 1}`,
+        judul: m.judul,
+        urutan: m.urutan || idx + 1,
+        konten: m.kontenMarkdown,
+        konten_markdown: m.kontenMarkdown,
+        durasiMenit: typeof m.durasiMenit === "number" ? m.durasiMenit : undefined,
+      }));
+    } else if (listMateri && listMateri.length > 0) {
+      source = listMateri;
+    }
+
+    if (source.length >= 3) {
+      return source.slice(0, 3);
+    }
+
+    const result = [...source];
+    const defaultSubBabTitles = [
+      `Konsep Dasar & Definisi Fundamental`,
+      `Eksplorasi Sifat, Pola & Analisis Kasus`,
+      `Penerapan Kontekstual & Penalaran Tingkat Lanjut`,
+    ];
+    while (result.length < 3) {
+      const nextIdx = result.length + 1;
+      result.push({
+        id: `subbab-default-${babId}-${nextIdx}`,
+        judul: defaultSubBabTitles[nextIdx - 1] || `Sub-Bab ${nextIdx}`,
+        urutan: nextIdx,
+        konten_markdown: `### Sub-Bab ${nextIdx}\n\nPelajari materi dan ikuti kuis kreatif terpandu di bawah untuk menuntaskan pemahaman konsep ini secara bertahap.`,
+      });
+    }
+    return result;
+  }, [customBabConfig, listMateri, babId]);
+
+  // Feature Flags dari Pengaturan Bab Guru
+  const isAiEnabled = customBabConfig?.features?.aiEnabled !== false;
+  const aiGuidanceStyle: "socratic" | "adaptive" | "direct" =
+    customBabConfig?.features?.aiGuidanceStyle || "socratic";
+  const aiTokenLimit: number =
+    typeof customBabConfig?.features?.aiTokenLimit === "number"
+      ? customBabConfig.features.aiTokenLimit
+      : 20;
+  const aiCustomDirective: string = customBabConfig?.features?.aiCustomDirective || "";
+  const isNotesEnabled = customBabConfig?.features?.notesEnabled !== false;
 
   // Save last learning activity for Quick Resume & To-do integration
   useEffect(() => {
-    if (typeof window !== "undefined" && babId && judulBab) {
+    if (typeof window !== "undefined" && babId && effectiveJudulBab) {
       const activity = {
         type: "bab",
         id: babId,
-        judul: judulBab,
-        mapel: mapel || "Informatika",
+        judul: effectiveJudulBab,
+        mapel: mapel || "Matematika",
         link: `/bab/${babId}`,
         updatedAt: new Date().toISOString(),
       };
@@ -122,14 +289,8 @@ export default function DaftarMateriClient({
         window.dispatchEvent(new CustomEvent("thinksy_activity_update", { detail: activity }));
       } catch {}
     }
-  }, [babId, judulBab, mapel]);
+  }, [babId, effectiveJudulBab, mapel]);
 
-  const initials = studentName
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .substring(0, 2)
-    .toUpperCase();
   // View Modes:
   // "pdf" -> Long-form continuous textbook / PDF reading document
   // "journal" -> Page-by-page interactive digital journal with highlights & margin notes
@@ -139,8 +300,14 @@ export default function DaftarMateriClient({
   );
 
   const [selectedMateriId, setSelectedMateriId] = useState<string | null>(
-    initialMateriId || listMateri[0]?.id || null
+    initialMateriId || effectiveListMateri[0]?.id || null
   );
+
+  useEffect(() => {
+    if (!selectedMateriId && effectiveListMateri.length > 0) {
+      setSelectedMateriId(effectiveListMateri[0].id);
+    }
+  }, [effectiveListMateri, selectedMateriId]);
 
   // PDF Reader Customization Settings
   const [readingTheme, setReadingTheme] = useState<ReadingTheme>("light");
@@ -152,13 +319,163 @@ export default function DaftarMateriClient({
   const [notesList, setNotesList] = useState<Array<{ id: string; title: string; content: string; createdAt: string }>>([
     {
       id: "sample-note-1",
-      title: `Intisari Bab ${urutanBab}: ${judulBab}`,
-      content: `Poin kunci: Pahami definisi fundamental, formulasi matematis/ilmiah, serta telaah contoh soal langkah demi langkah sebelum memulai asesmen kuis 10 soal.`,
+      title: `Intisari Bab ${urutanBab}: ${effectiveJudulBab}`,
+      content: `Poin kunci: Pahami definisi fundamental, formulasi matematis/ilmiah, serta telaah contoh soal langkah demi langkah sebelum memulai asesmen kuis akhir bab.`,
       createdAt: "Otomatis",
     },
   ]);
   const [newNoteTitle, setNewNoteTitle] = useState("");
   const [newNoteContent, setNewNoteContent] = useState("");
+
+  // Underline Feature State (Menggantikan tema, Aa, dan catatan)
+  const [isUnderlineMode, setIsUnderlineMode] = useState(false);
+  const [underlinesCount, setUnderlinesCount] = useState(0);
+  const savedRangeRef = useRef<Range | null>(null);
+
+  const removeSnippetFromStorage = (snippetText: string) => {
+    try {
+      const raw = localStorage.getItem(`thinksy_underlines_${babId}`);
+      if (raw) {
+        const list: string[] = JSON.parse(raw);
+        const filtered = list.filter((s) => s.trim() !== snippetText.trim());
+        localStorage.setItem(`thinksy_underlines_${babId}`, JSON.stringify(filtered));
+        setUnderlinesCount(filtered.length);
+      }
+    } catch {}
+  };
+
+  // Load & restore saved underlines on mount and view changes
+  useEffect(() => {
+    const restoreUnderlines = () => {
+      try {
+        const saved = localStorage.getItem(`thinksy_underlines_${babId}`);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setUnderlinesCount(parsed.length);
+            const container = document.querySelector("#materi-reader-content") as HTMLElement | null;
+            if (container) {
+              applyStoredUnderlines(container, parsed, (snippet) => {
+                removeSnippetFromStorage(snippet);
+                saveCurrentUnderlines();
+                showToast("Garis bawah dihapus.");
+              });
+            }
+          } else {
+            setUnderlinesCount(0);
+          }
+        } else {
+          setUnderlinesCount(0);
+        }
+      } catch {}
+    };
+
+    const t1 = setTimeout(restoreUnderlines, 100);
+    const t2 = setTimeout(restoreUnderlines, 400);
+    const t3 = setTimeout(restoreUnderlines, 1000);
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+    };
+  }, [babId, effectiveListMateri, viewMode]);
+
+  const saveCurrentUnderlines = () => {
+    try {
+      const container = document.querySelector("#materi-reader-content");
+      if (!container) return;
+      const elements = container.querySelectorAll("[data-thinksy-underline='true']");
+      setUnderlinesCount(elements.length);
+      const texts = Array.from(elements)
+        .map((el) => (el.textContent || "").trim())
+        .filter(Boolean);
+      const uniqueTexts = Array.from(new Set(texts));
+      localStorage.setItem(`thinksy_underlines_${babId}`, JSON.stringify(uniqueTexts));
+    } catch {}
+  };
+
+  const handleApplyUnderline = () => {
+    const selection = window.getSelection();
+    let range: Range | null = null;
+
+    if (selection && !selection.isCollapsed && selection.rangeCount > 0) {
+      range = selection.getRangeAt(0);
+    } else if (savedRangeRef.current) {
+      range = savedRangeRef.current;
+    }
+
+    const selectedContent = (range ? range.toString() : selectedText).trim();
+
+    if (!range || !selectedContent) {
+      setIsUnderlineMode((prev) => {
+        const next = !prev;
+        showToast(
+          next
+            ? "✏️ Mode Garis Bawahi AKTIF: Sorot teks materi untuk langsung menggarisbawahi!"
+            : "Mode Garis Bawahi dinonaktifkan."
+        );
+        return next;
+      });
+      return;
+    }
+
+    // Persist directly to localStorage
+    try {
+      const prevSaved = JSON.parse(localStorage.getItem(`thinksy_underlines_${babId}`) || "[]");
+      const updatedSaved = Array.from(new Set([...prevSaved, selectedContent]));
+      localStorage.setItem(`thinksy_underlines_${babId}`, JSON.stringify(updatedSaved));
+      setUnderlinesCount(updatedSaved.length);
+    } catch {}
+
+    let applied = false;
+    try {
+      const span = document.createElement("span");
+      span.className =
+        "underline decoration-blue-600 decoration-2 underline-offset-4 bg-blue-50/70 dark:bg-blue-900/40 text-blue-950 dark:text-blue-100 rounded-xs px-0.5 font-medium transition cursor-pointer hover:opacity-80";
+      span.setAttribute("data-thinksy-underline", "true");
+      span.setAttribute("title", "Klik untuk menghapus garis bawah");
+      span.onclick = (e) => {
+        e.stopPropagation();
+        const parent = span.parentNode;
+        if (parent) {
+          while (span.firstChild) {
+            parent.insertBefore(span.firstChild, span);
+          }
+          parent.removeChild(span);
+          removeSnippetFromStorage(selectedContent);
+          saveCurrentUnderlines();
+          showToast("Garis bawah dihapus.");
+        }
+      };
+
+      span.appendChild(range.extractContents());
+      range.insertNode(span);
+      applied = true;
+    } catch (err) {
+      console.warn("Direct extractContents note, attempting TreeWalker wrapping:", err);
+    }
+
+    // Fallback if direct DOM extractContents did not succeed
+    if (!applied) {
+      const container = document.querySelector("#materi-reader-content") as HTMLElement | null;
+      if (container) {
+        applyStoredUnderlines(container, [selectedContent], (snip) => {
+          removeSnippetFromStorage(snip || selectedContent);
+          saveCurrentUnderlines();
+          showToast("Garis bawah dihapus.");
+        });
+      }
+    }
+
+    if (selection) selection.removeAllRanges();
+    savedRangeRef.current = null;
+    setSelectedText("");
+    setSelectionPosition(null);
+
+    saveCurrentUnderlines();
+    showToast("✍️ Teks berhasil digarisbawahi & disimpan!");
+  };
 
   // Text Highlighting State
   const [highlights, setHighlights] = useState<TextHighlight[]>([]);
@@ -195,7 +512,7 @@ export default function DaftarMateriClient({
       if (res.ok) {
         const data = await res.json();
         setReadMateriIds((prev) => new Set([...prev, materiId]));
-        showToast(data.message || "Materi berhasil ditandai selesai! (+5 Poin)");
+        showToast("Sub-bab berhasil diselesaikan! 🎯");
       }
     } catch {
       showToast("Gagal menyimpan progres");
@@ -211,17 +528,22 @@ export default function DaftarMateriClient({
 
   const handleMouseUp = () => {
     const selection = window.getSelection();
-    if (!selection || selection.isCollapsed) {
+    if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
       setSelectionPosition(null);
       setSelectedText("");
       return;
     }
 
     const text = selection.toString().trim();
-    if (text.length > 2) {
+    if (text.length > 0) {
       setSelectedText(text);
       try {
         const range = selection.getRangeAt(0);
+        savedRangeRef.current = range.cloneRange();
+        if (isUnderlineMode) {
+          handleApplyUnderline();
+          return;
+        }
         const rect = range.getBoundingClientRect();
         setSelectionPosition({
           x: Math.max(120, Math.min(window.innerWidth - 140, rect.left + rect.width / 2)),
@@ -293,8 +615,18 @@ export default function DaftarMateriClient({
   };
 
   const handleAskAi = async (customQuestion?: string) => {
+    if (!isAiEnabled) {
+      showToast("Tutor AI dinonaktifkan oleh guru untuk bab ini.");
+      return;
+    }
     const q = customQuestion || aiPrompt.trim();
     if (!q || isAiLoading) return;
+
+    const currentQuestionsAsked = aiHistory.filter((m) => m.role === "user").length;
+    if (aiTokenLimit !== 999 && currentQuestionsAsked >= aiTokenLimit) {
+      showToast(`Batas kuota pertanyaan AI (${aiTokenLimit}) untuk bab ini telah tercapai.`);
+      return;
+    }
 
     setAiPrompt("");
     setAiHistory((prev) => [...prev, { role: "user", content: q }]);
@@ -302,15 +634,17 @@ export default function DaftarMateriClient({
     setIsAiOpen(true);
 
     try {
-      const allText = listMateri.map((m) => m.konten_markdown || "").join("\n\n").substring(0, 2000);
+      const allText = effectiveListMateri.map((m) => m.konten_markdown || "").join("\n\n").substring(0, 2000);
       const res = await fetch("/api/tutor/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          materiJudul: `${mapel} - ${judulBab}`,
+          materiJudul: `${mapel} - ${effectiveJudulBab}`,
           materiKonten: allText,
           message: q,
           history: aiHistory,
+          guidanceStyle: aiGuidanceStyle,
+          customDirective: aiCustomDirective,
         }),
       });
 
@@ -366,251 +700,140 @@ export default function DaftarMateriClient({
             : "bg-white/95 border-slate-100 text-slate-900 shadow-2xs"
         }`}
       >
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-3 sm:px-6 py-2 sm:py-2.5 gap-2">
-          {/* Left: Back Link & Subject Badge */}
+        <div className={`mx-auto flex items-center justify-between px-3 sm:px-6 py-2.5 gap-2.5 sm:gap-4 transition-all ${
+          viewMode === "pdf" ? "max-w-4xl" : "max-w-7xl"
+        }`}>
+          {/* Left: Back Link + Mode Switcher Tabs (Sejajar dengan Card Pembelajaran) */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <Link
-              href={`/belajar?mapel=${encodeURIComponent(mapel)}&babId=${babId}`}
-              className={`py-1.5 px-3 rounded-lg border transition flex items-center gap-1.5 text-xs font-semibold ${
+              href="/dashboard"
+              className={`h-9 px-3 rounded-lg border transition-all flex items-center gap-1.5 text-xs font-semibold shrink-0 ${
                 readingTheme === "dark"
                   ? "bg-slate-800 border-slate-700 hover:bg-slate-700 text-white"
-                  : "bg-white border-slate-200/70 hover:bg-slate-50 text-slate-700"
+                  : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700 shadow-2xs"
               }`}
+              title="Kembali ke Dashboard Siswa"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">Kembali ke Belajar</span>
+              <span className="hidden md:inline">Kembali</span>
             </Link>
 
-            <div className="border-l border-slate-200 pl-2 sm:pl-3">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200/70 tracking-wide shadow-2xs">
-                  {mapel} • {displayKelas}
-                </span>
-                <span className="text-xs font-semibold truncate max-w-[150px] sm:max-w-xs md:max-w-md hidden sm:inline text-slate-800 dark:text-slate-200">
-                  {judulBab}
-                </span>
-              </div>
-            </div>
+            {/* Mode Switcher Tabs */}
+            <nav
+              aria-label="Mode Pembelajaran"
+              className="flex items-center p-1 rounded-xl bg-slate-100/90 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-xs font-semibold shrink-0"
+            >
+              <button
+                type="button"
+                onClick={() => setViewMode("pdf")}
+                className={`h-8 px-3 rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 text-xs font-semibold ${
+                  viewMode === "pdf"
+                    ? "bg-blue-600 text-white shadow-xs font-bold"
+                    : "text-slate-600 hover:text-blue-700 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-700/50"
+                }`}
+                title="Tampilkan Modul Digital Lengkap"
+              >
+                <FileText className={`w-3.5 h-3.5 ${viewMode === "pdf" ? "text-white" : "text-blue-600 dark:text-blue-400"}`} />
+                <span className="hidden sm:inline">Modul Digital</span>
+                <span className="sm:hidden">Modul</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setViewMode("journal")}
+                className={`h-8 px-3 rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 text-xs font-semibold ${
+                  viewMode === "journal"
+                    ? "bg-blue-600 text-white shadow-xs font-bold"
+                    : "text-slate-600 hover:text-blue-700 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-700/50"
+                }`}
+                title="Tampilkan Jurnal Halaman per Halaman"
+              >
+                <BookOpen className={`w-3.5 h-3.5 ${viewMode === "journal" ? "text-white" : "text-amber-500"}`} />
+                <span className="hidden sm:inline">Jurnal Belajar</span>
+                <span className="sm:hidden">Jurnal</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setViewMode("modules")}
+                className={`h-8 px-3 rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 text-xs font-semibold ${
+                  viewMode === "modules"
+                    ? "bg-blue-600 text-white shadow-xs font-bold"
+                    : "text-slate-600 hover:text-blue-700 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-700/50"
+                }`}
+                title="Tampilkan Ringkasan Silabus Bab"
+              >
+                <List className={`w-3.5 h-3.5 ${viewMode === "modules" ? "text-white" : "text-blue-600 dark:text-blue-400"}`} />
+                <span className="hidden sm:inline">Silabus Bab</span>
+                <span className="sm:hidden">Silabus</span>
+              </button>
+            </nav>
           </div>
 
-          {/* Center: Mode Switcher Tabs */}
-          <div className="flex items-center p-1 rounded-xl bg-slate-100/90 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-xs font-semibold">
-            <button
-              onClick={() => setViewMode("pdf")}
-              className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
-                viewMode === "pdf"
-                  ? "bg-blue-600 text-white shadow-xs font-bold"
-                  : "text-slate-600 hover:text-blue-700 dark:text-slate-300"
-              }`}
-            >
-              <FileText className={`w-3.5 h-3.5 ${viewMode === "pdf" ? "text-white" : "text-blue-600 dark:text-blue-400"}`} />
-              <span className="hidden sm:inline">Modul Bacaan (PDF)</span>
-              <span className="sm:hidden">PDF</span>
-            </button>
-
-            <button
-              onClick={() => setViewMode("journal")}
-              className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
-                viewMode === "journal"
-                  ? "bg-blue-600 text-white shadow-xs font-bold"
-                  : "text-slate-600 hover:text-blue-700 dark:text-slate-300"
-              }`}
-            >
-              <BookOpen className={`w-3.5 h-3.5 ${viewMode === "journal" ? "text-white" : "text-amber-500"}`} />
-              <span className="hidden sm:inline">Jurnal Per Halaman</span>
-              <span className="sm:hidden">Jurnal</span>
-            </button>
-
-            <button
-              onClick={() => setViewMode("modules")}
-              className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
-                viewMode === "modules"
-                  ? "bg-blue-600 text-white shadow-xs font-bold"
-                  : "text-slate-600 hover:text-blue-700 dark:text-slate-300"
-              }`}
-            >
-              <List className={`w-3.5 h-3.5 ${viewMode === "modules" ? "text-white" : "text-blue-600 dark:text-blue-400"}`} />
-              <span className="hidden sm:inline">Daftar Modul</span>
-              <span className="sm:hidden">Silabus</span>
-            </button>
-          </div>
-
-          {/* Right: Quick Controls (Theme, Font, Print, AI, Profile) */}
+          {/* Right: Quick Controls (Theme, Font, Notes, Print, AI, Profile) */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            {/* Theme Selector */}
-            <div
-              className={`hidden md:flex items-center p-0.5 rounded-xl border ${
-                readingTheme === "dark"
-                  ? "bg-slate-800 border-slate-700"
-                  : "bg-slate-100 border-slate-200"
-              }`}
-            >
-              <button
-                onClick={() => setReadingTheme("light")}
-                className={`p-1.5 rounded-lg transition ${
-                  readingTheme === "light"
-                    ? "bg-white text-slate-900 shadow-2xs"
-                    : "text-slate-500 hover:text-slate-800"
-                }`}
-                title="Mode Terang (Kertas Putih)"
-              >
-                <Sun className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={() => setReadingTheme("sepia")}
-                className={`p-1.5 rounded-lg transition ${
-                  readingTheme === "sepia"
-                    ? "bg-[#F4E8CE] text-[#2C2416] shadow-2xs"
-                    : "text-slate-500 hover:text-slate-800"
-                }`}
-                title="Mode Sepia (Kertas Buku Klasik)"
-              >
-                <Coffee className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={() => setReadingTheme("dark")}
-                className={`p-1.5 rounded-lg transition ${
-                  readingTheme === "dark"
-                    ? "bg-slate-700 text-white shadow-2xs"
-                    : "text-slate-500 hover:text-slate-200"
-                }`}
-                title="Mode Malam (Dark Reader)"
-              >
-                <Moon className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            {/* Font Size Toggle */}
+            {/* FITUR TUNGGAL: GARIS BAWAHI TEKS (Menggantikan Theme Selector, Aa Font, dan Catatan) */}
             <button
-              onClick={() => {
-                if (fontSize === "normal") setFontSize("large");
-                else if (fontSize === "large") setFontSize("xlarge");
-                else setFontSize("normal");
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
               }}
-              className={`p-2 rounded-xl border text-xs font-extrabold transition ${
-                readingTheme === "dark"
-                  ? "bg-slate-800 border-slate-700 hover:bg-slate-700"
-                  : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700"
+              onClick={handleApplyUnderline}
+              className={`h-9 px-3 rounded-xl border text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer ${
+                isUnderlineMode
+                  ? "bg-blue-600 border-blue-600 text-white shadow-sm ring-2 ring-blue-500/20"
+                  : readingTheme === "dark"
+                  ? "bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-200"
+                  : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700 shadow-2xs"
               }`}
-              title="Perbesar / Perkecil Ukuran Font Teks"
+              title={
+                isUnderlineMode
+                  ? "Mode Garis Bawahi Aktif (Klik untuk matikan mode, atau klik teks bergaris bawah untuk menghapusnya)"
+                  : "Garis Bawahi Teks (Sorot teks materi lalu klik untuk menggarisbawahi)"
+              }
             >
-              A{fontSize === "large" ? "+" : fontSize === "xlarge" ? "++" : ""}
-            </button>
-
-            {/* Catatan Belajar Drawer Trigger */}
-            <button
-              onClick={() => setIsNotesDrawerOpen(true)}
-              className={`p-2 rounded-xl border text-xs font-bold transition flex items-center gap-1.5 ${
-                readingTheme === "dark"
-                  ? "bg-slate-800 border-slate-700 hover:bg-slate-700 text-amber-300"
-                  : "bg-white border-slate-200 hover:bg-slate-50 text-amber-600"
-              }`}
-              title="Buka / Tulis Catatan Rangkuman Belajar"
-            >
-              <MessageSquarePlus className="w-4 h-4" />
-              <span className="hidden lg:inline">Catatan ({notesList.length})</span>
+              <Underline className={`w-4 h-4 shrink-0 ${isUnderlineMode ? "text-white" : "text-blue-600 dark:text-blue-400"}`} />
+              <span>Garis Bawahi</span>
+              {underlinesCount > 0 && (
+                <span
+                  className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                    isUnderlineMode
+                      ? "bg-white text-blue-700"
+                      : "bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-200"
+                  }`}
+                >
+                  {underlinesCount}
+                </span>
+              )}
             </button>
 
             {/* Print / Save PDF Button */}
             <button
+              type="button"
               onClick={handlePrint}
-              className={`p-2 rounded-xl border text-xs font-bold transition flex items-center gap-1.5 ${
+              className={`h-9 px-2.5 sm:px-3 rounded-xl border text-xs font-semibold transition flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                 readingTheme === "dark"
                   ? "bg-slate-800 border-slate-700 hover:bg-slate-700 text-white"
-                  : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700"
+                  : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700 shadow-2xs"
               }`}
-              title="Cetak / Simpan Sebagai Dokumen PDF"
+              title="Cetak Modul / Simpan Dokumen PDF"
             >
-              <Printer className="w-4 h-4" />
-              <span className="hidden lg:inline">Cetak PDF</span>
+              <Printer className="w-3.5 h-3.5 shrink-0 text-slate-500" />
+              <span className="hidden xl:inline">Cetak</span>
             </button>
 
-            {/* Tanya AI Tutor with Agenda Akademik Blue */}
-            <button
-              onClick={() => setIsAiOpen(!isAiOpen)}
-              className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition cursor-pointer"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-              <span className="hidden sm:inline">Tanya AI</span>
-            </button>
-
-            {/* Mulai Kuis Bab Top Action Button */}
-            <Link
-              href={`/quiz/${babId}?mode=inclass&babId=${babId}`}
-              className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition cursor-pointer"
-            >
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-200" />
-              <span>Mulai Kuis (10 Soal)</span>
-            </Link>
-
-            {/* Profile Dropdown Menu & Student Greeting */}
-            <div className="relative" ref={profileDropdownRef}>
+            {/* Tanya Tutor AI Sokratik CTA (Hanya jika diaktifkan guru) */}
+            {isAiEnabled && (
               <button
-                onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-                className="flex items-center gap-2 p-1 pl-2 sm:pl-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200/80 dark:border-slate-700 transition cursor-pointer group"
-                title={`Profil Siswa: ${studentName}`}
+                type="button"
+                onClick={() => setIsAiOpen(!isAiOpen)}
+                className="h-9 px-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm transition whitespace-nowrap shrink-0 cursor-pointer"
+                title="Buka Asisten Tutor AI Sokratik"
               >
-                <div className="text-left hidden xl:block leading-tight">
-                  <div className="text-[10px] text-slate-400 font-semibold">Siswa</div>
-                  <div className="text-xs font-bold text-slate-800 dark:text-white truncate max-w-[110px]">
-                    {studentName.split(" ")[0]}
-                  </div>
-                </div>
-                <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-[11px] shadow-2xs overflow-hidden">
-                  {studentPhoto ? (
-                    <img src={studentPhoto} alt={studentName} className="w-full h-full object-cover" />
-                  ) : (
-                    initials
-                  )}
-                </div>
-                <ChevronDown className="w-3 h-3 text-slate-400 group-hover:text-slate-600 transition" />
+                <Sparkles className="w-3.5 h-3.5 text-blue-200 shrink-0" />
+                <span className="hidden sm:inline">Tanya Tutor</span>
               </button>
-
-              {/* Profile Dropdown Popover */}
-              {isProfileDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-64 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3 z-50 shadow-xl animate-in fade-in duration-150 text-slate-900 dark:text-white">
-                  <div className="p-2.5 rounded-lg bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200/70 dark:border-blue-800 mb-2 flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden shadow-2xs">
-                      {studentPhoto ? (
-                        <img src={studentPhoto} alt={studentName} className="w-full h-full object-cover" />
-                      ) : (
-                        initials
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Sapaan Siswa</div>
-                      <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                        {studentName}
-                      </div>
-                      <div className="text-[10px] text-blue-700 dark:text-blue-300 font-semibold">
-                        {displayKelas}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1 text-xs font-medium">
-                    <Link
-                      href="/dashboard"
-                      className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition"
-                    >
-                      <span>Dashboard Utama</span>
-                    </Link>
-                    <Link
-                      href="/belajar"
-                      className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition"
-                    >
-                      <span>Ruang Belajar</span>
-                    </Link>
-                    <Link
-                      href="/ujian"
-                      className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition"
-                    >
-                      <span>Ruang Ujian</span>
-                    </Link>
-                  </div>
-                </div>
-              )}
-            </div>
+            )}
           </div>
         </div>
       </header>
@@ -618,73 +841,14 @@ export default function DaftarMateriClient({
       {/* ===================================================================== */}
       {/* 2. VIEW SELECTION RENDERING                                          */}
       {/* ===================================================================== */}
-      <div className="mx-auto max-w-7xl px-3 sm:px-6 pt-6">
+      <div className={`mx-auto px-3 sm:px-6 pt-6 transition-all ${
+        viewMode === "pdf" ? "max-w-4xl" : "max-w-7xl"
+      }`}>
         {/* ------------------------------------------------------------------- */}
         {/* VIEW A: MODE DOKUMEN PDF LENGKAP (CONTINUOUS TEXTBOOK READING VIEW) */}
         {/* ------------------------------------------------------------------- */}
         {viewMode === "pdf" && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            {/* Left Sticky Navigation / Table of Contents (Outline) */}
-            <aside className="lg:col-span-3 space-y-4 sticky top-20 hidden lg:block print:hidden">
-              <div className={`p-4 sm:p-5 rounded-xl ${paperClasses}`}>
-                <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 dark:border-slate-800 mb-2.5">
-                  <div className="flex items-center gap-2">
-                    <BookOpen className="w-4 h-4 text-blue-600" />
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
-                      Daftar Isi Bab
-                    </h3>
-                  </div>
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800">
-                    {listMateri.length} Sub-bab
-                  </span>
-                </div>
-
-                <nav className="space-y-1 max-h-[calc(100vh-280px)] overflow-y-auto pr-1">
-                  {listMateri.map((m, idx) => (
-                    <a
-                      key={m.id}
-                      href={`#subbab-${idx + 1}`}
-                      onClick={() => setActiveSubSection(idx)}
-                      className={`w-full text-left p-2 rounded-lg transition flex items-start gap-2 text-xs border ${
-                        activeSubSection === idx
-                          ? "bg-blue-50/90 text-blue-700 border-l-4 border-l-blue-600 border-blue-200/80 font-bold shadow-2xs"
-                          : readingTheme === "dark"
-                          ? "hover:bg-slate-800 text-slate-300 border-transparent font-medium"
-                          : "hover:bg-slate-50 text-slate-600 hover:text-slate-900 border-transparent font-medium"
-                      }`}
-                    >
-                      <span
-                        className={`w-4 h-4 rounded flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5 ${
-                          activeSubSection === idx
-                            ? "bg-blue-600 text-white shadow-2xs"
-                            : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
-                        }`}
-                      >
-                        {idx + 1}
-                      </span>
-                      <span className="line-clamp-2 leading-snug">{m.judul}</span>
-                    </a>
-                  ))}
-                </nav>
-
-                {/* Final Assessment Button */}
-                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 mt-3">
-                  <Link
-                    href={`/quiz/${babId}?mode=inclass&babId=${babId}`}
-                    className="w-full py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-2xs transition cursor-pointer"
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-200" />
-                    <span>Mulai Kuis Bab (10 Soal)</span>
-                  </Link>
-                </div>
-              </div>
-            </aside>
-
-            {/* Center Main Long PDF-like Reading Document */}
-            <section
-              className="lg:col-span-9 space-y-8"
-              onMouseUp={handleMouseUp}
-            >
+          <div id="materi-reader-content" className="w-full space-y-8" onMouseUp={handleMouseUp}>
               {/* E-Book Document Cover Header */}
               <div
                 className={`p-5 sm:p-6 rounded-xl relative overflow-hidden transition-all ${paperClasses}`}
@@ -707,51 +871,19 @@ export default function DaftarMateriClient({
                   </div>
 
                   <h1 className="text-xl sm:text-2xl font-semibold tracking-tight leading-snug text-slate-900 dark:text-white font-heading">
-                    {judulBab}
+                    {effectiveJudulBab}
                   </h1>
 
                   <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed max-w-3xl font-normal">
-                    {deskripsiBab ||
+                    {effectiveDeskripsiBab ||
                       "Buku teks modul ajar komprehensif memuat apersepsi kontekstual, konsep materi terperinci, formulasi ilmiah/matematis, contoh soal bertahap, dan rangkuman intisari."}
                   </p>
-
-                  <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs font-medium text-slate-500">
-                    <div className="flex items-center gap-3">
-                      <span className="flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5 text-slate-400" />
-                        <span>Estimasi Baca: {listMateri.length * 20} Menit</span>
-                      </span>
-                      <span>•</span>
-                      <span className="flex items-center gap-1.5">
-                        <Layers className="w-3.5 h-3.5 text-slate-400" />
-                        <span>{listMateri.length} Bagian Lengkap</span>
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleAskAi(`Jelaskan secara ringkas poin penting dari ${judulBab}`)}
-                        className="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/40 dark:text-blue-300 font-semibold text-xs transition cursor-pointer"
-                      >
-                        <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-                        <span>Ringkasan AI</span>
-                      </button>
-
-                      <button
-                        onClick={() => setIsNotesDrawerOpen(true)}
-                        className="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-lg bg-amber-50 text-amber-800 hover:bg-amber-100 font-semibold text-xs transition cursor-pointer"
-                      >
-                        <MessageSquarePlus className="w-3.5 h-3.5 text-amber-600" />
-                        <span>Catatan ({notesList.length})</span>
-                      </button>
-                    </div>
-                  </div>
                 </div>
               </div>
 
               {/* Continuous Long-Form Modules */}
               <div className="space-y-8">
-                {listMateri.map((mod, idx) => (
+                {effectiveListMateri.map((mod, idx) => (
                   <article
                     key={mod.id}
                     id={`subbab-${idx + 1}`}
@@ -765,7 +897,7 @@ export default function DaftarMateriClient({
                         </span>
                         <div>
                           <div className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
-                            Sub-Bab {idx + 1} dari {listMateri.length}
+                            Sub-Bab {idx + 1} dari {effectiveListMateri.length}
                           </div>
                           <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white leading-snug">
                             {mod.judul}
@@ -773,14 +905,16 @@ export default function DaftarMateriClient({
                         </div>
                       </div>
 
-                      <button
-                        onClick={() => handleAskAi(`Tolong bantu jelaskan materi ini dengan bahasa sederhana: ${mod.judul}`)}
-                        className="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-lg bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/80 dark:hover:bg-slate-800 text-xs font-medium text-slate-600 hover:text-slate-900 dark:text-slate-300 transition cursor-pointer border border-slate-200/60 dark:border-slate-700/60"
-                        title="Tanya Tutor AI tentang materi ini"
-                      >
-                        <Sparkles className="w-3.5 h-3.5 text-blue-500" />
-                        <span>Tanya Tutor AI</span>
-                      </button>
+                      {isAiEnabled && (
+                        <button
+                          onClick={() => handleAskAi(`Tolong bantu jelaskan materi ini dengan bahasa sederhana: ${mod.judul}`)}
+                          className="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-lg bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/80 dark:hover:bg-slate-800 text-xs font-medium text-slate-600 hover:text-slate-900 dark:text-slate-300 transition cursor-pointer border border-slate-200/60 dark:border-slate-700/60"
+                          title="Tanya Tutor AI tentang materi ini"
+                        >
+                          <Sparkles className="w-3.5 h-3.5 text-blue-500" />
+                          <span>Tanya Tutor AI</span>
+                        </button>
+                      )}
                     </div>
 
                     {/* Markdown Body with LaTeX & Custom Styling */}
@@ -793,17 +927,34 @@ export default function DaftarMateriClient({
                       />
                     </div>
 
+                    {/* Kuis Kreatif Terpandu Sub-Bab (Siswa Dipandu Mengerjakan Soal Langkah demi Langkah) */}
+                    <SubBabCreativeQuiz
+                      babId={babId}
+                      babUrutan={urutanBab}
+                      babJudul={effectiveJudulBab}
+                      subBabId={mod.id}
+                      subBabUrutan={idx + 1}
+                      subBabJudul={mod.judul}
+                      isCompleted={readMateriIds.has(mod.id)}
+                      onComplete={() => handleMarkComplete(mod.id)}
+                      onAskAiHint={(prompt) => {
+                        setAiPrompt(prompt);
+                        setIsAiOpen(true);
+                      }}
+                    />
+
                     {/* Section Footer */}
                     <div className="mt-6 pt-3.5 border-t border-slate-100 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
                       <div className="flex items-center gap-3">
-                        <span className="font-medium text-slate-500">Bagian {idx + 1} dari {listMateri.length}</span>
+                        <span className="font-medium text-slate-500">Sub-Bab {idx + 1} dari {effectiveListMateri.length}</span>
                         {readMateriIds.has(mod.id) ? (
-                          <span className="inline-flex items-center gap-1 py-1 px-2.5 rounded-lg bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 font-semibold text-xs border border-emerald-200/60">
+                          <span className="inline-flex items-center gap-1.5 py-1 px-3 rounded-lg bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 font-semibold text-xs border border-emerald-200/60">
                             <Check className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>Selesai Dibaca</span>
+                            <span>Sub-Bab Selesai Dipahami</span>
                           </span>
                         ) : (
                           <button
+                            type="button"
                             onClick={() => handleMarkComplete(mod.id)}
                             disabled={markingMateriId === mod.id}
                             className="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs transition shadow-2xs cursor-pointer disabled:opacity-50"
@@ -813,7 +964,7 @@ export default function DaftarMateriClient({
                             ) : (
                               <Check className="w-3.5 h-3.5" />
                             )}
-                            <span>Tandai Selesai (+5 Poin)</span>
+                            <span>Tandai Sub-Bab Selesai</span>
                           </button>
                         )}
                       </div>
@@ -829,30 +980,73 @@ export default function DaftarMateriClient({
                 ))}
               </div>
 
-              {/* Bottom Call to Action Card: Evaluation & Quiz */}
-              <div className="p-5 sm:p-6 rounded-xl border border-emerald-200/70 bg-emerald-50/40 dark:bg-emerald-950/20 dark:border-emerald-800/50 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex flex-col sm:flex-row items-center justify-between gap-5 transition-all">
-                <div className="space-y-1.5 text-center sm:text-left">
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-100/80 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 text-[11px] font-bold">
-                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                    <span>Siap Menguji Pemahaman Anda?</span>
+              {/* Bottom Call to Action Card: Kuis Keseluruhan Bab (Mencakup 3 Sub-Bab) */}
+              <div className="p-5 sm:p-6 rounded-2xl border border-blue-200/80 bg-linear-to-r from-blue-50/70 via-indigo-50/40 to-slate-50 dark:from-slate-900 dark:via-blue-950/20 dark:to-slate-900 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-5 transition-all">
+                <div className="space-y-2 text-left max-w-xl">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-600 text-white text-[11px] font-bold shadow-2xs">
+                      <Sparkles className="w-3 h-3 text-amber-300" />
+                      <span>Kuis Keseluruhan Bab</span>
+                    </span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-100 text-blue-900 border border-blue-300/60 dark:bg-blue-950 dark:text-blue-200">
+                      Mencakup Seluruh 3 Sub-Bab
+                    </span>
+                    {effectiveListMateri.every((m) => readMateriIds.has(m.id)) ? (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-300">
+                        ✓ 3 Sub-Bab Lengkap
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-300">
+                        {effectiveListMateri.filter((m) => readMateriIds.has(m.id)).length}/3 Sub-Bab Dipelajari
+                      </span>
+                    )}
                   </div>
+
                   <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-                    Asesmen Kuis Bab {urutanBab} (10 Soal • 10 Poin / Soal)
+                    Kuis Keseluruhan Bab {urutanBab}: {effectiveJudulBab}
                   </h3>
-                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 max-w-xl font-normal leading-relaxed">
-                    Kerjakan 10 soal interaktif berbasis bacaan buku ajar dengan dukungan AI Sokratik, feedback real-time, dan penilaian otomatis terintegrasi ke dashboard guru.
+                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 font-normal leading-relaxed">
+                    Evaluasi akhir komprehensif untuk menguji seluruh materi dari Sub-bab 1, Sub-bab 2, dan Sub-bab 3 secara terpadu.
                   </p>
+
+                  {/* Checklist Ringkas Status 3 Sub-Bab */}
+                  <div className="pt-1 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                    {effectiveListMateri.slice(0, 3).map((sub, sIdx) => {
+                      const isDone = readMateriIds.has(sub.id);
+                      return (
+                        <span
+                          key={sub.id}
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[11px] transition ${
+                            isDone
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300"
+                              : "bg-white text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400"
+                          }`}
+                        >
+                          {isDone ? <Check className="w-3 h-3 text-emerald-600" /> : <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />}
+                          <span>Sub-Bab {sIdx + 1}</span>
+                        </span>
+                      );
+                    })}
+                  </div>
                 </div>
 
-                <Link
-                  href={`/quiz/${babId}?mode=inclass&babId=${babId}`}
-                  className="px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs transition hover:shadow-sm shrink-0 cursor-pointer"
-                >
-                  <CheckCircle2 className="w-4 h-4 text-emerald-100" />
-                  <span>Mulai Kuis 10 Soal Sekarang →</span>
-                </Link>
+                <div className="flex flex-wrap items-center gap-2.5 shrink-0 w-full md:w-auto">
+                  <Link
+                    href={`/sesi/${babId}`}
+                    className="flex-1 md:flex-initial px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-2xs cursor-pointer"
+                  >
+                    <span>Latihan Soal Keseluruhan</span>
+                  </Link>
+
+                  <Link
+                    href={`/quiz/${babId}?mode=inclass&babId=${babId}`}
+                    className="flex-1 md:flex-initial px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs transition hover:shadow-sm cursor-pointer"
+                  >
+                    <Sparkles className="w-4 h-4 text-amber-300" />
+                    <span>Mulai Kuis Keseluruhan Bab →</span>
+                  </Link>
+                </div>
               </div>
-            </section>
           </div>
         )}
 
@@ -863,14 +1057,14 @@ export default function DaftarMateriClient({
           <div className="space-y-6">
             <DigitalJournalReader
               babId={babId}
-              judulBab={judulBab}
-              deskripsiBab={deskripsiBab}
+              judulBab={effectiveJudulBab}
+              deskripsiBab={effectiveDeskripsiBab}
               urutanBab={urutanBab}
               mapel={mapel}
               kelas={kelas}
               namaKelas={displayKelas}
               studentName={studentName}
-              listMateri={listMateri.map((m) => ({
+              listMateri={effectiveListMateri.map((m) => ({
                 id: m.id,
                 judul: m.judul,
                 urutan: m.urutan,
@@ -878,7 +1072,7 @@ export default function DaftarMateriClient({
               }))}
               initialPageIndex={Math.max(
                 0,
-                listMateri.findIndex((m) => m.id === selectedMateriId)
+                effectiveListMateri.findIndex((m) => m.id === selectedMateriId)
               )}
             />
           </div>
@@ -896,10 +1090,10 @@ export default function DaftarMateriClient({
                   Kurikulum Merdeka • Fase D • {mapel} • {displayKelas} • Bab {urutanBab}
                 </span>
                 <h1 className="text-xl sm:text-2xl font-semibold text-[#0F172A] tracking-tight font-heading">
-                  {judulBab}
+                  {effectiveJudulBab}
                 </h1>
                 <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-normal">
-                  {deskripsiBab ||
+                  {effectiveDeskripsiBab ||
                     "Modul ajar terstruktur mencakup konsep inti, contoh soal, dan latihan terbimbing."}
                 </p>
               </div>
@@ -932,12 +1126,12 @@ export default function DaftarMateriClient({
                   <span>Modul Pembelajaran Bab Ini</span>
                 </h2>
                 <span className="text-xs text-slate-500 font-medium">
-                  {listMateri.length} Modul Ajar Tersedia
+                  {effectiveListMateri.length} Modul Ajar Tersedia
                 </span>
               </div>
 
               <div className="space-y-3">
-                {listMateri.map((mod, idx) => (
+                {effectiveListMateri.map((mod, idx) => (
                   <div
                     key={mod.id}
                     className="bg-white rounded-xl p-4 sm:p-5 shadow-[0_4px_20px_rgba(0,0,0,0.02)] transition flex flex-col sm:flex-row sm:items-center justify-between gap-4"
@@ -959,7 +1153,11 @@ export default function DaftarMateriClient({
                         <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5">
                           <span className="flex items-center gap-1 font-medium">
                             <Clock className="w-3.5 h-3.5 text-slate-400" />
-                            {15 + idx * 5} Menit
+                            {typeof mod.durasiMenit === "number"
+                              ? mod.durasiMenit > 0
+                                ? `${mod.durasiMenit} Menit`
+                                : "Bebas (Tanpa Durasi)"
+                              : `${15 + idx * 5} Menit`}
                           </span>
                           <span>• Teks Penjelasan Lengkap, Contoh Soal & Socratic AI</span>
                         </div>
@@ -991,56 +1189,47 @@ export default function DaftarMateriClient({
       </div>
 
       {/* ===================================================================== */}
-      {/* 3. FLOATING TEXT HIGHLIGHT (STABILO) POPUP TOOLBAR                   */}
+      {/* 3. FLOATING SELECTION: GARIS BAWAHI OTOMATIS & SIMPAN                */}
       {/* ===================================================================== */}
       {selectionPosition && (
         <div
-          className="fixed z-50 transform -translate-x-1/2 -translate-y-full bg-[#0F172A] text-white px-3 py-2 rounded-2xl shadow-2xl flex items-center gap-2 border border-slate-700 animate-in fade-in zoom-in-95 duration-150"
+          className="fixed z-50 transform -translate-x-1/2 -translate-y-full bg-[#0F172A] text-white px-2 py-1.5 rounded-xl shadow-2xl flex items-center gap-1.5 border border-slate-700 animate-in fade-in zoom-in-95 duration-150"
           style={{
             left: `${selectionPosition.x}px`,
             top: `${selectionPosition.y}px`,
           }}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
         >
-          <span className="text-[10px] font-bold text-slate-300 mr-1 flex items-center gap-1">
-            <Highlighter className="w-3 h-3 text-amber-400" /> Stabilo:
-          </span>
-
           <button
-            onClick={() => handleApplyHighlight("yellow")}
-            className="w-5 h-5 rounded-full bg-yellow-400 hover:scale-110 transition shadow-xs"
-            title="Stabilo Kuning"
-          />
-          <button
-            onClick={() => handleApplyHighlight("green")}
-            className="w-5 h-5 rounded-full bg-emerald-400 hover:scale-110 transition shadow-xs"
-            title="Stabilo Hijau"
-          />
-          <button
-            onClick={() => handleApplyHighlight("pink")}
-            className="w-5 h-5 rounded-full bg-pink-400 hover:scale-110 transition shadow-xs"
-            title="Stabilo Merah Muda"
-          />
-          <button
-            onClick={() => handleApplyHighlight("blue")}
-            className="w-5 h-5 rounded-full bg-sky-400 hover:scale-110 transition shadow-xs"
-            title="Stabilo Biru"
-          />
-
-          <div className="w-px h-4 bg-slate-700 mx-1" />
-
-          <button
-            onClick={handleMakeNoteFromHighlight}
-            className="px-2 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-[10px] font-extrabold flex items-center gap-1 transition"
-            title="Simpan teks terpilih sebagai catatan"
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleApplyUnderline();
+            }}
+            className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-sm active:scale-95"
+            title="Garis bawahi tulisan yang sedang diblok dan simpan otomatis"
           >
-            <Plus className="w-3 h-3" />
-            <span>Catatan</span>
+            <Underline className="w-3.5 h-3.5" />
+            <span>Garis Bawahi</span>
           </button>
 
           <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
             onClick={() => setSelectionPosition(null)}
-            className="text-slate-400 hover:text-white p-0.5"
-            title="Tutup"
+            className="text-slate-400 hover:text-white p-1 rounded-md transition cursor-pointer"
+            title="Batal"
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -1229,46 +1418,66 @@ export default function DaftarMateriClient({
       {/* ===================================================================== */}
       {/* 6. FLOATING SOCRATIC AI CHAT DRAWER                                   */}
       {/* ===================================================================== */}
-      {isAiOpen && (
+      {isAiEnabled && isAiOpen && (
         <div className="fixed bottom-6 right-6 z-50 w-full max-w-md bg-white rounded-3xl border border-slate-200 shadow-2xl overflow-hidden flex flex-col max-h-[550px] animate-in fade-in slide-in-from-bottom-4 duration-200 text-slate-900">
           {/* Header */}
-          <div className="bg-[#0F172A] text-white p-4 flex items-center justify-between">
+          <div className="bg-[#193446] text-white p-3.5 sm:p-4 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center">
-                <Sparkles className="w-4 h-4 text-amber-300" />
+              <div className="w-8 h-8 rounded-xl bg-white/10 p-1 flex items-center justify-center shrink-0 border border-white/15 shadow-inner">
+                <img src="/logo.png" alt="thinksy AI" className="w-full h-full object-contain drop-shadow-xs" />
               </div>
               <div>
-                <h4 className="text-xs font-black">Asisten AI Tutor ({mapel})</h4>
-                <p className="text-[10px] text-slate-300">Tanyakan apa saja tentang bab ini</p>
+                <h4 className="text-xs font-black text-[#E9C77B] flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-[#E9C77B] animate-spin" style={{ animationDuration: "3s" }} />
+                  thinksy AI
+                </h4>
+                <p className="text-[10px] text-slate-300 font-medium">
+                  {aiGuidanceStyle === "socratic"
+                    ? "Panduan Sokratik Bertahap Tanpa Bocoran"
+                    : aiGuidanceStyle === "adaptive"
+                    ? "Tutor Adaptif Cepat Tanggap"
+                    : "Penjelasan Konsep Menyeluruh"}
+                </p>
               </div>
             </div>
 
-            <button
-              onClick={() => setIsAiOpen(false)}
-              className="text-slate-400 hover:text-white text-xs font-bold p-1 rounded-lg hover:bg-slate-800"
-            >
-              ✕
-            </button>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-semibold bg-white/10 px-2.5 py-1 rounded-full text-slate-200 border border-white/10">
+                {aiTokenLimit === 999
+                  ? "Sisa Kuota: Bebas"
+                  : `Sisa Kuota: ${Math.max(
+                      0,
+                      aiTokenLimit - aiHistory.filter((m) => m.role === "user").length
+                    )}/${aiTokenLimit}`}
+              </span>
+              <button
+                onClick={() => setIsAiOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition cursor-pointer text-xs"
+                title="Tutup Obrolan"
+              >
+                ✕
+              </button>
+            </div>
           </div>
 
           {/* Messages */}
-          <div className="p-4 flex-1 overflow-y-auto space-y-3 max-h-[350px] bg-slate-50 text-xs">
+          <div className="p-4 flex-1 overflow-y-auto space-y-3.5 max-h-[350px] bg-slate-50/60 custom-scrollbar text-xs">
             {aiHistory.length === 0 ? (
               <div className="text-center py-6 text-slate-400 space-y-2">
-                <Sparkles className="w-8 h-8 mx-auto text-blue-500 opacity-60" />
-                <p className="font-semibold text-slate-600">Ada yang belum dipahami dari bacaan ini?</p>
+                <Sparkles className="w-8 h-8 mx-auto text-[#193446] opacity-60" />
+                <p className="font-semibold text-slate-600">Ada konsep atau rumus yang ingin kita bedah bersama?</p>
                 <div className="flex flex-col gap-1.5 pt-2">
                   <button
-                    onClick={() => handleAskAi(`Jelaskan konsep dasar dari ${judulBab} dengan contoh sehari-hari`)}
-                    className="p-2 rounded-xl bg-white border border-slate-200 hover:border-blue-300 text-left text-slate-700 text-[11px] transition shadow-2xs font-medium"
+                    onClick={() => handleAskAi(`Jelaskan konsep dasar dari ${effectiveJudulBab} dengan contoh sehari-hari`)}
+                    className="p-2.5 rounded-xl bg-white border border-slate-200 hover:border-[#193446]/40 text-left text-slate-700 text-[11px] transition shadow-2xs font-medium cursor-pointer"
                   >
                     💡 Jelaskan konsep ini dengan contoh sehari-hari
                   </button>
                   <button
-                    onClick={() => handleAskAi(`Berikan 1 contoh soal dan langkah penyelesaian untuk ${judulBab}`)}
-                    className="p-2 rounded-xl bg-white border border-slate-200 hover:border-blue-300 text-left text-slate-700 text-[11px] transition shadow-2xs font-medium"
+                    onClick={() => handleAskAi(`Berikan 1 contoh soal dan langkah penalaran untuk ${effectiveJudulBab}`)}
+                    className="p-2.5 rounded-xl bg-white border border-slate-200 hover:border-[#193446]/40 text-left text-slate-700 text-[11px] transition shadow-2xs font-medium cursor-pointer"
                   >
-                    ✏️ Berikan contoh soal & langkah penyelesaiannya
+                    ✏️ Berikan contoh soal & langkah penalarannya
                   </button>
                 </div>
               </div>
@@ -1276,21 +1485,52 @@ export default function DaftarMateriClient({
               aiHistory.map((msg, i) => (
                 <div
                   key={i}
-                  className={`p-3 rounded-2xl leading-relaxed ${
-                    msg.role === "user"
-                      ? "bg-blue-600 text-white ml-6 rounded-tr-xs"
-                      : "bg-white text-slate-800 mr-6 border border-slate-200 shadow-2xs rounded-tl-xs"
+                  className={`flex items-start gap-2.5 ${
+                    msg.role === "user" ? "flex-row-reverse" : "flex-row"
                   }`}
                 >
-                  <MarkdownRenderer content={msg.content} />
+                  <div
+                    className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 text-xs font-bold overflow-hidden shadow-xs ${
+                      msg.role === "user"
+                        ? "bg-[#193446] text-[#E9C77B]"
+                        : "bg-white border border-slate-200 p-0.5"
+                    }`}
+                  >
+                    {msg.role === "user" ? (
+                      <User className="w-3.5 h-3.5" />
+                    ) : (
+                      <img src="/logo.png" alt="AI" className="w-full h-full object-contain" />
+                    )}
+                  </div>
+
+                  <div
+                    className={`max-w-[85%] rounded-2xl p-3 shadow-2xs leading-relaxed ${
+                      msg.role === "user"
+                        ? "bg-[#193446] text-white rounded-tr-xs font-medium [&_*]:!text-white"
+                        : "bg-white text-slate-800 border border-slate-200/90 rounded-tl-xs shadow-2xs"
+                    }`}
+                  >
+                    {msg.role === "user" ? (
+                      <p className="whitespace-pre-wrap text-white font-medium text-xs leading-relaxed">
+                        {msg.content}
+                      </p>
+                    ) : (
+                      <MarkdownRenderer content={msg.content} isCompact />
+                    )}
+                  </div>
                 </div>
               ))
             )}
 
             {isAiLoading && (
-              <div className="flex items-center gap-2 text-slate-500 text-xs italic p-2 bg-white rounded-xl border border-slate-200">
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" />
-                <span>Asisten AI sedang menyusun jawaban...</span>
+              <div className="flex items-start gap-2.5">
+                <div className="w-7 h-7 rounded-xl bg-white border border-slate-200 p-0.5 flex items-center justify-center shrink-0">
+                  <img src="/logo.png" alt="AI" className="w-full h-full object-contain" />
+                </div>
+                <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-xs p-3 text-xs text-slate-500 flex items-center gap-2 shadow-2xs">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-[#193446]" />
+                  <span>thinksy AI sedang menyusun petunjuk penalaran...</span>
+                </div>
               </div>
             )}
           </div>
@@ -1301,19 +1541,32 @@ export default function DaftarMateriClient({
               e.preventDefault();
               handleAskAi();
             }}
-            className="p-3 bg-white border-t border-slate-200 flex items-center gap-2"
+            className="p-3 bg-white border-t border-slate-100 flex items-center gap-2 shrink-0"
           >
             <input
               type="text"
               value={aiPrompt}
               onChange={(e) => setAiPrompt(e.target.value)}
-              placeholder="Tulis pertanyaanmu di sini..."
-              className="flex-1 px-3.5 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 text-slate-900"
+              placeholder={
+                aiTokenLimit !== 999 && aiHistory.filter((m) => m.role === "user").length >= aiTokenLimit
+                  ? "Batas kuota pertanyaan AI bab ini telah habis..."
+                  : "Tanyakan hal yang belum kamu pahami..."
+              }
+              disabled={
+                isAiLoading ||
+                (aiTokenLimit !== 999 && aiHistory.filter((m) => m.role === "user").length >= aiTokenLimit)
+              }
+              className="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#193446] focus:border-transparent bg-slate-50/50"
             />
             <button
               type="submit"
-              disabled={isAiLoading || !aiPrompt.trim()}
-              className="p-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-40 transition shadow-xs"
+              disabled={
+                isAiLoading ||
+                !aiPrompt.trim() ||
+                (aiTokenLimit !== 999 && aiHistory.filter((m) => m.role === "user").length >= aiTokenLimit)
+              }
+              className="p-2.5 rounded-xl bg-[#193446] hover:bg-[#132836] text-[#E9C77B] font-bold shadow-sm transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shrink-0"
+              title="Kirim pertanyaan"
             >
               <Send className="w-4 h-4" />
             </button>

@@ -24,12 +24,9 @@ export async function POST(req: Request) {
       .eq("id", user.id)
       .single();
 
-    if (
-      !profil ||
-      !["guru", "admin_sekolah", "superadmin", "super_admin"].includes(profil.peran)
-    ) {
+    if (!profil || profil.peran !== "guru") {
       return NextResponse.json(
-        { error: "Akses ditolak. Hanya Guru dan Admin yang dapat membuat soal dan materi." },
+        { error: "Akses ditolak. Hanya Guru yang dapat membuat soal dan materi." },
         { status: 403 }
       );
     }

@@ -32,8 +32,15 @@ import {
   CheckCheck,
   FileText,
   ShieldCheck,
+  ShieldAlert,
+  User,
 } from "lucide-react";
 import MarkdownRenderer from "@/components/materi/MarkdownRenderer";
+import {
+  getStoredAiSettings,
+  getQuizTokensRemaining,
+  decrementQuizToken,
+} from "@/lib/ai-config";
 
 interface OpsiItem {
   id: string;
@@ -216,7 +223,13 @@ export default function ExamRoomClient({
     } catch {}
   };
 
-  // Socratic Guidance State
+  // Socratic Guidance State & Quiz Token Control
+  const [aiSettings, setAiSettings] = useState(() => getStoredAiSettings());
+  const maxQuizTokens = aiSettings.kuis?.tokensPerQuiz || 5;
+  const [quizTokensLeft, setQuizTokensLeft] = useState(() =>
+    getQuizTokensRemaining(ujian.id, maxQuizTokens)
+  );
+
   const [isSocraticDrawerOpen, setIsSocraticDrawerOpen] = useState(false);
   const [socraticChat, setSocraticChat] = useState<
     Record<string, Array<{ sender: "user" | "ai"; text: string }>>
@@ -224,6 +237,15 @@ export default function ExamRoomClient({
   const [socraticInput, setSocraticInput] = useState("");
   const [isAskingSocratic, setIsAskingSocratic] = useState(false);
   const socraticChatEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleSettingsChange = (e: any) => {
+      const updated = e.detail || getStoredAiSettings();
+      setAiSettings(updated);
+    };
+    window.addEventListener("thinksy_ai_settings_change", handleSettingsChange);
+    return () => window.removeEventListener("thinksy_ai_settings_change", handleSettingsChange);
+  }, []);
 
   useEffect(() => {
     if (isSocraticDrawerOpen) {
@@ -235,7 +257,7 @@ export default function ExamRoomClient({
 
   const handleSendSocratic = async (customText?: string) => {
     const textToSend = (customText || socraticInput).trim();
-    if (!textToSend || !currentQuestion || isAskingSocratic) return;
+    if (!textToSend || !currentQuestion || isAskingSocratic || quizTokensLeft <= 0) return;
 
     const qId = currentQuestion.id;
     const previousHistory = socraticChat[qId] || [];
@@ -250,6 +272,10 @@ export default function ExamRoomClient({
     }));
     setSocraticInput("");
     setIsAskingSocratic(true);
+
+    // Decrement quiz token
+    const newTokens = decrementQuizToken(ujian.id, maxQuizTokens);
+    setQuizTokensLeft(newTokens);
 
     try {
       const res = await fetch("/api/tutor/chat", {
@@ -746,9 +772,9 @@ export default function ExamRoomClient({
                 <span className="px-3.5 py-1.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-700">
                   Bobot: <strong className="text-slate-900">5 Poin / Soal</strong>
                 </span>
-                <span className="px-3.5 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                  <span>+{res.bonusPoin} XP Poin Belajar Siswa Berhasil Diklaim!</span>
+                <span className="px-3.5 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Sesi Evaluasi Formatif Tuntas</span>
                 </span>
               </div>
 
@@ -933,9 +959,9 @@ export default function ExamRoomClient({
                 KKM: <strong className="text-slate-800">{res.passingGrade}</strong> Poin • Bobot: <strong className="text-slate-800">5 Poin / Soal</strong>
               </div>
 
-              <div className="pt-2 flex items-center justify-center lg:justify-start gap-2 text-xs font-extrabold text-amber-700">
-                <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
-                <span>+{res.bonusPoin} XP Poin Belajar Siswa Berhasil Diklaim!</span>
+              <div className="pt-2 flex items-center justify-center lg:justify-start gap-2 text-xs font-extrabold text-emerald-700">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>Hasil Lembar Jawaban Resmi Tercatat</span>
               </div>
             </div>
 
@@ -1934,40 +1960,68 @@ export default function ExamRoomClient({
               </div>
             ) : (
               <div className="flex-1 flex flex-col justify-between space-y-3.5">
-                {/* Header saat Chat Terbuka */}
-                <div className="flex items-center justify-between border-b border-amber-200/70 pb-3 shrink-0">
+                {/* Header saat Chat Terbuka - Thinksy AI Theme */}
+                <div className="bg-[#193446] text-white p-3.5 rounded-2xl flex items-center justify-between shadow-sm shrink-0">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center shadow-xs font-black">
-                      <Sparkles className="w-4 h-4 text-slate-900" />
+                    <div className="w-8 h-8 rounded-xl bg-white/10 p-1 flex items-center justify-center shrink-0 border border-white/15 shadow-inner">
+                      <img src="/logo.png" alt="thinksy AI" className="w-full h-full object-contain drop-shadow-xs" />
                     </div>
                     <div>
-                      <h4 className="text-xs sm:text-sm font-black text-[#0F172A] uppercase tracking-wider">
-                        Bantuan Sokratik
+                      <h4 className="text-xs font-black text-[#E9C77B] flex items-center gap-1 tracking-tight">
+                        <Sparkles className="w-3 h-3 text-[#E9C77B] animate-spin" style={{ animationDuration: "3s" }} />
+                        thinksy AI <span className="text-[10px] text-amber-200 font-bold ml-1 px-1.5 py-0.2 rounded-md bg-amber-500/30 border border-amber-400/40">KUIS</span>
                       </h4>
+                      <p className="text-[10px] text-slate-300 font-medium">Bimbingan Sokratik Kuis • Anti-Kunci Jawaban</p>
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setIsSocraticDrawerOpen(false)}
-                    className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-amber-100/60 transition cursor-pointer"
-                    title="Tutup Chat Sokratik"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`text-[10px] font-bold px-2.5 py-1 rounded-full border transition-all ${
+                        quizTokensLeft <= 1
+                          ? "bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse"
+                          : "bg-amber-500/20 text-amber-300 border-amber-500/30"
+                      }`}
+                      title="Kuota token AI dibatasi selama kuis berlangsung"
+                    >
+                      Kuota Kuis: {quizTokensLeft}/{maxQuizTokens}
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsSocraticDrawerOpen(false)}
+                      className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition cursor-pointer text-xs"
+                      title="Tutup Chat Sokratik"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
 
-                {/* Messages scroll box - expanded width and flexible height matching question card */}
-                <div className="flex-1 min-h-[300px] max-h-[480px] overflow-y-auto space-y-3 p-4 rounded-2xl bg-white/95 border border-amber-200/70 text-xs sm:text-sm shadow-inner custom-scrollbar">
+                {/* Messages scroll box */}
+                <div className="flex-1 min-h-[300px] max-h-[480px] overflow-y-auto space-y-3 p-4 rounded-2xl bg-white/95 border border-slate-200/90 text-xs sm:text-sm shadow-inner custom-scrollbar">
                   {/* Default Welcome */}
                   <div className="flex items-start gap-2.5">
-                    <div className="w-7 h-7 rounded-xl bg-amber-100 text-amber-900 flex items-center justify-center text-[10px] font-black shrink-0 mt-0.5">
-                      AI
+                    <div className="w-7 h-7 rounded-xl bg-white border border-slate-200 p-0.5 flex items-center justify-center shrink-0 shadow-xs">
+                      <img src="/logo.png" alt="AI" className="w-full h-full object-contain" />
                     </div>
-                    <div className="flex-1 p-3.5 rounded-2xl rounded-tl-none bg-slate-100 border border-slate-200/80 text-slate-800 text-xs sm:text-[13px] leading-relaxed max-w-[94%]">
-                      Halo! Tanyakan bagian konsep atau langkah yang membuatmu bingung agar kita telaah bersama.
+                    <div className="flex-1 p-3 rounded-2xl rounded-tl-xs bg-white border border-slate-200/90 text-slate-800 text-xs leading-relaxed max-w-[94%] shadow-2xs">
+                      Halo! Tanyakan bagian konsep atau langkah yang membuatmu bingung. Ingat, kuota token kuis dibatasi (maksimal {maxQuizTokens} pertanyaan) agar kemampuan berpikirmu terasah optimal! ✨
                     </div>
                   </div>
+
+                  {/* Token Exhausted Notice */}
+                  {quizTokensLeft <= 0 && (
+                    <div className="p-3 rounded-2xl bg-amber-50/90 border border-amber-200/80 text-amber-900 text-xs flex items-start gap-2 shadow-2xs">
+                      <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-bold">Batas Bantuan AI Kuis Tercapai</p>
+                        <p className="text-[11px] text-amber-700 mt-0.5">
+                          Kamu telah menggunakan semua kesempatan bantuan AI pada kuis ini (0 tersisa). Kerjakan sisa soal secara mandiri dengan kemampuan terbaikmu! Kamu pasti bisa! 💪
+                        </p>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Question Chat History */}
                   {(socraticChat[currentQuestion?.id || ""] || []).map((msg, i) => (
@@ -1978,34 +2032,42 @@ export default function ExamRoomClient({
                       }`}
                     >
                       <div
-                        className={`w-7 h-7 rounded-xl flex items-center justify-center text-[10px] font-black shrink-0 mt-0.5 ${
+                        className={`w-7 h-7 rounded-xl flex items-center justify-center text-[10px] font-black shrink-0 mt-0.5 shadow-xs ${
                           msg.sender === "user"
-                            ? "bg-[#0F172A] text-white"
-                            : "bg-amber-100 text-amber-900"
+                            ? "bg-[#193446] text-[#E9C77B]"
+                            : "bg-white border border-slate-200 p-0.5"
                         }`}
                       >
-                        {msg.sender === "user" ? "S" : "AI"}
+                        {msg.sender === "user" ? (
+                          <User className="w-3.5 h-3.5" />
+                        ) : (
+                          <img src="/logo.png" alt="AI" className="w-full h-full object-contain" />
+                        )}
                       </div>
                       <div
-                        className={`flex-1 p-3.5 rounded-2xl text-xs sm:text-[13px] leading-relaxed max-w-[94%] ${
+                        className={`flex-1 p-3 rounded-2xl text-xs leading-relaxed max-w-[94%] ${
                           msg.sender === "user"
-                            ? "rounded-tr-none bg-indigo-600 text-white shadow-2xs"
-                            : "rounded-tl-none bg-slate-100 border border-slate-200/80 text-slate-800"
+                            ? "rounded-tr-xs bg-[#193446] text-white shadow-2xs font-medium [&_*]:!text-white"
+                            : "rounded-tl-xs bg-white border border-slate-200/90 text-slate-800 shadow-2xs"
                         }`}
                       >
-                        <MarkdownRenderer content={msg.text} />
+                        {msg.sender === "user" ? (
+                          <p className="whitespace-pre-wrap">{msg.text}</p>
+                        ) : (
+                          <MarkdownRenderer content={msg.text} isCompact />
+                        )}
                       </div>
                     </div>
                   ))}
 
                   {isAskingSocratic && (
                     <div className="flex items-start gap-2.5">
-                      <div className="w-7 h-7 rounded-xl bg-amber-100 text-amber-900 flex items-center justify-center text-[10px] font-black shrink-0 mt-0.5">
-                        AI
+                      <div className="w-7 h-7 rounded-xl bg-white border border-slate-200 p-0.5 flex items-center justify-center shrink-0">
+                        <img src="/logo.png" alt="AI" className="w-full h-full object-contain" />
                       </div>
-                      <div className="p-3 rounded-2xl rounded-tl-none bg-slate-100 border border-slate-200/80 text-slate-500 text-xs flex items-center gap-2">
-                        <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-600" />
-                        <span>Sedang merumuskan panduan...</span>
+                      <div className="p-3 rounded-2xl rounded-tl-xs bg-white border border-slate-200 text-slate-500 text-xs flex items-center gap-2 shadow-2xs">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-[#193446]" />
+                        <span>thinksy AI sedang menalar petunjuk soal...</span>
                       </div>
                     </div>
                   )}
@@ -2017,24 +2079,24 @@ export default function ExamRoomClient({
                   <button
                     type="button"
                     onClick={() => handleSendSocratic("Beri saya petunjuk konsep inti untuk soal ini")}
-                    disabled={isAskingSocratic}
-                    className="px-3 py-1.5 rounded-xl bg-white border border-amber-200 hover:border-amber-400 text-amber-950 text-xs font-bold shrink-0 transition shadow-2xs cursor-pointer disabled:opacity-50"
+                    disabled={isAskingSocratic || quizTokensLeft <= 0}
+                    className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:border-[#193446]/40 text-slate-800 text-xs font-semibold shrink-0 transition shadow-2xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     💡 Petunjuk Konsep
                   </button>
                   <button
                     type="button"
                     onClick={() => handleSendSocratic("Bagaimana langkah awal menganalisis soal ini?")}
-                    disabled={isAskingSocratic}
-                    className="px-3 py-1.5 rounded-xl bg-white border border-amber-200 hover:border-amber-400 text-amber-950 text-xs font-bold shrink-0 transition shadow-2xs cursor-pointer disabled:opacity-50"
+                    disabled={isAskingSocratic || quizTokensLeft <= 0}
+                    className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:border-[#193446]/40 text-slate-800 text-xs font-semibold shrink-0 transition shadow-2xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     🔍 Langkah Awal
                   </button>
                   <button
                     type="button"
                     onClick={() => handleSendSocratic("Jelaskan makna istilah atau kata kunci pada soal ini")}
-                    disabled={isAskingSocratic}
-                    className="px-3 py-1.5 rounded-xl bg-white border border-amber-200 hover:border-amber-400 text-amber-950 text-xs font-bold shrink-0 transition shadow-2xs cursor-pointer disabled:opacity-50"
+                    disabled={isAskingSocratic || quizTokensLeft <= 0}
+                    className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:border-[#193446]/40 text-slate-800 text-xs font-semibold shrink-0 transition shadow-2xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     ❓ Kata Kunci
                   </button>
@@ -2052,14 +2114,18 @@ export default function ExamRoomClient({
                     type="text"
                     value={socraticInput}
                     onChange={(e) => setSocraticInput(e.target.value)}
-                    placeholder="Tulis pertanyaanmu di sini..."
-                    disabled={isAskingSocratic}
-                    className="flex-1 px-4 py-2.5 text-xs sm:text-sm rounded-xl border border-amber-200 focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white shadow-2xs transition"
+                    placeholder={
+                      quizTokensLeft <= 0
+                        ? "Batas token AI kuis habis (0 tersisa)..."
+                        : "Tanyakan hal yang belum kamu pahami..."
+                    }
+                    disabled={isAskingSocratic || quizTokensLeft <= 0}
+                    className="flex-1 px-4 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#193446] bg-slate-50/50 shadow-2xs transition disabled:bg-slate-100 disabled:cursor-not-allowed text-slate-800 placeholder-slate-400"
                   />
                   <button
                     type="submit"
-                    disabled={isAskingSocratic || !socraticInput.trim()}
-                    className="p-2.5 bg-[#0F172A] hover:bg-slate-800 disabled:opacity-40 text-white rounded-xl transition cursor-pointer shadow-xs shrink-0"
+                    disabled={isAskingSocratic || !socraticInput.trim() || quizTokensLeft <= 0}
+                    className="p-2.5 bg-[#193446] hover:bg-[#132836] text-[#E9C77B] disabled:opacity-40 rounded-xl transition cursor-pointer shadow-xs shrink-0 font-bold"
                     title="Kirim Pertanyaan"
                   >
                     <Send className="w-4 h-4" />

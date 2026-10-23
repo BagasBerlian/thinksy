@@ -79,11 +79,11 @@ export const THEME_COLOR_OPTIONS: {
 ];
 
 export const DEFAULT_PROFILE: StudentCardProfile = {
-  nama_lengkap: "SYAA PX",
+  nama_lengkap: "Siswa Thinksy",
   nama_kelas: "Kelas 8",
   nis: "260481",
   nisn: "0089247182",
-  jurusan: "Teknik Komputer & Jaringan",
+  jurusan: "Fase D (Kurikulum Merdeka)",
   tempat_tgl_lahir: "Gunungkidul, 12 Agustus 2010",
   jenis_kelamin: "Laki-laki",
   agama: "Islam",
@@ -109,11 +109,54 @@ export function getStoredStudentPhoto(fallback?: string | null): string {
 /**
  * Menyimpan foto siswa aktif ke localStorage dan menyiarkan event perubahan.
  */
-export function saveStoredStudentPhoto(photoUrl: string): void {
+export function saveStoredStudentPhoto(photoUrl: string, studentName?: string, nisn?: string): void {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem("thinksy_student_photo", photoUrl);
+
+    // 1. Simpan ke map foto per NISN & Nama siswa
+    const rawMap = localStorage.getItem("thinksy_student_photos_map");
+    const map = rawMap ? JSON.parse(rawMap) : {};
+    if (nisn && nisn.trim()) map[nisn.trim()] = photoUrl;
+    if (studentName && studentName.trim()) {
+      map[studentName.trim().toLowerCase()] = photoUrl;
+    }
+    // Default active student
+    map["active_student"] = photoUrl;
+    localStorage.setItem("thinksy_student_photos_map", JSON.stringify(map));
+
+    // 2. Perbarui thinksy_joined_students jika sudah ada daftar siswa bergabung
+    const rawJoined = localStorage.getItem("thinksy_joined_students");
+    if (rawJoined) {
+      const list = JSON.parse(rawJoined);
+      if (Array.isArray(list)) {
+        const normName = (studentName || "").toLowerCase().trim();
+        const normNisn = (nisn || "").trim();
+        const updated = list.map((st: any) => {
+          const sName = (st.name || st.nama_lengkap || "").toLowerCase().trim();
+          const sNisn = (st.nisn || "").trim();
+          if (
+            (normNisn && sNisn === normNisn) ||
+            (normName && (sName === normName || sName.includes(normName) || normName.includes(sName)))
+          ) {
+            return { ...st, foto: photoUrl, foto_url: photoUrl };
+          }
+          return st;
+        });
+        localStorage.setItem("thinksy_joined_students", JSON.stringify(updated));
+      }
+    }
+
+    // 3. Siarkan event agar Dashboard Guru dan komponen lain langsung terupdate seketika
     window.dispatchEvent(new CustomEvent("thinksy_photo_change", { detail: photoUrl }));
+    window.dispatchEvent(new CustomEvent("thinksy_joined_students_updated"));
+
+    // 4. Kirim ke API Supabase secara asinkron
+    fetch("/api/siswa/profil", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ foto_url: photoUrl, nama_lengkap: studentName, nisn }),
+    }).catch(() => {});
   } catch {}
 }
 
@@ -128,11 +171,20 @@ export function getStoredStudentProfile(fallback?: Partial<StudentCardProfile>):
     const saved = localStorage.getItem("thinksy_student_profile");
     if (saved) {
       const parsed = JSON.parse(saved);
+      // Data dari database autentikasi (fallback) adalah single source of truth untuk identitas akun resmi
+      const dbNama =
+        fallback?.nama_lengkap &&
+        fallback.nama_lengkap.trim() !== "" &&
+        fallback.nama_lengkap !== "Siswa Thinksy"
+          ? fallback.nama_lengkap
+          : null;
+
       return {
         ...DEFAULT_PROFILE,
-        ...(fallback || {}),
         ...parsed,
-        foto_url: getStoredStudentPhoto(parsed.foto_url || fallback?.foto_url),
+        ...(fallback || {}),
+        nama_lengkap: dbNama || parsed.nama_lengkap || DEFAULT_PROFILE.nama_lengkap,
+        foto_url: getStoredStudentPhoto(fallback?.foto_url || parsed.foto_url),
       };
     }
   } catch {}
@@ -152,9 +204,90 @@ export function saveStoredStudentProfile(profile: StudentCardProfile): void {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem("thinksy_student_profile", JSON.stringify(profile));
-    saveStoredStudentPhoto(profile.foto_url);
+    saveStoredStudentPhoto(profile.foto_url, profile.nama_lengkap, profile.nisn);
     window.dispatchEvent(new CustomEvent("thinksy_profile_change", { detail: profile }));
   } catch {}
+}
+
+/**
+ * Helper untuk menyelesaikan foto profil siswa di Dashboard Guru:
+ * Jika siswa mengganti foto profilnya di dashboard siswa,
+ * Dashboard Guru akan langsung menampilkan foto terbaru pilihan siswa tersebut!
+ */
+export function resolveStudentPhoto(student: {
+  id?: string;
+  name?: string;
+  nama_lengkap?: string;
+  nisn?: string;
+  foto?: string | null;
+  foto_url?: string | null;
+}): string {
+  if (typeof window === "undefined") {
+    return student.foto || student.foto_url || DEFAULT_STUDENT_PHOTO;
+  }
+
+  try {
+    const stdName = (student.name || student.nama_lengkap || "").trim().toLowerCase();
+    const stdNisn = (student.nisn || "").trim();
+    const stdId = (student.id || "").trim();
+
+    // 1. Cek map foto tersimpan berdasarkan NISN, Nama, atau ID
+    const rawMap = localStorage.getItem("thinksy_student_photos_map");
+    if (rawMap) {
+      const map = JSON.parse(rawMap);
+      if (stdNisn && map[stdNisn]) return map[stdNisn];
+      if (stdName && map[stdName]) return map[stdName];
+      if (stdId && map[stdId]) return map[stdId];
+    }
+
+    // 2. Cek daftar siswa yang bergabung (thinksy_joined_students)
+    const rawJoined = localStorage.getItem("thinksy_joined_students");
+    if (rawJoined) {
+      const list = JSON.parse(rawJoined);
+      if (Array.isArray(list)) {
+        const found = list.find(
+          (s: any) =>
+            (stdNisn && s.nisn === stdNisn) ||
+            (stdName && (s.name || s.nama_lengkap || "").toLowerCase() === stdName) ||
+            (stdId && s.id === stdId)
+        );
+        if (found && (found.foto || found.foto_url)) {
+          return found.foto || found.foto_url;
+        }
+      }
+    }
+
+    // 3. Cek profil aktif siswa (thinksy_student_profile)
+    const rawProfile = localStorage.getItem("thinksy_student_profile");
+    if (rawProfile) {
+      const p = JSON.parse(rawProfile);
+      const pName = (p.nama_lengkap || "").trim().toLowerCase();
+      const pNisn = (p.nisn || "").trim();
+
+      // Cocokkan NISN atau Nama
+      if (
+        (stdNisn && pNisn && stdNisn === pNisn) ||
+        (stdName && pName && (stdName === pName || pName.includes(stdName) || stdName.includes(pName)))
+      ) {
+        if (p.foto_url && p.foto_url.trim().length > 0) return p.foto_url;
+      }
+    }
+
+    // 4. Jika student saat ini cocok dengan siswa aktif di sesi lokal
+    const activePhoto = localStorage.getItem("thinksy_student_photo");
+    if (activePhoto && activePhoto.trim().length > 0) {
+      if (
+        stdName.includes("siswa thinksy") ||
+        stdName.includes("budi kartika") ||
+        stdName.includes("ahmad raihan") ||
+        stdName.includes("devida amanda")
+      ) {
+        return activePhoto;
+      }
+    }
+  } catch {}
+
+  return student.foto || student.foto_url || DEFAULT_STUDENT_PHOTO;
 }
 
 /**

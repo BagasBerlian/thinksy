@@ -71,8 +71,8 @@ export default function MarkdownRenderer({
             <p
               className={
                 isCompact
-                  ? "leading-relaxed text-slate-600 dark:text-slate-300 font-normal mb-2 last:mb-0 text-xs sm:text-sm"
-                  : "leading-relaxed text-slate-600 dark:text-slate-300 font-normal mb-3 text-sm sm:text-base"
+                  ? "leading-relaxed text-inherit font-normal mb-2 last:mb-0 text-xs sm:text-sm"
+                  : "leading-relaxed text-inherit font-normal mb-3 text-sm sm:text-base"
               }
               {...props}
             />
@@ -81,8 +81,8 @@ export default function MarkdownRenderer({
             <ul
               className={
                 isCompact
-                  ? "list-disc list-inside space-y-1 my-2 pl-1 text-slate-600 dark:text-slate-300 text-xs sm:text-sm font-normal"
-                  : "list-disc list-inside space-y-1.5 my-3 pl-2 text-slate-600 dark:text-slate-300 text-sm sm:text-base font-normal"
+                  ? "list-disc list-inside space-y-1 my-2 pl-1 text-inherit text-xs sm:text-sm font-normal"
+                  : "list-disc list-inside space-y-1.5 my-3 pl-2 text-inherit text-sm sm:text-base font-normal"
               }
               {...props}
             />
@@ -91,8 +91,8 @@ export default function MarkdownRenderer({
             <ol
               className={
                 isCompact
-                  ? "list-decimal list-inside space-y-1 my-2 pl-1 text-slate-600 dark:text-slate-300 text-xs sm:text-sm font-normal"
-                  : "list-decimal list-inside space-y-1.5 my-3 pl-2 text-slate-600 dark:text-slate-300 text-sm sm:text-base font-normal"
+                  ? "list-decimal list-inside space-y-1 my-2 pl-1 text-inherit text-xs sm:text-sm font-normal"
+                  : "list-decimal list-inside space-y-1.5 my-3 pl-2 text-inherit text-sm sm:text-base font-normal"
               }
               {...props}
             />
@@ -163,6 +163,18 @@ export default function MarkdownRenderer({
               </code>
             );
           },
+          strong: ({ node, ...props }) => (
+            <strong className="font-extrabold text-slate-900 dark:text-white" {...props} />
+          ),
+          b: ({ node, ...props }) => (
+            <b className="font-extrabold text-slate-900 dark:text-white" {...props} />
+          ),
+          em: ({ node, ...props }) => (
+            <em className="italic font-medium text-slate-800 dark:text-slate-200" {...props} />
+          ),
+          i: ({ node, ...props }) => (
+            <i className="italic font-medium text-slate-800 dark:text-slate-200" {...props} />
+          ),
           hr: () => (
             <hr
               className={`border-black/10 dark:border-white/10 ${

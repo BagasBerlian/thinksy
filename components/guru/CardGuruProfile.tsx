@@ -29,12 +29,12 @@ export default function CardGuruProfile({ onOpenSettings, onClose }: CardGuruPro
     umur: "38 Tahun (Lahir: 15 April 1988)",
     nip: "19880415 201001 2 012",
     nuptk: "4147 7666 6821 0032",
-    sekolah: "SMKS Muhammadiyah Pakem (Sekolah Pusat Keunggulan)",
+    sekolah: "SMK Muhammadiyah 1 (Sekolah Pusat Keunggulan)",
     pendidikan: "S2 Pendidikan Matematika — Universitas Negeri Yogyakarta (UNY)",
     pengalaman: "14 Tahun Pengabdian",
     statusKepegawaian: "PNS / Penata Tk. I (Gol. III/d)",
     statusSertifikasi: "Pendidik Profesional Tersertifikasi (Kemendikbudristek)",
-    email: "siti.rahmawati@smkmuhpakem.sch.id",
+    email: "siti.rahmawati@smkmuh1.sch.id",
     telepon: "+62 812-3456-7890",
     mapel: "Matematika Fase D (Kelas 8)",
     rombelBinaan: "Kelas 8",
@@ -64,7 +64,7 @@ export default function CardGuruProfile({ onOpenSettings, onClose }: CardGuruPro
               </span>
             </div>
             <p className="text-xs text-blue-100 font-medium mt-0.5">
-              SMKS Muhammadiyah Pakem
+              SMK Muhammadiyah 1
             </p>
           </div>
         </div>

@@ -24,6 +24,11 @@ export default function UatDevMenu({
   isOpen = false,
   setIsOpen,
 }: UatDevMenuProps) {
+  // Hanya aktif saat development lokal untuk UAT testing. Di production otomatis nonaktif.
+  if (process.env.NODE_ENV === "production") {
+    return null;
+  }
+
   const [mounted, setMounted] = useState(false);
   // Default to minimized if stored in localStorage, otherwise check isOpen prop
   const [isMinimized, setIsMinimized] = useState<boolean>(true);

@@ -20,6 +20,11 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import MarkdownRenderer from "@/components/materi/MarkdownRenderer";
+import {
+  getStoredAiSettings,
+  getQuizTokensRemaining,
+  decrementQuizToken,
+} from "@/lib/ai-config";
 
 export interface ExamQuestion {
   id: string;
@@ -128,6 +133,34 @@ export default function ExamPracticeClient({
   >({});
   const [inputMsg, setInputMsg] = useState("");
   const [isAiLoading, setIsAiLoading] = useState(false);
+  const [remainingQuota, setRemainingQuota] = useState<number | null>(null);
+
+  const isQuizMode = mode === "kuis" || mode === "assessment";
+  const [maxQuizTokens, setMaxQuizTokens] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      return getStoredAiSettings().kuis?.tokensPerQuiz || 5;
+    }
+    return 5;
+  });
+  const [quizTokensLeft, setQuizTokensLeft] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      const max = getStoredAiSettings().kuis?.tokensPerQuiz || 5;
+      return getQuizTokensRemaining(sesiId, max);
+    }
+    return 5;
+  });
+
+  useEffect(() => {
+    const handleSettingsChange = (e: any) => {
+      const s = e.detail || getStoredAiSettings();
+      if (s?.kuis?.tokensPerQuiz) {
+        setMaxQuizTokens(s.kuis.tokensPerQuiz);
+        setQuizTokensLeft(getQuizTokensRemaining(sesiId, s.kuis.tokensPerQuiz));
+      }
+    };
+    window.addEventListener("thinksy_ai_settings_change", handleSettingsChange);
+    return () => window.removeEventListener("thinksy_ai_settings_change", handleSettingsChange);
+  }, [sesiId]);
 
   // Height sync refs: keeps the bottom border of AI section aligned with question section
   const questionCardRef = useRef<HTMLDivElement>(null);
@@ -258,6 +291,12 @@ export default function ExamPracticeClient({
   const handleSendAiMessage = async (presetPrompt?: string) => {
     const textToSend = (presetPrompt || inputMsg).trim();
     if (!textToSend || isAiLoading || !currentQ) return;
+    if (isQuizMode && quizTokensLeft <= 0) return;
+
+    if (isQuizMode) {
+      decrementQuizToken(sesiId, maxQuizTokens);
+      setQuizTokensLeft((prev) => Math.max(0, prev - 1));
+    }
 
     setInputMsg("");
     if (textareaRef.current) {
@@ -302,6 +341,9 @@ export default function ExamPracticeClient({
         }),
       });
       const data = await response.json();
+      if (typeof data.remainingQuota === "number") {
+        setRemainingQuota(data.remainingQuota);
+      }
       const replyText =
         data.reply ||
         `💡 **Bimbingan Sokratik:**\n\nCoba telaah kembali kata kunci utama pada pertanyaan ini. Apakah kamu bisa mengidentifikasi konsep yang menghubungkan pertanyaan dengan pilihan jawaban yang ada?`;
@@ -695,22 +737,48 @@ export default function ExamPracticeClient({
                 style={aiBoxHeight ? { height: `${aiBoxHeight}px` } : undefined}
                 className="rounded-3xl border border-slate-200/90 shadow-2xs bg-white overflow-hidden flex flex-col transition-[height] duration-200 text-xs sm:text-sm max-lg:min-h-[280px] max-lg:max-h-[420px]"
               >
-                {/* Clean, Simple Header (Tanpa info Soal #X) */}
-                <div className="px-3.5 py-2.5 bg-white border-b border-slate-100 flex items-center justify-between shrink-0">
+                {/* Unified Thinksy AI Header (#193446) */}
+                <div className="px-3.5 py-2.5 bg-[#193446] text-white flex items-center justify-between shrink-0 shadow-xs">
                   <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-slate-700" />
-                    <h4 className="text-xs font-bold text-[#0F172A]">Bantuan AI</h4>
+                    <div className="w-6 h-6 rounded-md bg-white/10 p-0.5 flex items-center justify-center border border-[#E9C77B]/40 shrink-0">
+                      <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black text-[#E9C77B] flex items-center gap-1 leading-none">
+                        <span>✨ thinksy AI</span>
+                      </h4>
+                      <p className="text-[9px] text-[#E9C77B]/80 font-medium leading-tight mt-0.5">
+                        Asisten Belajar Pintar
+                      </p>
+                    </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={handleCloseAi}
-                    className="text-slate-400 hover:text-slate-700 p-1 rounded-md hover:bg-slate-100 transition cursor-pointer"
-                    title="Tutup Bantuan AI"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-300/30 bg-amber-400/10 text-amber-200">
+                      {isQuizMode
+                        ? `Kuota Kuis: ${quizTokensLeft}/${maxQuizTokens}`
+                        : remainingQuota !== null
+                        ? `Sisa: ${remainingQuota}/20`
+                        : "Kuota: 20/hari"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleCloseAi}
+                      className="text-white/70 hover:text-white p-1 rounded-md hover:bg-white/10 transition cursor-pointer"
+                      title="Tutup Bantuan AI"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
+
+                {/* Warning Banner When Quiz Tokens are Exhausted */}
+                {isQuizMode && quizTokensLeft <= 0 && (
+                  <div className="px-3 py-1.5 bg-amber-500/10 border-b border-amber-500/20 text-amber-800 text-[10px] font-semibold flex items-center gap-1.5 shrink-0">
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                    <span>Kuota token kuis ini telah habis ({maxQuizTokens}/{maxQuizTokens}). Silakan selesaikan secara mandiri!</span>
+                  </div>
+                )}
 
                 {/* Messages Area */}
                 <div
@@ -722,7 +790,7 @@ export default function ExamPracticeClient({
                       key={i}
                       className={`p-3 rounded-2xl leading-relaxed text-xs sm:text-sm ${
                         msg.sender === "user"
-                          ? "bg-[#0F172A] text-white ml-5 rounded-tr-xs"
+                          ? "bg-[#193446] text-white [&_*]:!text-white ml-5 rounded-tr-xs shadow-xs"
                           : "bg-white text-slate-800 mr-5 border border-slate-200/90 shadow-2xs rounded-tl-xs"
                       }`}
                     >
@@ -732,7 +800,7 @@ export default function ExamPracticeClient({
 
                   {isAiLoading && (
                     <div className="flex items-center gap-2 text-slate-500 text-xs italic p-2.5 bg-white rounded-xl border border-slate-200/80 shadow-2xs">
-                      <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-600" />
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-[#193446]" />
                       <span>Sedang memproses...</span>
                     </div>
                   )}
@@ -747,11 +815,12 @@ export default function ExamPracticeClient({
                   }}
                   className="p-2.5 bg-white border-t border-slate-100 shrink-0"
                 >
-                  <div className="flex items-end gap-2 px-3 py-1.5 rounded-2xl border border-slate-200 bg-slate-50 focus-within:bg-white focus-within:border-slate-400 focus-within:ring-1 focus-within:ring-slate-300 transition">
+                  <div className="flex items-end gap-2 px-3 py-1.5 rounded-2xl border border-slate-200 bg-slate-50 focus-within:bg-white focus-within:border-[#193446] focus-within:ring-1 focus-within:ring-[#193446]/20 transition">
                     <textarea
                       ref={textareaRef}
                       value={inputMsg}
                       onChange={handleInputChange}
+                      disabled={isAiLoading || (isQuizMode && quizTokensLeft <= 0)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && !e.shiftKey) {
                           e.preventDefault();
@@ -760,8 +829,12 @@ export default function ExamPracticeClient({
                       }}
                       rows={1}
                       maxLength={MAX_AI_INPUT_CHARS}
-                      placeholder="Tanyakan ke AI... (Maks 200 karakter)"
-                      className="flex-1 text-xs sm:text-sm bg-transparent focus:outline-none resize-none text-slate-800 placeholder:text-slate-400 leading-normal py-0.5 min-h-[26px] max-h-[100px] overflow-y-auto"
+                      placeholder={
+                        isQuizMode && quizTokensLeft <= 0
+                          ? "Kuota bantuan kuis sudah habis..."
+                          : "Tanyakan ke AI... (Maks 200 karakter)"
+                      }
+                      className="flex-1 text-xs sm:text-sm bg-transparent focus:outline-none resize-none text-slate-800 placeholder:text-slate-400 leading-normal py-0.5 min-h-[26px] max-h-[100px] overflow-y-auto disabled:opacity-50"
                     />
                     <div className="flex items-center gap-1.5 shrink-0 self-end pb-0.5">
                       {inputMsg.length > 0 && (
@@ -777,11 +850,11 @@ export default function ExamPracticeClient({
                       )}
                       <button
                         type="submit"
-                        disabled={isAiLoading || !inputMsg.trim()}
-                        className="w-7 h-7 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-white disabled:opacity-25 disabled:pointer-events-none transition cursor-pointer flex items-center justify-center shrink-0 shadow-2xs"
+                        disabled={isAiLoading || !inputMsg.trim() || (isQuizMode && quizTokensLeft <= 0)}
+                        className="w-7 h-7 rounded-xl bg-[#193446] hover:bg-[#132836] text-white disabled:opacity-25 disabled:pointer-events-none transition cursor-pointer flex items-center justify-center shrink-0 shadow-2xs"
                         title="Kirim (Enter)"
                       >
-                        <Send className="w-3.5 h-3.5" />
+                        <Send className="w-3.5 h-3.5 text-[#E9C77B]" />
                       </button>
                     </div>
                   </div>
@@ -794,10 +867,17 @@ export default function ExamPracticeClient({
             <button
               type="button"
               onClick={handleOpenAi}
-              className="w-full py-2.5 px-3 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all duration-200 flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-[0.99] animate-in fade-in"
+              className="w-full py-2.5 px-3 rounded-2xl bg-[#193446] hover:bg-[#132836] text-white text-xs font-bold transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-md active:scale-[0.99] animate-in fade-in"
             >
-              <Sparkles className="w-4 h-4 text-slate-500" />
-              <span>Buka Bantuan AI</span>
+              <div className="w-4 h-4 rounded-sm bg-white/10 flex items-center justify-center p-0.5 border border-[#E9C77B]/40">
+                <img src="/logo.png" alt="AI" className="w-full h-full object-contain" />
+              </div>
+              <span className="text-[#E9C77B]">Tanya thinksy AI</span>
+              {isQuizMode && (
+                <span className="text-[10px] bg-amber-400/20 text-amber-200 border border-amber-300/30 px-2 py-0.2 rounded-full">
+                  {quizTokensLeft}/{maxQuizTokens}
+                </span>
+              )}
             </button>
           )}
         </div>

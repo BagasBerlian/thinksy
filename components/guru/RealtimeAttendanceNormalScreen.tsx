@@ -23,6 +23,7 @@ import {
   Check,
   UserX,
 } from "lucide-react";
+import { resolveStudentPhoto } from "@/lib/student-settings";
 
 interface RealtimeAttendanceNormalScreenProps {
   isOpen: boolean;
@@ -46,7 +47,7 @@ export default function RealtimeAttendanceNormalScreen({
   const [selectedClass, setSelectedClass] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortBy, setSortBy] = useState<"time" | "rank" | "points" | "name">("time");
+  const [sortBy, setSortBy] = useState<"time" | "score" | "progress" | "name">("time");
   const [isLoading, setIsLoading] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<string>("");
   const [selectedPhotoZoom, setSelectedPhotoZoom] = useState<any | null>(null);
@@ -99,6 +100,41 @@ export default function RealtimeAttendanceNormalScreen({
     }
   }, [isOpen, selectedClass]);
 
+  // Real-time listener for student photo changes
+  useEffect(() => {
+    const handlePhotoSync = () => {
+      setStudents((prev) =>
+        prev.map((st) => ({
+          ...st,
+          foto: resolveStudentPhoto({ ...st, name: st.nama_lengkap }) || st.foto,
+        }))
+      );
+    };
+
+    window.addEventListener("thinksy_photo_change", handlePhotoSync);
+    window.addEventListener("thinksy_profile_change", handlePhotoSync);
+    window.addEventListener("thinksy_joined_students_updated", handlePhotoSync);
+
+    const handleStorage = (e: StorageEvent) => {
+      if (
+        e.key === "thinksy_student_photo" ||
+        e.key === "thinksy_student_profile" ||
+        e.key === "thinksy_student_photos_map" ||
+        e.key === "thinksy_joined_students"
+      ) {
+        handlePhotoSync();
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      window.removeEventListener("thinksy_photo_change", handlePhotoSync);
+      window.removeEventListener("thinksy_profile_change", handlePhotoSync);
+      window.removeEventListener("thinksy_joined_students_updated", handlePhotoSync);
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, []);
+
   // Filter & Sort Logic
   const filteredStudents = useMemo(() => {
     return students
@@ -122,8 +158,8 @@ export default function RealtimeAttendanceNormalScreen({
           if (!a.hasAttended && b.hasAttended) return 1;
           return (b.timestamp || 0) - (a.timestamp || 0);
         }
-        if (sortBy === "rank") return a.peringkat - b.peringkat;
-        if (sortBy === "points") return b.poin_belajar - a.poin_belajar;
+        if (sortBy === "score") return (b.nilai_rata_rata || b.nilai || 0) - (a.nilai_rata_rata || a.nilai || 0);
+        if (sortBy === "progress") return (b.ketuntasan || b.progress || 0) - (a.ketuntasan || a.progress || 0);
         if (sortBy === "name") return a.nama_lengkap.localeCompare(b.nama_lengkap);
         return 0;
       });
@@ -245,7 +281,7 @@ export default function RealtimeAttendanceNormalScreen({
             <CheckCircle2 className="w-4 h-4 opacity-75" />
           </div>
           <div className="text-2xl font-black mt-1">{stats.totalOnTime}</div>
-          <div className="text-[10px] opacity-80 mt-0.5">+10 Poin Reward</div>
+          <div className="text-[10px] opacity-80 mt-0.5">Kehadiran Standar</div>
         </div>
 
         <div
@@ -323,8 +359,8 @@ export default function RealtimeAttendanceNormalScreen({
               className="px-2 py-1 bg-transparent text-xs font-extrabold text-slate-800 focus:outline-none cursor-pointer"
             >
               <option value="time">Waktu Absen Terbaru</option>
-              <option value="rank">Peringkat Tertinggi</option>
-              <option value="points">Poin Terbanyak</option>
+              <option value="score">Nilai Rata-rata Tertinggi</option>
+              <option value="progress">Ketuntasan Belajar Tertinggi</option>
               <option value="name">Nama Siswa A-Z</option>
             </select>
           </div>
@@ -387,7 +423,7 @@ export default function RealtimeAttendanceNormalScreen({
                       title="Klik untuk memperbesar foto presensi"
                     >
                       <Image
-                        src={st.foto}
+                        src={resolveStudentPhoto({ ...st, name: st.nama_lengkap }) || st.foto || "/images/pasfoto-siswa-1.jpg"}
                         alt={st.nama_lengkap}
                         fill
                         className="object-cover"
@@ -417,16 +453,15 @@ export default function RealtimeAttendanceNormalScreen({
                         {st.nama_lengkap}
                       </h3>
 
-                      {/* Points & Streak Row */}
+                      {/* Academic Performance Badges */}
                       <div className="flex items-center gap-2 mt-1">
-                        <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-zinc-700 bg-zinc-100 px-2 py-0.5 border border-zinc-300">
-                          <Award className="w-3 h-3 text-zinc-700" />
-                          <span>{st.poin_belajar} Poin</span>
+                        <span className="inline-flex items-center gap-1 text-[10px] font-sans font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
+                          <span>Nilai: {st.nilai_rata_rata || st.nilai || 82}</span>
                         </span>
 
-                        <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-orange-700 bg-orange-50/80 px-2 py-0.5 rounded-md border border-orange-200/60">
-                          <Flame className="w-3 h-3 text-orange-500" />
-                          <span>{st.streak} Hari Streak</span>
+                        <span className="inline-flex items-center gap-1 text-[10px] font-sans font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          <span>Ketuntasan: {st.ketuntasan || st.progress || 80}%</span>
                         </span>
                       </div>
                     </div>
@@ -512,7 +547,7 @@ export default function RealtimeAttendanceNormalScreen({
 
             <div className="relative w-48 h-56 mx-auto overflow-hidden border border-zinc-950">
               <Image
-                src={selectedPhotoZoom.foto}
+                src={resolveStudentPhoto({ ...selectedPhotoZoom, name: selectedPhotoZoom.nama_lengkap }) || selectedPhotoZoom.foto || "/images/pasfoto-siswa-1.jpg"}
                 alt={selectedPhotoZoom.nama_lengkap}
                 fill
                 className="object-cover"

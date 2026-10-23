@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FileText, Plus, Search, Trash2, X } from "lucide-react";
+import { FileText, Plus, Search, Trash2, X, Share2 } from "lucide-react";
 import { NoteItem } from "../../types";
 
 interface StudentNotesModalProps {
@@ -10,6 +10,7 @@ interface StudentNotesModalProps {
   notes: NoteItem[];
   onCreateNote: (title: string, content: string, subject: string) => void;
   onDeleteNote: (id: string) => void;
+  onShareToForum?: (title: string, content: string, subject: string) => void;
 }
 
 export default function StudentNotesModal({
@@ -18,10 +19,12 @@ export default function StudentNotesModal({
   notes,
   onCreateNote,
   onDeleteNote,
+  onShareToForum,
 }: StudentNotesModalProps) {
   const [noteTitle, setNoteTitle] = useState("");
   const [noteContent, setNoteContent] = useState("");
   const [noteSubject, setNoteSubject] = useState("Matematika");
+  const [shareToForum, setShareToForum] = useState(false);
   const [notesSearch, setNotesSearch] = useState("");
 
   if (!isOpen) return null;
@@ -29,8 +32,12 @@ export default function StudentNotesModal({
   const handleSave = () => {
     if (!noteTitle.trim()) return;
     onCreateNote(noteTitle, noteContent, noteSubject);
+    if (shareToForum && onShareToForum) {
+      onShareToForum(noteTitle, noteContent, noteSubject);
+    }
     setNoteTitle("");
     setNoteContent("");
+    setShareToForum(false);
   };
 
   const filteredNotes = notes.filter(
@@ -81,15 +88,7 @@ export default function StudentNotesModal({
               onChange={(e) => setNoteSubject(e.target.value)}
               className="px-3.5 py-2 text-xs rounded-xl border border-slate-200 bg-white font-bold text-slate-700 focus:ring-2 focus:ring-amber-500 focus:outline-none cursor-pointer"
             >
-              <option value="Matematika">Matematika</option>
-              <option value="Bahasa Indonesia">Bahasa Indonesia</option>
-              <option value="Bahasa Inggris">Bahasa Inggris</option>
-              <option value="IPA">IPA</option>
-              <option value="IPS">IPS</option>
-              <option value="PPKN">PPKN</option>
-              <option value="PJOK">PJOK</option>
-              <option value="SENI">SENI</option>
-              <option value="AGAMA">AGAMA</option>
+              <option value="Matematika">Matematika (Kelas 8)</option>
             </select>
           </div>
           <textarea
@@ -99,6 +98,20 @@ export default function StudentNotesModal({
             rows={3}
             className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 bg-white font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none"
           />
+          <div className="pt-0.5">
+            <label className="flex items-center gap-2.5 text-xs text-slate-700 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={shareToForum}
+                onChange={(e) => setShareToForum(e.target.checked)}
+                className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer accent-blue-600"
+              />
+              <span className="font-semibold flex items-center gap-1.5 text-slate-700">
+                <Share2 className="w-3.5 h-3.5 text-blue-600" />
+                Bagikan ke Forum Diskusi Kelas (Dapat dilihat oleh guru pengampu)
+              </span>
+            </label>
+          </div>
           <button
             onClick={handleSave}
             className="w-full py-2.5 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-white font-bold text-xs transition cursor-pointer shadow-sm"

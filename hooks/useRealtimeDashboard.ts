@@ -18,7 +18,12 @@ export interface RealtimeEvent {
     | "CHAT_LIKED"
     | "CHAT_COMMENTED"
     | "EXAM_STATUS_CHANGED"
-    | "POINTS_UPDATED";
+    | "POINTS_UPDATED"
+    | "ACADEMIC_CALENDAR_UPDATED"
+    | "ANNOUNCEMENT_POSTED"
+    | "ANNOUNCEMENT_UPDATED"
+    | "UPCOMING_TASK_UPDATED"
+    | "UPCOMING_TASK_DELETED";
   payload?: any;
   timestamp: string;
 }

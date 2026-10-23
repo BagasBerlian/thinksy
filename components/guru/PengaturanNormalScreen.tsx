@@ -18,6 +18,20 @@ import {
   Grid,
   Columns,
   Maximize,
+  Sparkles,
+  ShieldAlert,
+  ShieldCheck,
+  Bot,
+  Zap,
+  GraduationCap,
+  Award,
+  HelpCircle,
+  Eye,
+  Sliders,
+  Clock,
+  BookOpen,
+  MessageSquare,
+  Send,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -25,13 +39,18 @@ import {
   getStoredLanguage,
   saveStoredLanguage,
 } from "@/lib/student-settings";
+import {
+  getStoredAiSettings,
+  saveStoredAiSettings,
+  AiGuruSettings,
+  DEFAULT_AI_SETTINGS,
+} from "@/lib/ai-config";
 
 export interface GuruLayoutConfig {
   layoutStyle: "grid" | "single" | "compact";
   showCardGuru: boolean;
   showAkuLulusControl: boolean;
   showQuickStats: boolean;
-  showLeaderboardPreview: boolean;
 }
 
 export const DEFAULT_LAYOUT_CONFIG: GuruLayoutConfig = {
@@ -39,7 +58,6 @@ export const DEFAULT_LAYOUT_CONFIG: GuruLayoutConfig = {
   showCardGuru: true,
   showAkuLulusControl: true,
   showQuickStats: true,
-  showLeaderboardPreview: true,
 };
 
 export const GURU_THEMES = [
@@ -221,10 +239,14 @@ interface ClassItem {
 }
 
 export default function PengaturanNormalScreen() {
-  const [activeTab, setActiveTab] = useState<"notifikasi" | "bahasa" | "layout">("notifikasi");
+  const [activeTab, setActiveTab] = useState<"notifikasi" | "bahasa" | "layout" | "ai_tutor">("notifikasi");
   const [layoutConfig, setLayoutConfig] = useState<GuruLayoutConfig>(DEFAULT_LAYOUT_CONFIG);
   const [activeThemeId, setActiveThemeId] = useState<string>("slate");
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
+
+  // AI Configuration State (2 Tipe: Kelas & Kuis)
+  const [aiConfig, setAiConfig] = useState<AiGuruSettings>(() => getStoredAiSettings());
+  const [previewMode, setPreviewMode] = useState<"kelas" | "kuis">("kuis");
 
   // Language state (Indonesian & English)
   const [language, setLanguage] = useState<SettingsLanguage>(() => {
@@ -395,9 +417,18 @@ export default function PengaturanNormalScreen() {
       // 2. Save layout config
       localStorage.setItem("thinksy_guru_layout", JSON.stringify(layoutConfig));
       window.dispatchEvent(new CustomEvent("guru_layout_changed", { detail: layoutConfig }));
+
+      // 3. Save AI configuration
+      saveStoredAiSettings(aiConfig);
     } catch {}
 
     setSaveSuccessMessage(dict.saved);
+    setTimeout(() => setSaveSuccessMessage(null), 3500);
+  };
+
+  const handleSaveAiConfig = () => {
+    saveStoredAiSettings(aiConfig);
+    setSaveSuccessMessage("Konfigurasi AI Siswa (Kelas & Kuis) berhasil disimpan & disinkronkan ke seluruh siswa!");
     setTimeout(() => setSaveSuccessMessage(null), 3500);
   };
 
@@ -535,6 +566,22 @@ export default function PengaturanNormalScreen() {
           <Layout className="w-4 h-4 text-amber-500" />
           <span>{dict.tabLayout}</span>
         </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("ai_tutor")}
+          className={`px-4 py-2 rounded-xl transition flex items-center gap-2 cursor-pointer ${
+            activeTab === "ai_tutor"
+              ? "bg-[#193446] text-[#E9C77B] shadow-sm font-extrabold ring-2 ring-amber-400/40"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <Sparkles className="w-4 h-4 text-amber-400 animate-pulse" />
+          <span>Pengaturan AI Siswa</span>
+          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-400/20 text-amber-600 font-black">
+            2 Tipe
+          </span>
+        </button>
       </div>
 
       {/* ════════════════════════════════════════════════════════════
@@ -598,41 +645,7 @@ export default function PengaturanNormalScreen() {
               </div>
             </div>
 
-            {/* 1. EMAIL */}
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-base font-medium text-slate-800">
-                  {dict.emailHeading}
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5 font-normal">
-                  {dict.emailSub}{" "}
-                  <a
-                    href="#learn-more"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      alert(
-                        language === "en"
-                          ? "Email notifications keep you informed about assignments, comments, and classroom activities."
-                          : "Notifikasi email membuat Anda selalu mengetahui tugas, komentar, dan aktivitas kelas terbaru."
-                      );
-                    }}
-                    className="text-[#1967D2] hover:underline cursor-pointer"
-                  >
-                    {dict.learnMore}
-                  </a>
-                </p>
-              </div>
-              <div className="flex items-center justify-between py-1">
-                <span className="text-sm font-normal text-slate-800">
-                  {dict.allowEmail}
-                </span>
-                <ClassroomToggle
-                  id="toggle-allow-email"
-                  checked={allowEmailNotifications}
-                  onChange={(val) => setAllowEmailNotifications(val)}
-                />
-              </div>
-            </div>
+
 
             {/* 2. COMMENTS */}
             <div
@@ -1056,21 +1069,6 @@ export default function PengaturanNormalScreen() {
                     onChange={(val) => setLayoutConfig({ ...layoutConfig, showQuickStats: val })}
                   />
                 </label>
-
-                <label className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between cursor-pointer hover:bg-slate-100 transition">
-                  <div className="space-y-0.5 pr-2">
-                    <span className="text-xs font-bold text-[#0F172A] block">
-                      Pratinjau Leaderboard Top Siswa
-                    </span>
-                    <span className="text-[11px] text-slate-500 block font-medium">
-                      Cuplikan siswa dengan poin tertinggi langsung di Beranda.
-                    </span>
-                  </div>
-                  <ClassroomToggle
-                    checked={layoutConfig.showLeaderboardPreview}
-                    onChange={(val) => setLayoutConfig({ ...layoutConfig, showLeaderboardPreview: val })}
-                  />
-                </label>
               </div>
             </div>
           </div>
@@ -1145,6 +1143,532 @@ export default function PengaturanNormalScreen() {
                 );
               })}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════
+          TAB 4: PENGATURAN AI SISWA (2 TIPE: KELAS & KUIS)
+         ════════════════════════════════════════════════════════════ */}
+      {activeTab === "ai_tutor" && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          {/* Hero Banner Header */}
+          <div className="bg-[#193446] text-white rounded-3xl p-6 sm:p-8 border border-slate-800 shadow-xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+              <div className="space-y-2 max-w-2xl">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-[#E9C77B] text-xs font-black border border-white/10">
+                  <Sparkles className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: "3s" }} />
+                  <span>KONTROL PEDAGOGI & TOKEN THINKSY AI</span>
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                  Pengaturan AI Siswa: <span className="text-[#E9C77B]">Kelas & Kuis</span>
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-300 font-medium leading-relaxed">
+                  Kelola batasan token, tingkat bimbingan Sokratik, dan proteksi anti-kunci jawaban secara terpisah antara sesi belajar di kelas dan sesi pengerjaan kuis/ujian.
+                </p>
+              </div>
+
+              {/* Status Indicators Pill */}
+              <div className="flex flex-col sm:flex-row gap-3 shrink-0">
+                <div className="bg-white/10 backdrop-blur-xs p-3.5 rounded-2xl border border-white/15 space-y-1">
+                  <div className="text-[10px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <BookOpen className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Status AI di Kelas</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full ${aiConfig.kelas.enabled ? "bg-emerald-400 animate-pulse" : "bg-slate-400"}`} />
+                    <span className="text-xs font-black text-white">
+                      {aiConfig.kelas.enabled ? `Aktif (${aiConfig.kelas.dailyTokens} Token/Hari)` : "Nonaktif"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="bg-white/10 backdrop-blur-xs p-3.5 rounded-2xl border border-white/15 space-y-1">
+                  <div className="text-[10px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <Award className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Status AI di Kuis</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full ${aiConfig.kuis.enabled ? "bg-amber-400 animate-pulse" : "bg-slate-400"}`} />
+                    <span className="text-xs font-black text-white">
+                      {aiConfig.kuis.enabled ? `Dibatasi Ketat (${aiConfig.kuis.tokensPerQuiz} Bantuan)` : "Terkunci"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Grid Dua Kolom: Tipe 1 & Tipe 2 */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* ═══════════════════════════════════════════════════════════ */}
+            {/* TIPE 1: AI DI KELAS (RUANG BELAJAR & MATERI)                 */}
+            {/* ═══════════════════════════════════════════════════════════ */}
+            <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-sm flex flex-col justify-between space-y-6">
+              <div className="space-y-6">
+                {/* Header Card Tipe 1 */}
+                <div className="flex items-start justify-between gap-4 pb-4 border-b border-slate-100">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-11 h-11 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-black shadow-inner border border-blue-100">
+                      <GraduationCap className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-blue-100 text-blue-800">
+                          TIPE 1
+                        </span>
+                        <h3 className="text-base sm:text-lg font-black text-[#0F172A]">
+                          AI di Ruang Kelas
+                        </h3>
+                      </div>
+                      <p className="text-xs text-slate-500 font-medium mt-0.5">
+                        Materi bacaan, eksplorasi bab, dan latihan mandiri harian
+                      </p>
+                    </div>
+                  </div>
+
+                  <ClassroomToggle
+                    id="toggle-ai-kelas"
+                    checked={aiConfig.kelas.enabled}
+                    onChange={(val) =>
+                      setAiConfig((prev) => ({
+                        ...prev,
+                        kelas: { ...prev.kelas, enabled: val },
+                      }))
+                    }
+                  />
+                </div>
+
+                {/* Content Settings Tipe 1 */}
+                <div className={`space-y-5 transition-opacity ${aiConfig.kelas.enabled ? "opacity-100" : "opacity-40 pointer-events-none"}`}>
+                  {/* Slider Kuota Token Harian */}
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <Zap className="w-4 h-4 text-amber-500" />
+                        <span>Batas Kuota Token Harian per Siswa</span>
+                      </label>
+                      <span className="font-mono text-xs font-black text-blue-700 bg-blue-50 px-2.5 py-1 rounded-xl border border-blue-200">
+                        {aiConfig.kelas.dailyTokens >= 100 ? "Tanpa Batas" : `${aiConfig.kelas.dailyTokens} Token / Hari`}
+                      </span>
+                    </div>
+
+                    <input
+                      type="range"
+                      min={5}
+                      max={100}
+                      step={5}
+                      value={aiConfig.kelas.dailyTokens}
+                      onChange={(e) =>
+                        setAiConfig((prev) => ({
+                          ...prev,
+                          kelas: { ...prev.kelas, dailyTokens: parseInt(e.target.value, 10) },
+                        }))
+                      }
+                      className="w-full accent-blue-600 cursor-pointer"
+                    />
+
+                    {/* Quick Preset Buttons */}
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {[10, 20, 50, 100].map((val) => (
+                        <button
+                          key={val}
+                          type="button"
+                          onClick={() =>
+                            setAiConfig((prev) => ({
+                              ...prev,
+                              kelas: { ...prev.kelas, dailyTokens: val },
+                            }))
+                          }
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition cursor-pointer ${
+                            aiConfig.kelas.dailyTokens === val
+                              ? "bg-blue-600 text-white shadow-xs"
+                              : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
+                          }`}
+                        >
+                          {val === 100 ? "Tanpa Batas" : `${val} Token`}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Mode Respon / Tingkat Bimbingan */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-800 block">
+                      Tingkat Bimbingan Sokratik (Pedagogi)
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      {[
+                        {
+                          id: "socratic",
+                          title: "Sokratik Murni",
+                          desc: "Memancing pemikiran dengan pertanyaan balik reflektif",
+                        },
+                        {
+                          id: "step_by_step",
+                          title: "Step-by-Step",
+                          desc: "Petunjuk alur penyelesaian bertahap",
+                        },
+                        {
+                          id: "concept_summary",
+                          title: "Konsep Dasar",
+                          desc: "Ringkasan teori & analogi kehidupan nyata",
+                        },
+                      ].map((item) => {
+                        const isSelected = aiConfig.kelas.guidanceLevel === item.id;
+                        return (
+                          <div
+                            key={item.id}
+                            onClick={() =>
+                              setAiConfig((prev) => ({
+                                ...prev,
+                                kelas: {
+                                  ...prev.kelas,
+                                  guidanceLevel: item.id as any,
+                                },
+                              }))
+                            }
+                            className={`p-3 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
+                              isSelected
+                                ? "border-blue-600 bg-blue-50/50 shadow-xs"
+                                : "border-slate-200 hover:border-slate-300 bg-white"
+                            }`}
+                          >
+                            <span className="text-xs font-black text-slate-900">{item.title}</span>
+                            <span className="text-[10px] text-slate-500 font-medium mt-1 leading-snug">
+                              {item.desc}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Toggle Penjelasan Rumus */}
+                  <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
+                    <div>
+                      <span className="text-xs font-bold text-slate-800 block">
+                        Izinkan Penjelasan Rumus Matematika (LaTeX)
+                      </span>
+                      <span className="text-[11px] text-slate-500">
+                        AI boleh merender format rumus matematika resmi
+                      </span>
+                    </div>
+                    <ClassroomToggle
+                      id="toggle-rumus"
+                      checked={aiConfig.kelas.allowExplanation}
+                      onChange={(val) =>
+                        setAiConfig((prev) => ({
+                          ...prev,
+                          kelas: { ...prev.kelas, allowExplanation: val },
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                <span>Pengaturan langsung aktif di bab materi</span>
+                <span className="font-bold text-blue-600">Mode Belajar Mandiri</span>
+              </div>
+            </div>
+
+            {/* ═══════════════════════════════════════════════════════════ */}
+            {/* TIPE 2: AI DI KUIS & UJIAN (ASESMEN KETAT)                    */}
+            {/* ═══════════════════════════════════════════════════════════ */}
+            <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-sm flex flex-col justify-between space-y-6">
+              <div className="space-y-6">
+                {/* Header Card Tipe 2 */}
+                <div className="flex items-start justify-between gap-4 pb-4 border-b border-slate-100">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-11 h-11 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center font-black shadow-inner border border-amber-100">
+                      <Award className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-amber-100 text-amber-900">
+                          TIPE 2
+                        </span>
+                        <h3 className="text-base sm:text-lg font-black text-[#0F172A]">
+                          AI di Kuis & Ujian
+                        </h3>
+                      </div>
+                      <p className="text-xs text-slate-500 font-medium mt-0.5">
+                        Asesmen berbatas waktu, penilaian akhir bab, & ujian resmi
+                      </p>
+                    </div>
+                  </div>
+
+                  <ClassroomToggle
+                    id="toggle-ai-kuis"
+                    checked={aiConfig.kuis.enabled}
+                    onChange={(val) =>
+                      setAiConfig((prev) => ({
+                        ...prev,
+                        kuis: { ...prev.kuis, enabled: val },
+                      }))
+                    }
+                  />
+                </div>
+
+                {/* Content Settings Tipe 2 */}
+                <div className={`space-y-5 transition-opacity ${aiConfig.kuis.enabled ? "opacity-100" : "opacity-40 pointer-events-none"}`}>
+                  {/* Slider Kuota Bantuan Kuis (Ketat) */}
+                  <div className="p-4 rounded-2xl bg-amber-50/50 border border-amber-200/80 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <ShieldAlert className="w-4 h-4 text-amber-600" />
+                        <span>Batas Bantuan AI per Sesi Kuis (Ketat)</span>
+                      </label>
+                      <span className="font-mono text-xs font-black text-amber-900 bg-amber-100 px-2.5 py-1 rounded-xl border border-amber-200">
+                        {aiConfig.kuis.tokensPerQuiz} Bantuan / Sesi Kuis
+                      </span>
+                    </div>
+
+                    <input
+                      type="range"
+                      min={1}
+                      max={10}
+                      step={1}
+                      value={aiConfig.kuis.tokensPerQuiz}
+                      onChange={(e) =>
+                        setAiConfig((prev) => ({
+                          ...prev,
+                          kuis: { ...prev.kuis, tokensPerQuiz: parseInt(e.target.value, 10) },
+                        }))
+                      }
+                      className="w-full accent-amber-600 cursor-pointer"
+                    />
+
+                    {/* Quick Preset Buttons */}
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {[1, 3, 5, 10].map((val) => (
+                        <button
+                          key={val}
+                          type="button"
+                          onClick={() =>
+                            setAiConfig((prev) => ({
+                              ...prev,
+                              kuis: { ...prev.kuis, tokensPerQuiz: val },
+                            }))
+                          }
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition cursor-pointer ${
+                            aiConfig.kuis.tokensPerQuiz === val
+                              ? "bg-amber-600 text-white shadow-xs"
+                              : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-100"
+                          }`}
+                        >
+                          {val === 3 ? "3 (Rekomendasi)" : `${val} Bantuan`}
+                        </button>
+                      ))}
+                    </div>
+
+                    <p className="text-[11px] text-slate-500 italic pt-1">
+                      Bila token habis, input AI otomatis terkunci dan siswa wajib menyelesaikan sisa soal secara mandiri.
+                    </p>
+                  </div>
+
+                  {/* Mode Proteksi Anti-Bocoran Kunci Jawaban */}
+                  <div className="p-3.5 rounded-2xl bg-white border border-slate-200/90 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                        <span className="text-xs font-bold text-slate-800">
+                          Proteksi Anti-Bocoran Kunci Jawaban (Zero-Answer Mode)
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-black text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">
+                        WAJIB AKTIF
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                      AI mendeteksi dan secara otomatis menolak apabila siswa meminta kunci jawaban (A/B/C/D) atau hasil hitungan final. AI hanya memberikan arahan logika berpikir.
+                    </p>
+                  </div>
+
+                  {/* Cooldown Antar Pertanyaan */}
+                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-slate-400" />
+                        <span>Jeda Waktu Antar Pertanyaan (Cooldown)</span>
+                      </label>
+                      <span className="font-mono text-xs font-bold text-slate-700">
+                        {aiConfig.kuis.cooldownSeconds === 0 ? "Tanpa Jeda" : `${aiConfig.kuis.cooldownSeconds} Detik`}
+                      </span>
+                    </div>
+                    <div className="flex gap-2">
+                      {[0, 30, 60].map((sec) => (
+                        <button
+                          key={sec}
+                          type="button"
+                          onClick={() =>
+                            setAiConfig((prev) => ({
+                              ...prev,
+                              kuis: { ...prev.kuis, cooldownSeconds: sec },
+                            }))
+                          }
+                          className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                            aiConfig.kuis.cooldownSeconds === sec
+                              ? "bg-slate-900 text-white shadow-xs"
+                              : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
+                          }`}
+                        >
+                          {sec === 0 ? "0 Detik" : `${sec} Detik`}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                <span>Terintegrasi di Lembar Ujian & Kuis Bab</span>
+                <span className="font-bold text-amber-700">Proteksi Asesmen Otomatis</span>
+              </div>
+            </div>
+          </div>
+
+          {/* ═══════════════════════════════════════════════════════════ */}
+          {/* PRATINJAU LANGSUNG TAMPILAN SISWA (INTERACTIVE PREVIEW)     */}
+          {/* ═══════════════════════════════════════════════════════════ */}
+          <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center font-bold">
+                  <Eye className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-black text-[#0F172A]">
+                    Pratinjau Tampilan Siswa (Live Preview)
+                  </h4>
+                  <p className="text-[11px] text-slate-500">
+                    Lihat bagaimana tampilan widget Thinksy AI yang dilihat siswa sesuai konfigurasi yang Anda atur
+                  </p>
+                </div>
+              </div>
+
+              {/* Mode Toggle Switcher */}
+              <div className="inline-flex items-center bg-slate-100 p-1 rounded-2xl text-xs font-bold border border-slate-200 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setPreviewMode("kelas")}
+                  className={`px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
+                    previewMode === "kelas"
+                      ? "bg-white text-blue-700 shadow-xs font-black"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <BookOpen className="w-3.5 h-3.5" />
+                  <span>Mode Kelas</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewMode("kuis")}
+                  className={`px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
+                    previewMode === "kuis"
+                      ? "bg-[#193446] text-[#E9C77B] shadow-xs font-black"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <Award className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Mode Kuis</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Live Chat Component Box (Matching Screenshot 100%) */}
+            <div className="max-w-xl mx-auto rounded-3xl border border-slate-200 shadow-lg overflow-hidden bg-white text-slate-900">
+              {/* Header Box */}
+              <div className="bg-[#193446] text-white px-4 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-white/10 p-1 flex items-center justify-center shrink-0 border border-white/15">
+                    <img src="/logo.png" alt="thinksy AI" className="w-full h-full object-contain drop-shadow-xs" />
+                  </div>
+                  <div>
+                    <h5 className="text-xs font-black text-[#E9C77B] flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-[#E9C77B] animate-spin" style={{ animationDuration: "3s" }} />
+                      thinksy AI {previewMode === "kuis" && <span className="text-[10px] text-amber-200 font-bold ml-1 px-1.5 py-0.2 rounded-md bg-amber-500/30 border border-amber-400/40">KUIS</span>}
+                    </h5>
+                    <p className="text-[10px] text-slate-300 font-medium">
+                      {previewMode === "kuis"
+                        ? "Bimbingan Sokratik Kuis • Anti-Kunci Jawaban"
+                        : "Panduan Step-by-Step Tanpa Kunci Jawaban"}
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  {previewMode === "kuis" ? (
+                    <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                      Kuota Kuis: {aiConfig.kuis.tokensPerQuiz}/{aiConfig.kuis.tokensPerQuiz}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-semibold bg-white/10 px-2.5 py-1 rounded-full text-slate-200 border border-white/10">
+                      Sisa Kuota: {aiConfig.kelas.dailyTokens}/{aiConfig.kelas.dailyTokens}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Body Messages Preview */}
+              <div className="p-4 bg-slate-50/60 space-y-3.5 text-xs">
+                {/* AI Welcome Bubble */}
+                <div className="flex items-start gap-2.5">
+                  <div className="w-7 h-7 rounded-xl bg-white border border-slate-200 p-0.5 flex items-center justify-center shrink-0 shadow-xs">
+                    <img src="/logo.png" alt="AI" className="w-full h-full object-contain" />
+                  </div>
+                  <div className="max-w-[85%] rounded-2xl p-3.5 bg-white text-slate-800 border border-slate-200/90 shadow-2xs rounded-tl-xs leading-relaxed">
+                    Halo! Saya <strong>thinksy Socratic AI Tutor</strong> 🤖🦉. Ada konsep atau soal yang ingin kita bedah bersama? Saya akan membantumu menalar dan memahaminya langkah demi langkah secara mendalam!
+                  </div>
+                </div>
+
+                {/* Sample User Bubble */}
+                <div className="flex items-start gap-2.5 flex-row-reverse">
+                  <div className="w-7 h-7 rounded-xl bg-[#193446] text-[#E9C77B] flex items-center justify-center shrink-0 shadow-xs text-[10px] font-black">
+                    S
+                  </div>
+                  <div className="max-w-[85%] rounded-2xl p-3 bg-[#193446] text-white shadow-2xs rounded-tr-xs leading-relaxed font-medium">
+                    Jelaskan secara ringkas poin penting dari Bab 1: Bilangan Berpangkat & Bentuk Akar
+                  </div>
+                </div>
+              </div>
+
+              {/* Sample Input Bar */}
+              <div className="p-3 bg-white border-t border-slate-100 flex items-center gap-2">
+                <input
+                  type="text"
+                  disabled
+                  placeholder="Tanyakan hal yang belum kamu pahami..."
+                  className="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-400 bg-slate-50/50"
+                />
+                <button
+                  type="button"
+                  disabled
+                  className="p-2.5 rounded-xl bg-[#193446] text-[#E9C77B] font-bold shadow-sm"
+                >
+                  <Send className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Save Bar */}
+          <div className="p-4 sm:p-5 rounded-3xl bg-slate-100 border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="text-xs text-slate-600 font-medium">
+              💡 Perubahan akan langsung disiarkan secara real-time ke semua browser siswa yang sedang aktif.
+            </div>
+
+            <button
+              type="button"
+              onClick={handleSaveAiConfig}
+              className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-[#193446] hover:bg-[#132836] text-[#E9C77B] font-black text-xs flex items-center justify-center gap-2 transition cursor-pointer shadow-md"
+            >
+              <Save className="w-4 h-4 text-[#E9C77B]" />
+              <span>Simpan & Terapkan Konfigurasi AI</span>
+            </button>
           </div>
         </div>
       )}

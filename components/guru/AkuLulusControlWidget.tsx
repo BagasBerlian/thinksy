@@ -61,26 +61,6 @@ const DEFAULT_EXAMS: ExamControlItem[] = [
     token: "MTK-ULG26",
   },
   {
-    id: "e3eebc99-9c0b-4ef8-bb6d-6bb9bd380a33",
-    judul: "Ulangan Harian: Teks LHO & Kalimat Efektif",
-    tipe: "ulangan",
-    mapel: "Bahasa Indonesia",
-    durasi_menit: 60,
-    passing_grade: 75,
-    status: "dipublikasi",
-    token: "IND-ULG26",
-  },
-  {
-    id: "e4eebc99-9c0b-4ef8-bb6d-6bb9bd380a44",
-    judul: "Ulangan Harian: Descriptive Text & Daily Routines",
-    tipe: "ulangan",
-    mapel: "Bahasa Inggris",
-    durasi_menit: 60,
-    passing_grade: 75,
-    status: "dipublikasi",
-    token: "ENG-ULG26",
-  },
-  {
     id: "e5eebc99-9c0b-4ef8-bb6d-6bb9bd380a55",
     judul: "Penilaian Tengah Semester (PTS) Matematika Terpadu",
     tipe: "ujian",
@@ -89,26 +69,6 @@ const DEFAULT_EXAMS: ExamControlItem[] = [
     passing_grade: 75,
     status: "dipublikasi",
     token: "MTK-PTS26",
-  },
-  {
-    id: "e6eebc99-9c0b-4ef8-bb6d-6bb9bd380a66",
-    judul: "Penilaian Tengah Semester (PTS) Bahasa Indonesia",
-    tipe: "ujian",
-    mapel: "Bahasa Indonesia",
-    durasi_menit: 90,
-    passing_grade: 75,
-    status: "dipublikasi",
-    token: "IND-PTS26",
-  },
-  {
-    id: "e2eebc99-9c0b-4ef8-bb6d-6bb9bd380a22",
-    judul: "Penilaian Tengah Semester (PTS) Bahasa Inggris",
-    tipe: "ujian",
-    mapel: "Bahasa Inggris",
-    durasi_menit: 90,
-    passing_grade: 75,
-    status: "dipublikasi",
-    token: "ENG-PTS26",
   },
 ];
 
@@ -460,10 +420,8 @@ export default function AkuLulusControlWidget() {
             onChange={(e) => setSelectedMapelFilter(e.target.value)}
             className="text-xs bg-slate-50 border border-slate-200 rounded-full px-3.5 py-1.5 font-medium text-slate-700 focus:outline-none focus:bg-white focus:border-[#1967D2] cursor-pointer"
           >
-            <option value="semua">Semua Mata Pelajaran</option>
+            <option value="semua">Semua (Matematika Kelas 8)</option>
             <option value="Matematika">Matematika</option>
-            <option value="Bahasa Indonesia">Bahasa Indonesia</option>
-            <option value="Bahasa Inggris">Bahasa Inggris</option>
           </select>
 
           {/* Search Box */}

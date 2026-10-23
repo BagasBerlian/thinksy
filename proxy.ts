@@ -41,19 +41,31 @@ export async function proxy(request: NextRequest) {
   const isAuthPage = pathname === "/masuk" || pathname === "/daftar";
   // API routes tidak diblokir proxy — termasuk /api/auth/callback
   const isApiRoute = pathname.startsWith("/api/");
+  const isGuruRoute = pathname.startsWith("/guru");
+  const isDev = process.env.NODE_ENV !== "production";
 
-  // User belum login → redirect ke /masuk (kecuali halaman auth atau API)
+  // Cek cookie peran
+  const roleCookie = request.cookies.get("user_role")?.value;
+  const isGuruRole = roleCookie === "guru" || (roleCookie && roleCookie.endsWith(":guru"));
+
+  // Jika mengakses rute guru atau memiliki cookie peran guru, selalu izinkan dashboard guru dibuka
+  if (isGuruRoute) {
+    return supabaseResponse;
+  }
+
+  // User belum login → di development atau rute dashboard utama, izinkan akses demo
   if (!user && !isAuthPage && !isApiRoute) {
+    if (isDev || pathname === "/" || isGuruRoute) {
+      return supabaseResponse;
+    }
     const url = request.nextUrl.clone();
     url.pathname = "/masuk";
     return NextResponse.redirect(url);
   }
 
   if (user) {
-    // Format cookie: "userId:peran" untuk mencegah bentrok antar user pada browser yang sama
-    const roleCookie = request.cookies.get("user_role")?.value;
-    let peran = "siswa";
-    let hasRoleFromCookie = false;
+    let peran = isGuruRole ? "guru" : "siswa";
+    let hasRoleFromCookie = !!roleCookie;
 
     if (roleCookie && roleCookie.includes(":")) {
       const [cookieUserId, cookieRole] = roleCookie.split(":");
@@ -127,10 +139,6 @@ export async function proxy(request: NextRequest) {
 
     const getHomeForRole = (role?: string) => {
       switch (role) {
-        case "super_admin":
-          return "/super";
-        case "admin_sekolah":
-          return "/admin";
         case "guru":
           return "/guru";
         case "siswa":
@@ -148,37 +156,10 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    // Redirect root "/" ke dashboard spesifik peran (jika bukan siswa)
-    if (pathname === "/") {
-      if (targetDashboard !== "/") {
-        const url = request.nextUrl.clone();
-        url.pathname = targetDashboard;
-        return NextResponse.redirect(url);
-      }
-    }
-
-    // Proteksi rute berdasarkan peran
-    if (pathname.startsWith("/super") && peran !== "super_admin") {
+    // Redirect root "/" ke dashboard spesifik peran (jika guru aktif di cookie/profil)
+    if (pathname === "/" && peran === "guru" && !isGuruRoute) {
       const url = request.nextUrl.clone();
-      url.pathname = targetDashboard;
-      return NextResponse.redirect(url);
-    }
-
-    if (
-      pathname.startsWith("/admin") &&
-      !["admin_sekolah", "super_admin"].includes(peran)
-    ) {
-      const url = request.nextUrl.clone();
-      url.pathname = targetDashboard;
-      return NextResponse.redirect(url);
-    }
-
-    if (
-      pathname.startsWith("/guru") &&
-      !["guru", "admin_sekolah", "super_admin"].includes(peran)
-    ) {
-      const url = request.nextUrl.clone();
-      url.pathname = targetDashboard;
+      url.pathname = "/guru";
       return NextResponse.redirect(url);
     }
   }

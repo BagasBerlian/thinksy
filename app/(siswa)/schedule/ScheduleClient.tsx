@@ -141,7 +141,7 @@ export default function ScheduleClient({
               Agenda Pembelajaran Sekolah
             </h2>
             <p className="text-xs text-slate-500 mt-1">
-              Jadwal terhubung langsung dengan kelola kelas Guru & Admin Sekolah.
+              Jadwal terhubung langsung dengan kelola kelas Guru.
             </p>
           </div>
 

@@ -29,7 +29,7 @@ export interface AgendaAkademikItem {
   id: string;
   judul: string;
   deskripsi?: string | null;
-  kategori: "ulangan" | "ujian" | "tugas" | "agenda";
+  kategori: "ulangan" | "ujian" | "tugas" | "agenda" | "bab_coming_soon";
   tanggal: string; // YYYY-MM-DD
   jam_mulai?: string | null;
   jam_selesai?: string | null;
@@ -150,7 +150,7 @@ export interface ToastNotificationData {
   title: string;
   message: string;
   time: string;
-  type?: "success" | "alpha" | "info";
+  type?: "success" | "alpha" | "info" | "warning";
 }
 
 export interface UjianItem {
@@ -183,6 +183,7 @@ export interface ClassroomCardItem {
 
 export interface StudentDashboardProps {
   userProfile: {
+    id?: string;
     nama_lengkap: string;
     email: string;
     peran: string;

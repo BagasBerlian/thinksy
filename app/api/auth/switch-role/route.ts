@@ -15,9 +15,9 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { targetRole } = body;
 
-    const validRoles = ["super_admin", "admin_sekolah", "guru", "siswa"];
+    const validRoles = ["guru", "siswa"];
     if (!validRoles.includes(targetRole)) {
-      return NextResponse.json({ error: "Peran tidak valid" }, { status: 400 });
+      return NextResponse.json({ error: "Peran tidak valid. Hanya guru dan siswa yang tersedia." }, { status: 400 });
     }
 
     let userId = user?.id;
@@ -53,8 +53,6 @@ export async function POST(req: Request) {
     });
 
     const targetPaths: Record<string, string> = {
-      super_admin: "/super",
-      admin_sekolah: "/admin",
       guru: "/guru",
       siswa: "/",
     };
