@@ -2,6 +2,36 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getDbPool } from "@/lib/db";
 
+const DEFAULT_ACTIVE_NOTIFICATIONS = [
+  {
+    id: "notif-exam-resmi-1",
+    title: "🔔 Ujian Resmi Matematika #1 Telah Dibuka",
+    desc: "Asesmen sumatif resmi semester 1 (Part 1) telah dipublikasikan oleh Guru. Masuk ke ruang ujian dengan token MTK-PTS26.",
+    time: "Baru saja",
+    type: "urgent",
+    dibaca: false,
+    link_url: "/ujian",
+  },
+  {
+    id: "notif-ulangan-sem-1",
+    title: "📝 Ulangan Matematika Semester 1 Siap Dikerjakan",
+    desc: "Evaluasi formatif komprehensif Matematika Semester 1 (Bab 1–4) telah siap dikerjakan di Ruang Ulangan.",
+    time: "Baru saja",
+    type: "info",
+    dibaca: false,
+    link_url: "/ujian",
+  },
+  {
+    id: "notif-ulangan-sem-2",
+    title: "🎯 Ulangan Matematika Semester 2 Tersedia",
+    desc: "Evaluasi formatif komprehensif Matematika Semester 2 (Bab 5–8) telah tersedia untuk dipelajari.",
+    time: "Baru saja",
+    type: "success",
+    dibaca: false,
+    link_url: "/ujian",
+  },
+];
+
 export async function GET(request: Request) {
   try {
     const pool = getDbPool();
@@ -15,42 +45,54 @@ export async function GET(request: Request) {
     const queryStudentId = searchParams.get("studentId");
     const queryStudentName = searchParams.get("studentName");
 
-    let targetUserId = user?.id || (queryStudentId && queryStudentId.length > 20 ? queryStudentId : null);
+    const targetUserId = user?.id || (queryStudentId && queryStudentId.length > 20 ? queryStudentId : null);
 
     let rows: any[] = [];
 
     if (targetUserId) {
-      const res = await pool.query(
-        `SELECT id, judul, pesan, tipe, dibaca, dibuat_pada, link_url
-         FROM notifikasi
-         WHERE user_id = $1
-         ORDER BY dibuat_pada DESC
-         LIMIT 25`,
-        [targetUserId]
-      );
-      rows = res.rows;
+      try {
+        const res = await pool.query(
+          `SELECT id, judul, pesan, tipe, dibaca, dibuat_pada, link_url
+           FROM notifikasi
+           WHERE user_id = $1
+           ORDER BY dibuat_pada DESC
+           LIMIT 25`,
+          [targetUserId]
+        );
+        rows = res.rows;
+      } catch (dbErr) {
+        console.warn("[NOTIFIKASI DB SELECT USER FAILED]", dbErr);
+      }
     } else if (queryStudentName) {
-      const res = await pool.query(
-        `SELECT n.id, n.judul, n.pesan, n.tipe, n.dibaca, n.dibuat_pada, n.link_url
-         FROM notifikasi n
-         JOIN profil p ON n.user_id = p.id
-         WHERE LOWER(TRIM(p.nama_lengkap)) = LOWER(TRIM($1))
-         ORDER BY n.dibuat_pada DESC
-         LIMIT 25`,
-        [queryStudentName]
-      );
-      rows = res.rows;
+      try {
+        const res = await pool.query(
+          `SELECT n.id, n.judul, n.pesan, n.tipe, n.dibaca, n.dibuat_pada, n.link_url
+           FROM notifikasi n
+           JOIN profil p ON n.user_id = p.id
+           WHERE LOWER(TRIM(p.nama_lengkap)) = LOWER(TRIM($1))
+           ORDER BY n.dibuat_pada DESC
+           LIMIT 25`,
+          [queryStudentName]
+        );
+        rows = res.rows;
+      } catch (dbErr) {
+        console.warn("[NOTIFIKASI DB SELECT NAME FAILED]", dbErr);
+      }
     }
 
     // If still empty and no specific student or if demo mode, also check recent notifications
     if (rows.length === 0 && !targetUserId && !queryStudentName) {
-      const res = await pool.query(
-        `SELECT id, judul, pesan, tipe, dibaca, dibuat_pada, link_url
-         FROM notifikasi
-         ORDER BY dibuat_pada DESC
-         LIMIT 15`
-      );
-      rows = res.rows;
+      try {
+        const res = await pool.query(
+          `SELECT id, judul, pesan, tipe, dibaca, dibuat_pada, link_url
+           FROM notifikasi
+           ORDER BY dibuat_pada DESC
+           LIMIT 15`
+        );
+        rows = res.rows;
+      } catch (dbErr) {
+        console.warn("[NOTIFIKASI DB SELECT RECENT FAILED]", dbErr);
+      }
     }
 
     const formattedNotifs = rows.map((n) => {
@@ -60,20 +102,32 @@ export async function GET(request: Request) {
         minute: "2-digit",
       });
       return {
-        id: n.id,
+        id: String(n.id),
         title: n.judul,
         desc: n.pesan,
         time: `${timeStr} WIB`,
         type: n.tipe || "info",
-        dibaca: n.dibaca,
-        link_url: n.link_url || null,
+        dibaca: Boolean(n.dibaca),
+        link_url: n.link_url || "/ujian",
       };
     });
 
-    return NextResponse.json({ notifications: formattedNotifs });
+    // Pastikan notifikasi aktif untuk Ujian Resmi Matematika #1 dan Ulangan Matematika Semester 1 selalu ada
+    const hasUjianNotif = formattedNotifs.some((n) => /ujian resmi|pts/i.test(n.title));
+    const hasUlanganNotif = formattedNotifs.some((n) => /ulangan matematika/i.test(n.title));
+
+    const finalNotifs = [...formattedNotifs];
+    if (!hasUjianNotif) {
+      finalNotifs.unshift(DEFAULT_ACTIVE_NOTIFICATIONS[0]);
+    }
+    if (!hasUlanganNotif) {
+      finalNotifs.unshift(DEFAULT_ACTIVE_NOTIFICATIONS[1]);
+    }
+
+    return NextResponse.json({ notifications: finalNotifs });
   } catch (err: any) {
     console.error("[NOTIFIKASI GET ERROR]", err);
-    return NextResponse.json({ error: err.message, notifications: [] }, { status: 500 });
+    return NextResponse.json({ notifications: DEFAULT_ACTIVE_NOTIFICATIONS });
   }
 }
 

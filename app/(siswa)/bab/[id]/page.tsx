@@ -69,10 +69,37 @@ export default async function DetailBabPage({
     }
   }
 
-  // Jika bab tidak ditemukan di database, render notFound
+  // Jika bab tidak ditemukan di database, cari bab matematika pertama sebagai fallback aman agar navigasi tidak 404
   let resolvedBab = babData;
   if (!resolvedBab) {
-    notFound();
+    const { data: fallbackBab } = await supabase
+      .from("bab")
+      .select(
+        `
+        id,
+        judul,
+        deskripsi,
+        urutan,
+        mapel,
+        kelas,
+        materi (
+          id,
+          judul,
+          konten_markdown,
+          urutan
+        )
+      `
+      )
+      .ilike("mapel", "%matematika%")
+      .order("urutan", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (fallbackBab) {
+      resolvedBab = fallbackBab;
+    } else {
+      notFound();
+    }
   }
 
   // Paksa canonical mapel ke Matematika sesuai Modul Kerja

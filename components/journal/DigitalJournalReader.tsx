@@ -140,7 +140,7 @@ export default function DigitalJournalReader({
         const data = await res.json();
         setHighlights(data.highlights || []);
       }
-    } catch {}
+    } catch { }
   };
 
   const fetchMarginNotes = async (materiId: string) => {
@@ -150,7 +150,7 @@ export default function DigitalJournalReader({
         const data = await res.json();
         setMarginNotes(data.notes || []);
       }
-    } catch {}
+    } catch { }
   };
 
   const fetchBookmarks = async (materiId: string) => {
@@ -161,7 +161,7 @@ export default function DigitalJournalReader({
         const pages = (data.bookmarks || []).map((b: any) => b.halaman_nomor);
         setBookmarkedPages(pages);
       }
-    } catch {}
+    } catch { }
   };
 
   // Underline Feature State (Menggantikan tema, Aa, dan catatan)
@@ -178,7 +178,7 @@ export default function DigitalJournalReader({
       } else {
         setUnderlinesCount(0);
       }
-    } catch {}
+    } catch { }
   }, [babId, currentPage?.id, currentPageIndex]);
 
   const saveCurrentUnderlines = () => {
@@ -189,7 +189,7 @@ export default function DigitalJournalReader({
       const texts = Array.from(elements).map((el) => el.textContent || "").filter(Boolean);
       const key = `thinksy_journal_underlines_${babId}_${currentPage?.id || currentPageIndex}`;
       localStorage.setItem(key, JSON.stringify(texts));
-    } catch {}
+    } catch { }
   };
 
   const handleApplyUnderline = () => {
@@ -298,7 +298,7 @@ export default function DigitalJournalReader({
         }),
       });
       fetchHighlights(currentPage.id);
-    } catch {}
+    } catch { }
   };
 
   // Delete highlight
@@ -307,7 +307,7 @@ export default function DigitalJournalReader({
     showToast("Stabilo dihapus");
     try {
       await fetch(`/api/siswa/journal/highlight?id=${id}`, { method: "DELETE" });
-    } catch {}
+    } catch { }
   };
 
   // Add margin note
@@ -342,7 +342,7 @@ export default function DigitalJournalReader({
         }),
       });
       fetchMarginNotes(currentPage.id);
-    } catch {}
+    } catch { }
   };
 
   // Delete note
@@ -351,7 +351,7 @@ export default function DigitalJournalReader({
     showToast("Catatan dihapus");
     try {
       await fetch(`/api/siswa/journal/catatan?id=${id}`, { method: "DELETE" });
-    } catch {}
+    } catch { }
   };
 
   // Toggle bookmark for current page
@@ -383,15 +383,54 @@ export default function DigitalJournalReader({
           }),
         });
       }
-    } catch {}
+    } catch { }
   };
 
-  // Ask AI Assistant with context
-  const handleAskAiContext = (presetPrompt?: string) => {
-    const prompt = presetPrompt || selectedText || "Jelaskan konsep ini dengan bahasa sederhana.";
-    setAiQuery(prompt);
+  // Ask AI Assistant with context and automatically trigger explanation
+  const handleAskAiContext = async (presetPrompt?: string) => {
+    const userMsg =
+      presetPrompt ||
+      (selectedText
+        ? `Tolong jelaskan bagian yang saya tandai ini dengan bahasa yang ringkas dan mudah dipahami: "${selectedText}"`
+        : "Jelaskan konsep ini dengan bahasa sederhana.");
+    if (!userMsg.trim() || isAiLoading) return;
+
+    setAiQuery("");
     setIsAiDrawerOpen(true);
     setSelectionPosition(null);
+    showToast("✨ Thinksy AI sedang menyiapkan penjelasan...");
+    setAiHistory((prev) => [...prev, { role: "user", content: userMsg }]);
+    setIsAiLoading(true);
+
+    try {
+      const res = await fetch("/api/tutor/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          materiJudul: `${judulBab} - ${currentPage?.judul}`,
+          materiKonten: currentPage?.konten_markdown?.substring(0, 1500) || "",
+          message: userMsg,
+          history: aiHistory,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.reply) {
+        setAiHistory((prev) => [...prev, { role: "assistant", content: data.reply }]);
+      } else {
+        setAiHistory((prev) => [
+          ...prev,
+          { role: "assistant", content: data.error || "Maaf, terjadi kendala saat memproses jawaban." },
+        ]);
+      }
+    } catch {
+      setAiHistory((prev) => [
+        ...prev,
+        { role: "assistant", content: "Koneksi terputus. Silakan coba kirim ulang pertanyaan." },
+      ]);
+    } finally {
+      setIsAiLoading(false);
+    }
   };
 
   const handleSendAiMessage = async (e?: React.FormEvent) => {
@@ -464,7 +503,7 @@ export default function DigitalJournalReader({
       )}
 
       {/* 2. MAIN JOURNAL CONTAINER (2 Columns: TOC / Margin Drawer & Book Page) */}
-      <main className="mx-auto max-w-7xl px-4 sm:px-6 pt-6 pb-28">
+      <main className="w-full px-4 sm:px-6 md:px-8 lg:px-10 pt-6 pb-28">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* ========================================================= */}
           {/* LEFT SIDEBAR: Table of Contents / Outline */}
@@ -497,21 +536,19 @@ export default function DigitalJournalReader({
                         setCurrentPageIndex(idx);
                         window.scrollTo({ top: 0, behavior: "smooth" });
                       }}
-                      className={`w-full text-left p-2.5 rounded-2xl transition flex items-center justify-between text-xs font-bold cursor-pointer border ${
-                        isActive
+                      className={`w-full text-left p-2.5 rounded-2xl transition flex items-center justify-between text-xs font-bold cursor-pointer border ${isActive
                           ? "bg-[#0F172A] text-white border-slate-900 shadow-xs"
                           : readingTheme === "dark"
-                          ? "hover:bg-slate-800 text-slate-300 border-transparent"
-                          : "hover:bg-slate-100 text-slate-700 border-transparent"
-                      }`}
+                            ? "hover:bg-slate-800 text-slate-300 border-transparent"
+                            : "hover:bg-slate-100 text-slate-700 border-transparent"
+                        }`}
                     >
                       <div className="flex items-center gap-2.5 truncate">
                         <span
-                          className={`w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-extrabold shrink-0 ${
-                            isActive
+                          className={`w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-extrabold shrink-0 ${isActive
                               ? "bg-blue-600 text-white"
                               : "bg-slate-100 text-slate-700"
-                          }`}
+                            }`}
                         >
                           {idx + 1}
                         </span>
@@ -655,9 +692,8 @@ export default function DigitalJournalReader({
                         setCurrentPageIndex(idx);
                         window.scrollTo({ top: 0, behavior: "smooth" });
                       }}
-                      className={`w-2.5 h-2.5 rounded-full transition-all ${
-                        idx === currentPageIndex ? "w-6 bg-blue-600" : "bg-slate-300 hover:bg-slate-400"
-                      }`}
+                      className={`w-2.5 h-2.5 rounded-full transition-all ${idx === currentPageIndex ? "w-6 bg-blue-600" : "bg-slate-300 hover:bg-slate-400"
+                        }`}
                       title={`Ke Halaman ${idx + 1}`}
                     />
                   ))}
@@ -741,14 +777,14 @@ export default function DigitalJournalReader({
             <span className="hidden sm:inline">Garis Bawahi</span>
           </button>
 
-          {/* Ask AI about this text */}
+          {/* Tanya Thinksy AI about this text */}
           <button
-            onClick={() => handleAskAiContext(`Tolong jelaskan bagian ini dengan bahasa sederhana: "${selectedText}"`)}
-            className="p-1.5 hover:bg-slate-800 rounded-lg text-xs font-bold flex items-center gap-1 text-blue-400 hover:text-blue-300 transition cursor-pointer"
-            title="Tanya AI tentang teks ini"
+            onClick={() => handleAskAiContext(`Tolong jelaskan bagian yang saya tandai ini dengan bahasa yang ringkas dan mudah dipahami: "${selectedText}"`)}
+            className="px-2.5 py-1.5 rounded-lg bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-black flex items-center gap-1.5 shadow-sm transition cursor-pointer active:scale-95"
+            title="Tanya Thinksy AI untuk menjelaskan bagian ini secara otomatis"
           >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Tanya AI</span>
+            <Sparkles className="w-3.5 h-3.5 text-amber-300 shrink-0 animate-pulse" />
+            <span>Tanya Thinksy</span>
           </button>
         </div>
       )}
@@ -823,9 +859,8 @@ export default function DigitalJournalReader({
         {/* Floating Trigger Button */}
         <button
           onClick={() => setIsFloatingMenuOpen(!isFloatingMenuOpen)}
-          className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-xl transition duration-200 cursor-pointer ${
-            isFloatingMenuOpen ? "bg-slate-900 text-white rotate-45" : "bg-[#0F172A] hover:bg-slate-800 text-white"
-          }`}
+          className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-xl transition duration-200 cursor-pointer ${isFloatingMenuOpen ? "bg-slate-900 text-white rotate-45" : "bg-[#0F172A] hover:bg-slate-800 text-white"
+            }`}
           title="Quick Learning Actions"
         >
           <Plus className="w-6 h-6" />
@@ -943,16 +978,14 @@ export default function DigitalJournalReader({
             {aiHistory.map((msg, i) => (
               <div
                 key={i}
-                className={`flex items-start gap-2.5 ${
-                  msg.role === "user" ? "flex-row-reverse" : "flex-row"
-                }`}
+                className={`flex items-start gap-2.5 ${msg.role === "user" ? "flex-row-reverse" : "flex-row"
+                  }`}
               >
                 <div
-                  className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 text-xs font-bold overflow-hidden shadow-xs ${
-                    msg.role === "user"
+                  className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 text-xs font-bold overflow-hidden shadow-xs ${msg.role === "user"
                       ? "bg-[#193446] text-[#E9C77B]"
                       : "bg-white border border-slate-200 p-0.5"
-                  }`}
+                    }`}
                 >
                   {msg.role === "user" ? (
                     <User className="w-3.5 h-3.5" />
@@ -962,11 +995,10 @@ export default function DigitalJournalReader({
                 </div>
 
                 <div
-                  className={`max-w-[85%] rounded-2xl p-3.5 shadow-2xs leading-relaxed ${
-                    msg.role === "user"
+                  className={`max-w-[85%] rounded-2xl p-3.5 shadow-2xs leading-relaxed ${msg.role === "user"
                       ? "bg-[#193446] text-white rounded-tr-xs font-medium [&_*]:!text-white"
                       : "bg-white text-slate-800 border border-slate-200/90 rounded-tl-xs shadow-2xs"
-                  }`}
+                    }`}
                 >
                   {msg.role === "user" ? (
                     <p className="whitespace-pre-wrap text-white font-medium">{msg.content}</p>

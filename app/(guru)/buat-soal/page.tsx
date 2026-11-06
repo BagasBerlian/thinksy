@@ -22,13 +22,26 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+// 8 Bab Kurikulum Matematika SMP Kelas 8 Resmi
+const MATEMATIKA_BAB_LIST = [
+  { id: "b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a11", judul: "Bab 1: Pola Bilangan & Barisan Bilangan" },
+  { id: "b2eebc99-9c0b-4ef8-bb6d-6bb9bd380a22", judul: "Bab 2: Bentuk Aljabar & PLSV/PTLSV" },
+  { id: "b3eebc99-9c0b-4ef8-bb6d-6bb9bd380a33", judul: "Bab 3: Relasi & Fungsi" },
+  { id: "b4eebc99-9c0b-4ef8-bb6d-6bb9bd380a44", judul: "Bab 4: Persamaan Garis Lurus (PGL)" },
+  { id: "b5eebc99-9c0b-4ef8-bb6d-6bb9bd380a55", judul: "Bab 5: Sistem Persamaan Linear Dua Variabel (SPLDV)" },
+  { id: "b6eebc99-9c0b-4ef8-bb6d-6bb9bd380a66", judul: "Bab 6: Teorema Pythagoras" },
+  { id: "b7eebc99-9c0b-4ef8-bb6d-6bb9bd380a77", judul: "Bab 7: Bangun Ruang Sisi Datar (BRSD)" },
+  { id: "b8eebc99-9c0b-4ef8-bb6d-6bb9bd380a88", judul: "Bab 8: Statistika & Peluang" },
+];
+
 export default function AIQuestionGeneratorPage() {
-  const [mode, setMode] = useState<"materi" | "soal" | "pdf_extract">("materi");
-  const [topik, setTopik] = useState("Teorema Pythagoras & Segitiga Istimewa");
+  const [mode, setMode] = useState<"materi" | "soal" | "pdf_extract">("soal");
+  const [selectedBabId, setSelectedBabId] = useState(MATEMATIKA_BAB_LIST[0].id);
+  const [topik, setTopik] = useState(MATEMATIKA_BAB_LIST[0].judul);
   const [tingkatSoal, setTingkatSoal] = useState("sedang");
-  const [tipeSoal, setTipeSoal] = useState("pilihan_ganda");
+  const [tipeSoal, setTipeSoal] = useState("paket_15");
   const [kelas, setKelas] = useState("8");
-  const [mapel, setMapel] = useState("Matematika");
+  const [mapel] = useState("Matematika");
 
   // File upload state for PDF / Images
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -44,7 +57,16 @@ export default function AIQuestionGeneratorPage() {
 
   // Result state
   const [draft, setDraft] = useState<any | null>(null);
+  const [soalList, setSoalList] = useState<any[]>([]);
   const [materiLengkap, setMateriLengkap] = useState<string | null>(null);
+
+  const handleSelectBabChange = (babId: string) => {
+    setSelectedBabId(babId);
+    const active = MATEMATIKA_BAB_LIST.find((b) => b.id === babId);
+    if (active) {
+      setTopik(active.judul);
+    }
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -66,6 +88,7 @@ export default function AIQuestionGeneratorPage() {
     setError(null);
     setSuccessMsg(null);
     setDraft(null);
+    setSoalList([]);
     setMateriLengkap(null);
 
     try {
@@ -73,11 +96,13 @@ export default function AIQuestionGeneratorPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          babId: "b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a22",
+          babId: selectedBabId,
           topik: mode === "materi" ? `Modul Bacaan Bab Lengkap & Mendalam: ${topik} (Kelas ${kelas} ${mapel})` : topik,
+          mapel,
           tingkatSoal,
           tipeSoal,
-          mode: mode === "materi" ? "materi" : "soal",
+          jumlah: tipeSoal === "paket_15" ? 15 : 1,
+          mode: mode === "materi" ? "materi" : tipeSoal === "paket_15" ? "paket_15" : "soal",
           fileBase64: fileBase64 || undefined,
           fileMimeType: fileMimeType || undefined,
         }),
@@ -89,6 +114,9 @@ export default function AIQuestionGeneratorPage() {
       }
 
       setDraft(data.draft);
+      if (Array.isArray(data.soal) && data.soal.length > 0) {
+        setSoalList(data.soal);
+      }
       if (data.materiLengkap) {
         setMateriLengkap(data.materiLengkap);
       }
@@ -108,16 +136,26 @@ export default function AIQuestionGeneratorPage() {
   };
 
   const handleSaveToBank = async () => {
-    if (!draft) return;
+    if (!draft && soalList.length === 0) return;
     setSaving(true);
     setError(null);
     setSuccessMsg(null);
 
     try {
+      const payload =
+        soalList.length > 0
+          ? {
+              babId: selectedBabId,
+              daftarSoal: soalList,
+              statusSoal: "dipublikasi",
+              sumberKonten: "ai_generated",
+            }
+          : draft;
+
       const res = await fetch("/api/guru/simpan-soal", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(draft),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
@@ -125,7 +163,7 @@ export default function AIQuestionGeneratorPage() {
         throw new Error(data.error || "Gagal menyimpan soal.");
       }
 
-      setSuccessMsg("Soal berhasil disimpan ke Bank Soal!");
+      setSuccessMsg(data.message || "Soal berhasil disimpan ke Bank Soal!");
     } catch (err: any) {
       setError(err.message || "Gagal menyimpan soal.");
     } finally {
@@ -244,37 +282,40 @@ export default function AIQuestionGeneratorPage() {
             <form onSubmit={handleGenerate} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                    Mata Pelajaran
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center justify-between">
+                    <span>Mata Pelajaran</span>
+                    <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">Khusus Fase D</span>
                   </label>
                   <select
                     value={mapel}
-                    onChange={(e) => setMapel(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600 bg-slate-50"
+                    disabled
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 bg-slate-100 cursor-not-allowed"
                   >
-                    <option value="Matematika">Matematika (Fase D SMP)</option>
+                    <option value="Matematika">📐 Matematika (Fase D SMP Kelas 8)</option>
                   </select>
                 </div>
 
                 <div className="space-y-1.5">
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                    Kelas SMP
+                    Pilih Bab Matematika Resmi
                   </label>
                   <select
-                    value={kelas}
-                    onChange={(e) => setKelas(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600 bg-slate-50"
+                    value={selectedBabId}
+                    onChange={(e) => handleSelectBabChange(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600 bg-slate-50"
                   >
-                    <option value="7">Kelas 7 SMP</option>
-                    <option value="8">Kelas 8 SMP</option>
-                    <option value="9">Kelas 9 SMP</option>
+                    {MATEMATIKA_BAB_LIST.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.judul}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
 
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Topik & Judul Bab
+                  Topik & Fokus Pembahasan Bab
                 </label>
                 <input
                   type="text"
@@ -328,10 +369,12 @@ export default function AIQuestionGeneratorPage() {
                   <select
                     value={tipeSoal}
                     onChange={(e) => setTipeSoal(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600 bg-slate-50"
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600 bg-slate-50 font-medium"
                   >
+                    <option value="paket_15">⚡ Paket 15 Soal Standar (10 PG, 3 Singkat, 2 Esai)</option>
                     <option value="pilihan_ganda">Pilihan Ganda (4 Opsi)</option>
-                    <option value="esai">Esai Uraian Bertahap</option>
+                    <option value="isian_singkat">Jawaban Singkat (Isian)</option>
+                    <option value="esai">Jawaban Panjang / Esai Bertahap</option>
                   </select>
                 </div>
               </div>
@@ -403,8 +446,170 @@ export default function AIQuestionGeneratorPage() {
               </div>
             )}
 
-            {/* Generated Question Draft Preview */}
-            {draft ? (
+            {/* Generated 15 Questions Package Preview */}
+            {soalList.length > 0 ? (
+              <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black text-blue-700 bg-blue-100 px-3 py-1 rounded-full uppercase">
+                        ⚡ Paket Standar 15 Soal Matematika
+                      </span>
+                      <span className="text-xs font-semibold text-slate-500">
+                        {soalList.length} Butir Soal Terstandar
+                      </span>
+                    </div>
+                    <h3 className="text-base font-black text-slate-900">
+                      {topik}
+                    </h3>
+                  </div>
+
+                  <button
+                    onClick={handleSaveToBank}
+                    disabled={saving}
+                    className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs transition shadow-sm cursor-pointer disabled:opacity-50 shrink-0"
+                  >
+                    {saving ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Save className="w-4 h-4" />
+                    )}
+                    <span>Simpan 15 Soal ke Bank Soal</span>
+                  </button>
+                </div>
+
+                {/* Info Komposisi Soal */}
+                <div className="grid grid-cols-3 gap-2 p-3 bg-slate-50 rounded-2xl border border-slate-200 text-center">
+                  <div className="p-2 bg-white rounded-xl border border-slate-100 shadow-2xs">
+                    <span className="block text-xs font-black text-blue-700">10 Soal</span>
+                    <span className="text-[10px] text-slate-500 font-bold">Pilihan Ganda</span>
+                  </div>
+                  <div className="p-2 bg-white rounded-xl border border-slate-100 shadow-2xs">
+                    <span className="block text-xs font-black text-emerald-700">3 Soal</span>
+                    <span className="text-[10px] text-slate-500 font-bold">Jawaban Singkat</span>
+                  </div>
+                  <div className="p-2 bg-white rounded-xl border border-slate-100 shadow-2xs">
+                    <span className="block text-xs font-black text-purple-700">2 Soal</span>
+                    <span className="text-[10px] text-slate-500 font-bold">Jawaban Panjang</span>
+                  </div>
+                </div>
+
+                {/* List of 15 Questions */}
+                <div className="space-y-6">
+                  {soalList.map((q, qIdx) => {
+                    const isPG = q.tipeSoal === "pilihan_ganda";
+                    const isSingkat = q.tipeSoal === "isian_singkat";
+                    const isEsai = q.tipeSoal === "esai";
+
+                    return (
+                      <div
+                        key={q.id || qIdx}
+                        className="p-5 rounded-2xl bg-slate-50/70 border border-slate-200 space-y-3"
+                      >
+                        <div className="flex items-center justify-between gap-2 border-b border-slate-200/60 pb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="w-6 h-6 rounded-lg bg-[#0F172A] text-white flex items-center justify-center text-xs font-black">
+                              {qIdx + 1}
+                            </span>
+                            <span
+                              className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md ${
+                                isPG
+                                  ? "bg-blue-100 text-blue-800"
+                                  : isSingkat
+                                  ? "bg-emerald-100 text-emerald-800"
+                                  : "bg-purple-100 text-purple-800"
+                              }`}
+                            >
+                              {isPG
+                                ? "Pilihan Ganda"
+                                : isSingkat
+                                ? "Jawaban Singkat"
+                                : "Jawaban Panjang (Esai)"}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Pertanyaan */}
+                        <div className="text-xs sm:text-sm text-slate-900 font-medium leading-relaxed">
+                          <MarkdownRenderer content={q.pertanyaan} />
+                        </div>
+
+                        {/* Opsi Pilihan Ganda */}
+                        {isPG && Array.isArray(q.opsi) && q.opsi.length > 0 && (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                            {q.opsi.map((o: any, oIdx: number) => {
+                              const letter = String.fromCharCode(65 + oIdx);
+                              const isCorrect = Boolean(o.benar);
+                              return (
+                                <div
+                                  key={oIdx}
+                                  className={`p-2.5 rounded-xl border text-xs flex items-center gap-2.5 ${
+                                    isCorrect
+                                      ? "border-emerald-500 bg-emerald-50 text-emerald-900 font-bold"
+                                      : "border-slate-200 bg-white text-slate-700"
+                                  }`}
+                                >
+                                  <span
+                                    className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                                      isCorrect
+                                        ? "bg-emerald-600 text-white"
+                                        : "bg-slate-100 text-slate-600"
+                                    }`}
+                                  >
+                                    {letter}
+                                  </span>
+                                  <div className="grow">
+                                    <MarkdownRenderer content={o.teks} />
+                                  </div>
+                                  {isCorrect && (
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {/* Kunci Jawaban Singkat / Rubrik */}
+                        {(isSingkat || isEsai) && q.kunciJawaban && (
+                          <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200 text-xs text-amber-900 space-y-1">
+                            <span className="font-extrabold block text-[10px] uppercase tracking-wider text-amber-800">
+                              {isSingkat ? "Kunci Jawaban Singkat:" : "Kunci & Rubrik Esai:"}
+                            </span>
+                            <MarkdownRenderer content={q.kunciJawaban} />
+                          </div>
+                        )}
+
+                        {/* Pembahasan KaTeX */}
+                        {q.pembahasan && (
+                          <div className="p-3 rounded-xl bg-white border border-slate-200 text-xs text-slate-700 space-y-1">
+                            <span className="font-extrabold block text-[10px] uppercase tracking-wider text-slate-400">
+                              Solusi KaTeX:
+                            </span>
+                            <MarkdownRenderer content={q.pembahasan} />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="pt-4 border-t border-slate-100 flex justify-end">
+                  <button
+                    onClick={handleSaveToBank}
+                    disabled={saving}
+                    className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs transition shadow-sm cursor-pointer disabled:opacity-50"
+                  >
+                    {saving ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Save className="w-4 h-4" />
+                    )}
+                    <span>Simpan Semua 15 Soal ke Bank Soal</span>
+                  </button>
+                </div>
+              </div>
+            ) : draft ? (
               <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm space-y-6">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                   <div className="flex items-center gap-2">
@@ -510,7 +715,7 @@ export default function AIQuestionGeneratorPage() {
                   Belum Ada Modul / Soal yang Digenerate
                 </p>
                 <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                  Pilih mode di formulir sebelah kiri, isi topik bab atau lampirkan berkas PDF dokumen buku, lalu klik tombol generate.
+                  Pilih bab matematika di formulir sebelah kiri, lalu klik tombol generate untuk menyusun 15 butir soal standar per bab atau modul pembelajaran.
                 </p>
               </div>
             ) : null}

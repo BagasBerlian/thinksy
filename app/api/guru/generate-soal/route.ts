@@ -38,9 +38,11 @@ export async function POST(req: Request) {
       topik = "Pola Bilangan Aritmatika",
       tingkatSoal = "sedang",
       tipeSoal = "pilihan_ganda",
+      mapel = "Matematika",
+      jumlah = 1,
       fileBase64,
       fileMimeType,
-      mode = "auto", // "soal" | "materi" | "auto"
+      mode = "auto", // "soal" | "materi" | "paket_15" | "auto"
     } = body;
 
     const geminiApiKey = process.env.GEMINI_API_KEY;
@@ -73,37 +75,66 @@ MENGEMBALIKAN DALAM FORMAT JSON BERIKUT (TANPA MARKDOWN CODE BLOCK BLOCK KECUALI
   "kunciJawaban": "<kunci jawaban latihan>",
   "pembahasan": "<penjelasan lengkap solusi latihan>",
   "opsiSoal": [
-    { "teksOpsi": "<pilihan A>", "benar": false },
-    { "teksOpsi": "<pilihan B>", "benar": true },
-    { "teksOpsi": "<pilihan C>", "benar": false },
-    { "teksOpsi": "<pilihan D>", "benar": false }
+    { "teksOpsi": "<pilihan A>", "benar": false, "alasanSalah": "<miskonsepsi opsi A>" },
+    { "teksOpsi": "<pilihan B>", "benar": true, "alasanSalah": "" },
+    { "teksOpsi": "<pilihan C>", "benar": false, "alasanSalah": "<miskonsepsi opsi C>" },
+    { "teksOpsi": "<pilihan D>", "benar": false, "alasanSalah": "<miskonsepsi opsi D>" }
+  ]
+}`;
+    } else if (tipeSoal === "paket_15" || mode === "paket_15" || jumlah === 15) {
+      promptText = `Kamu adalah Pakar Kurikulum dan Pembuat Soal ${mapel} profesional SMP Kelas 8.
+Tugasmu adalah menyusun TEPAT 15 BUTIR SOAL LATIHAN / ASESMEN PER-BAB berdasarkan topik: "${topik}".
+KOMPOSISI WAJIB TEPAT:
+- 10 Soal Pilihan Ganda (Nomor 1 s/d 10, masing-masing memiliki 4 opsi A-D, tepat 1 opsi benar=true, dan 3 opsi salah dengan penjelasan alasanSalah/miskonsepsi)
+- 3 Soal Jawaban Singkat (Nomor 11 s/d 13, dengan kunci jawaban kata/angka yang presisi)
+- 2 Soal Jawaban Panjang / Esai (Nomor 14 s/d 15, dengan rubrik uraian lengkap)
+
+ATURAN FORMULA: Gunakan KaTeX ($...$ untuk inline, $$...$$ untuk blok).
+
+MENGEMBALIKAN HANYA JSON:
+{
+  "daftarSoal": [
+    {
+      "nomor": 1,
+      "tipeSoal": "pilihan_ganda",
+      "pertanyaan": "<pertanyaan>",
+      "kunciJawaban": "<kunci>",
+      "pembahasan": "<penjelasan>",
+      "opsiSoal": [
+        { "teksOpsi": "<A>", "benar": true, "alasanSalah": "" },
+        { "teksOpsi": "<B>", "benar": false, "alasanSalah": "<alasan miskonsepsi mengapa opsi B salah>" },
+        { "teksOpsi": "<C>", "benar": false, "alasanSalah": "<alasan miskonsepsi mengapa opsi C salah>" },
+        { "teksOpsi": "<D>", "benar": false, "alasanSalah": "<alasan miskonsepsi mengapa opsi D salah>" }
+      ]
+    }
   ]
 }`;
     } else {
-      promptText = `Kamu adalah Pembuat Soal Matematika profesional untuk SMP Kelas 8.
-Tugasmu adalah menghasilkan 1 paket draft soal berkualitas tinggi berdasarkan instruksi, serta mendeteksi/menelaah materi dari berkas foto atau dokumen PDF yang dilampirkan jika ada.
+      promptText = `Kamu adalah Pembuat Soal ${mapel} profesional untuk SMP Kelas 8.
+Tugasmu adalah menghasilkan draft butir soal berkualitas tinggi sesuai kurikulum, serta mendeteksi/menelaah materi dari berkas foto atau dokumen PDF yang dilampirkan jika ada.
 
 SPESIFIKASI SOAL:
 - Topik Spesifik: ${topik}
+- Mata Pelajaran: ${mapel}
 - Tingkat Kesulitan: ${tingkatSoal} (mudah / sedang / sulit)
-- Tipe Soal: ${tipeSoal} (pilihan_ganda atau esai)
+- Tipe Soal: ${tipeSoal} (pilihan_ganda, isian_singkat, atau esai)
 
-ATURAN RUMUS MATEMATIKA:
-WAJIB menggunakan format KaTeX ($...$ untuk inline, $$...$$ untuk blok). Contoh: $U_n = a + (n-1)b$.
+ATURAN FORMULA:
+Gunakan format KaTeX ($...$ untuk inline, $$...$$ untuk blok).
 
-WAJIB MENGEMBALIKAN HANYA FORMAT JSON SAJA (TANPA TEKS LAIN SEPERTI MARKDOWN BLOCK):
+WAJIB MENGEMBALIKAN HANYA FORMAT JSON SAJA:
 {
   "pertanyaan": "<teks pertanyaan soal lengkap beserta ekspresi KaTeX>",
   "kunciJawaban": "<kunci jawaban atau ringkasan rubrik>",
   "pembahasan": "<penjelasan dan langkah penyelesaian rinci>",
   "opsiSoal": [
-    { "teksOpsi": "<pilihan A>", "benar": false },
-    { "teksOpsi": "<pilihan B>", "benar": true },
-    { "teksOpsi": "<pilihan C>", "benar": false },
-    { "teksOpsi": "<pilihan D>", "benar": false }
+    { "teksOpsi": "<pilihan A>", "benar": false, "alasanSalah": "<alasan miskonsepsi mengapa siswa memilih opsi A>" },
+    { "teksOpsi": "<pilihan B>", "benar": true, "alasanSalah": "" },
+    { "teksOpsi": "<pilihan C>", "benar": false, "alasanSalah": "<alasan miskonsepsi mengapa siswa memilih opsi C>" },
+    { "teksOpsi": "<pilihan D>", "benar": false, "alasanSalah": "<alasan miskonsepsi mengapa siswa memilih opsi D>" }
   ]
 }
-Catatan: Jika tipeSoal adalah 'esai', buat opsiSoal sebagai array kosong []. Jika 'pilihan_ganda', buat tepat 4 opsi dengan tepat 1 opsi yang benar = true.`;
+Catatan: Jika tipeSoal adalah 'esai' atau 'isian_singkat', buat opsiSoal sebagai array kosong []. Jika 'pilihan_ganda', buat tepat 4 opsi dengan tepat 1 opsi yang benar = true dan 3 opsi salah dengan 'alasanSalah' yang jelas.`;
     }
 
     if (fileBase64 && fileMimeType) {
@@ -122,7 +153,7 @@ Catatan: Jika tipeSoal adalah 'esai', buat opsiSoal sebagai array kosong []. Jik
       });
     }
 
-    // Try Gemini 3.1 Flash Lite API endpoint first, fallback to 2.5/1.5 flash
+    // Try Gemini models
     const modelsToTry = [
       "gemini-3.1-flash-lite",
       "gemini-2.5-flash",
@@ -143,7 +174,7 @@ Catatan: Jika tipeSoal adalah 'esai', buat opsiSoal sebagai array kosong []. Jik
             generationConfig: {
               responseMimeType: "application/json",
               temperature: 0.7,
-              maxOutputTokens: 2000,
+              maxOutputTokens: 2500,
             },
           }),
         });
@@ -188,26 +219,140 @@ Catatan: Jika tipeSoal adalah 'esai', buat opsiSoal sebagai array kosong []. Jik
       });
     }
 
+    const is15Pack = tipeSoal === "paket_15" || mode === "paket_15" || jumlah === 15;
+    let finalSoalList: any[] = [];
+
+    if (is15Pack && Array.isArray(draftData.daftarSoal) && draftData.daftarSoal.length === 15) {
+      finalSoalList = draftData.daftarSoal.map((s: any, idx: number) => ({
+        id: `ai-${Date.now()}-${idx + 1}`,
+        pertanyaan: s.pertanyaan,
+        tipeSoal: s.tipeSoal || (idx < 10 ? "pilihan_ganda" : idx < 13 ? "isian_singkat" : "esai"),
+        kunciJawaban: s.kunciJawaban || "",
+        pembahasan: s.pembahasan || "",
+        poin: 10,
+        opsi: (s.opsiSoal || []).map((o: any) => ({
+          teks: o.teksOpsi || o.teks || "",
+          benar: Boolean(o.benar),
+          alasanSalah: o.alasanSalah || o.alasan_salah || (o.benar ? "" : "Konsep dasar materi pada opsi ini perlu diperiksa kembali."),
+        })),
+      }));
+    } else if (is15Pack) {
+      const { generateChapterQuestions } = await import("@/lib/curriculum-quiz-engine");
+      const fallbackList = generateChapterQuestions(topik || "Bab Kurikulum", mapel || "Matematika", 8);
+      finalSoalList = fallbackList.map((q) => ({
+        id: q.id,
+        pertanyaan: q.pertanyaan,
+        tipeSoal: q.tipeSoal,
+        kunciJawaban: q.kunciJawaban,
+        pembahasan: q.pembahasan,
+        poin: 10,
+        opsi: (q.opsiSoal || []).map((o) => ({
+          teks: o.teksOpsi,
+          benar: Boolean(o.benar),
+          alasanSalah: o.benar ? "" : "Konsep dasar materi pada opsi ini perlu diperiksa kembali.",
+        })),
+      }));
+    } else {
+      const correctOpt = Array.isArray(draftData.opsiSoal) ? draftData.opsiSoal.find((o: any) => o.benar) : null;
+      const singleQ = {
+        id: `ai-${Date.now()}-1`,
+        pertanyaan: draftData.pertanyaan || "Pertanyaan matematika...",
+        tipeSoal: (draftData.tipeSoal || tipeSoal) as "pilihan_ganda" | "isian_singkat" | "esai",
+        kunciJawaban: draftData.kunciJawaban || (tipeSoal === "pilihan_ganda" ? (correctOpt?.teksOpsi || correctOpt?.teks || "") : ""),
+        pembahasan: draftData.pembahasan || "",
+        poin: 10,
+        opsi: (draftData.opsiSoal || []).map((o: any) => ({
+          teks: o.teksOpsi || o.teks || "",
+          benar: Boolean(o.benar),
+          alasanSalah: o.alasanSalah || o.alasan_salah || (o.benar ? "" : "Konsep dasar materi pada opsi ini perlu diperiksa kembali."),
+        })),
+      };
+      finalSoalList = [singleQ];
+    }
+
     return NextResponse.json({
       success: true,
       modelUsed: "Gemini 3.1 Flash Lite",
       materiLengkap: draftData.materiLengkap || null,
+      soal: finalSoalList,
       draft: {
         babId,
         topik,
         tingkatSoal,
         tipeSoal,
-        pertanyaan: draftData.pertanyaan,
-        kunciJawaban: draftData.kunciJawaban,
-        pembahasan: draftData.pembahasan,
-        opsiSoal: draftData.opsiSoal || [],
+        pertanyaan: draftData.pertanyaan || finalSoalList[0]?.pertanyaan,
+        kunciJawaban: draftData.kunciJawaban || finalSoalList[0]?.kunciJawaban,
+        pembahasan: draftData.pembahasan || finalSoalList[0]?.pembahasan,
+        opsiSoal: draftData.opsiSoal || finalSoalList[0]?.opsi || [],
       },
     });
   } catch (error: any) {
     console.error("Error in generate-soal route:", error);
-    return NextResponse.json(
-      { error: error.message || "Gagal membuat draft materi/soal dari AI." },
-      { status: 500 }
-    );
+    // Fallback otomatis menggunakan engine standar kurikulum
+    try {
+      const body = await req.clone().json().catch(() => ({}));
+      const fallbackMapel = body.mapel || "Matematika";
+      const fallbackTopik = body.topik || "Bab Kurikulum";
+      const fallbackTipe = body.tipeSoal || "pilihan_ganda";
+      const is15Pack = fallbackTipe === "paket_15" || body.mode === "paket_15" || body.jumlah === 15;
+
+      const { generateChapterQuestions } = await import("@/lib/curriculum-quiz-engine");
+      const fallbackList = generateChapterQuestions(fallbackTopik, fallbackMapel, 8);
+
+      let finalFallback: any[] = [];
+      if (is15Pack) {
+        finalFallback = fallbackList.map((q) => ({
+          id: q.id,
+          pertanyaan: q.pertanyaan,
+          tipeSoal: q.tipeSoal,
+          kunciJawaban: q.kunciJawaban,
+          pembahasan: q.pembahasan,
+          poin: 10,
+          opsi: (q.opsiSoal || []).map((o) => ({
+            teks: o.teksOpsi,
+            benar: Boolean(o.benar),
+            alasanSalah: o.benar ? "" : "Konsep dasar materi pada opsi ini perlu diperiksa kembali.",
+          })),
+        }));
+      } else {
+        const matchingQ = fallbackList.find((q) => q.tipeSoal === fallbackTipe) || fallbackList[0];
+        finalFallback = [
+          {
+            id: matchingQ.id,
+            pertanyaan: matchingQ.pertanyaan,
+            tipeSoal: matchingQ.tipeSoal,
+            kunciJawaban: matchingQ.kunciJawaban,
+            pembahasan: matchingQ.pembahasan,
+            poin: 10,
+            opsi: (matchingQ.opsiSoal || []).map((o) => ({
+              teks: o.teksOpsi,
+              benar: Boolean(o.benar),
+              alasanSalah: o.benar ? "" : "Konsep dasar materi pada opsi ini perlu diperiksa kembali.",
+            })),
+          },
+        ];
+      }
+
+      return NextResponse.json({
+        success: true,
+        modelUsed: "Curriculum Engine Standard Fallback",
+        soal: finalFallback,
+        draft: {
+          babId: body.babId,
+          topik: fallbackTopik,
+          tingkatSoal: body.tingkatSoal || "sedang",
+          tipeSoal: fallbackTipe,
+          pertanyaan: finalFallback[0]?.pertanyaan,
+          kunciJawaban: finalFallback[0]?.kunciJawaban,
+          pembahasan: finalFallback[0]?.pembahasan,
+          opsiSoal: finalFallback[0]?.opsi || [],
+        },
+      });
+    } catch {
+      return NextResponse.json(
+        { error: error.message || "Gagal membuat draft materi/soal dari AI." },
+        { status: 500 }
+      );
+    }
   }
 }

@@ -52,6 +52,52 @@ interface QuizAssessmentClientProps {
   initialAnswers?: Record<string, string>;
 }
 
+function normalizeMathComparison(str: string): string {
+  return (str || "")
+    .toLowerCase()
+    .replace(/[\$\\]/g, "")
+    .replace(/frac\{([^{}]+)\}\{([^{}]+)\}/g, "$1/$2")
+    .replace(/\s+/g, "")
+    .trim();
+}
+
+function checkIsOptionCorrect(
+  opt: { id: string; teksOpsi: string; benar?: boolean },
+  optIdx: number,
+  kunciJawaban?: string
+): boolean {
+  if (Boolean(opt.benar)) return true;
+  if (!kunciJawaban) return false;
+  const cleanKey = kunciJawaban.trim().toLowerCase();
+  const letter = String.fromCharCode(65 + optIdx).toLowerCase(); // 'a', 'b', 'c', 'd'
+  const letterNumber = String(optIdx + 1); // '1', '2', '3', '4'
+
+  if (
+    cleanKey === letter ||
+    cleanKey === `opsi ${letter}` ||
+    cleanKey === `pilihan ${letter}` ||
+    cleanKey.startsWith(`opsi ${letter}`) ||
+    cleanKey.startsWith(`pilihan ${letter}`)
+  ) {
+    return true;
+  }
+  if (cleanKey === letterNumber) {
+    return true;
+  }
+  if (cleanKey === opt.id.toLowerCase()) {
+    return true;
+  }
+  const cleanTeks = opt.teksOpsi.trim().toLowerCase();
+  if (cleanTeks === cleanKey || (cleanKey.length > 5 && cleanTeks.includes(cleanKey))) {
+    return true;
+  }
+  // Perbandingan normalisasi matematis (mendukung pecahan KaTeX vs string)
+  if (normalizeMathComparison(opt.teksOpsi) === normalizeMathComparison(kunciJawaban)) {
+    return true;
+  }
+  return false;
+}
+
 export default function QuizAssessmentClient({
   sesiId,
   babId,
@@ -171,12 +217,20 @@ export default function QuizAssessmentClient({
       setSubmitError(null);
 
       try {
+        const filteredAnswers: Record<string, string> = {};
+        activeQuestions.forEach((q) => {
+          if (answers[q.id] !== undefined && answers[q.id] !== null) {
+            filteredAnswers[q.id] = answers[q.id];
+          }
+        });
+
         const res = await fetch("/api/sesi/selesai", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             sesiId,
-            answers,
+            babId,
+            answers: filteredAnswers,
             autoSubmitted: isAuto,
           }),
         });
@@ -340,8 +394,47 @@ export default function QuizAssessmentClient({
   }, [sesiId, aiQuizMode]);
 
   const currentQ = activeQuestions[currentIdx];
-  const answeredCount = Object.keys(answers).length;
+  const answeredCount = useMemo(() => {
+    const activeIds = new Set(activeQuestions.map((q) => q.id));
+    let count = 0;
+    activeIds.forEach((id) => {
+      const val = answers[id];
+      if (val !== undefined && val !== null && String(val).trim() !== "") {
+        count++;
+      }
+    });
+    return Math.min(count, activeQuestions.length);
+  }, [activeQuestions, answers]);
   const isAllAnswered = answeredCount >= activeQuestions.length && activeQuestions.length > 0;
+
+  // Analisis opsi benar dan status jawaban siswa pada soal aktif
+  const correctIdx = useMemo(() => {
+    if (!currentQ?.opsiSoal || currentQ.opsiSoal.length === 0) return 0;
+    const foundIdx = currentQ.opsiSoal.findIndex((o, idx) =>
+      checkIsOptionCorrect(o, idx, currentQ.kunciJawaban)
+    );
+    return foundIdx >= 0 ? foundIdx : 0;
+  }, [currentQ]);
+
+  const correctOpt = currentQ?.opsiSoal?.[correctIdx];
+  const correctLetter = String.fromCharCode(65 + Math.max(0, correctIdx));
+  const isAnswered = currentQ ? Boolean(answers[currentQ.id]) : false;
+
+  const userSelectedIdx = useMemo(() => {
+    if (!currentQ?.opsiSoal || !answers[currentQ.id]) return -1;
+    const ans = (answers[currentQ.id] || "").trim().toLowerCase();
+    return currentQ.opsiSoal.findIndex((o, idx) => {
+      const letter = String.fromCharCode(65 + idx).toLowerCase();
+      return (
+        ans === o.id.toLowerCase() ||
+        ans === o.teksOpsi.trim().toLowerCase() ||
+        ans === letter
+      );
+    });
+  }, [currentQ, answers]);
+
+  const userSelectedOpt = userSelectedIdx >= 0 && currentQ?.opsiSoal ? currentQ.opsiSoal[userSelectedIdx] : undefined;
+  const isUserWrong = isAnswered && userSelectedIdx !== -1 && userSelectedIdx !== correctIdx;
 
   const currentQuestionMessages = currentQ
     ? aiMessagesByQuestion[currentQ.id] || [
@@ -526,7 +619,7 @@ export default function QuizAssessmentClient({
                       Soal {currentIdx + 1} dari {soalList.length}
                     </span>
                     <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider bg-slate-100 text-slate-600">
-                      {currentQ.tipeSoal === "esai" ? "Soal Esai" : "Pilihan Ganda"}
+                      {currentQ.tipeSoal === "esai" ? "Soal Esai" : currentQ.tipeSoal === "isian_singkat" ? "Isian Singkat" : "Pilihan Ganda"}
                     </span>
                   </div>
 
@@ -553,89 +646,171 @@ export default function QuizAssessmentClient({
                 {/* Options / Essay Input Area */}
                 <div className="pt-2 space-y-3">
                   {currentQ.tipeSoal === "pilihan_ganda" && currentQ.opsiSoal ? (
-                    currentQ.opsiSoal.map((opt, optIdx) => {
-                      const letter = String.fromCharCode(65 + optIdx);
-                      const isSelected =
-                        answers[currentQ.id] === opt.id ||
-                        answers[currentQ.id] === opt.teksOpsi;
-                      const isAnswered = Boolean(answers[currentQ.id]);
-                      const isThisCorrect =
-                        Boolean(opt.benar) ||
-                        opt.teksOpsi === currentQ.kunciJawaban ||
-                        opt.id === currentQ.kunciJawaban;
-                      const isSelectedAndWrong = isAnswered && isSelected && !isThisCorrect;
+                    <>
+                      <div className="space-y-3">
+                        {currentQ.opsiSoal.map((opt, optIdx) => {
+                          const letter = String.fromCharCode(65 + optIdx);
+                          const isSelected =
+                            answers[currentQ.id] === opt.id ||
+                            answers[currentQ.id] === opt.teksOpsi ||
+                            (answers[currentQ.id] || "").trim().toLowerCase() === letter.toLowerCase();
+                          const isThisCorrect = optIdx === correctIdx;
+                          const isSelectedAndWrong = isAnswered && isSelected && !isThisCorrect;
 
-                      let cardStyle =
-                        "bg-white hover:bg-slate-50/80 text-slate-700 border border-slate-200/80 hover:border-slate-300 shadow-2xs";
+                          let cardStyle =
+                            "bg-white hover:bg-slate-50/80 text-slate-700 border border-slate-200/80 hover:border-slate-300 shadow-2xs";
 
-                      if (isAnswered) {
-                        if (isThisCorrect) {
-                          cardStyle =
-                            "bg-emerald-50 text-emerald-950 font-semibold ring-2 ring-emerald-500 shadow-xs border-emerald-300";
-                        } else if (isSelectedAndWrong) {
-                          cardStyle =
-                            "bg-rose-50 text-rose-950 font-semibold ring-2 ring-rose-500 shadow-xs border-rose-300";
-                        } else {
-                          cardStyle =
-                            "bg-slate-50/60 text-slate-500 border border-slate-200/70 opacity-75";
-                        }
-                      } else if (isSelected) {
-                        cardStyle =
-                          "bg-emerald-50 text-emerald-950 font-semibold ring-2 ring-emerald-500 shadow-xs";
-                      }
+                          if (isAnswered) {
+                            if (isThisCorrect) {
+                              cardStyle =
+                                "bg-emerald-50 text-emerald-950 font-semibold ring-2 ring-emerald-500 shadow-xs border-emerald-300";
+                            } else if (isSelectedAndWrong) {
+                              cardStyle =
+                                "bg-rose-50 text-rose-950 font-semibold ring-2 ring-rose-500 shadow-xs border-rose-300";
+                            } else {
+                              cardStyle =
+                                "bg-slate-50/60 text-slate-500 border border-slate-200/70 opacity-75";
+                            }
+                          } else if (isSelected) {
+                            cardStyle =
+                              "bg-emerald-50 text-emerald-950 font-semibold ring-2 ring-emerald-500 shadow-xs";
+                          }
 
-                      return (
-                        <button
-                          key={opt.id}
-                          type="button"
-                          onClick={() => handleSelectAnswer(opt.id)}
-                          className={`w-full text-left p-4 sm:p-5 rounded-2xl transition-all duration-150 flex items-start justify-between gap-3.5 group cursor-pointer ${cardStyle}`}
-                        >
-                          <div className="flex items-start gap-3.5 flex-1">
-                            <div
-                              className={`w-7 h-7 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 transition-colors ${
-                                isAnswered
-                                  ? isThisCorrect
-                                    ? "bg-emerald-600 text-white"
-                                    : isSelectedAndWrong
-                                    ? "bg-rose-600 text-white"
-                                    : "bg-slate-100 text-slate-500"
-                                  : isSelected
-                                  ? "bg-emerald-600 text-white"
-                                  : "bg-slate-100 text-slate-600 group-hover:bg-slate-200"
-                              }`}
+                          return (
+                            <button
+                              key={opt.id}
+                              type="button"
+                              onClick={() => handleSelectAnswer(opt.id)}
+                              className={`w-full text-left p-4 sm:p-5 rounded-2xl transition-all duration-150 flex items-start justify-between gap-3.5 group cursor-pointer ${cardStyle}`}
                             >
-                              {letter}
-                            </div>
-                            <div className="text-xs sm:text-sm pt-0.5 leading-relaxed flex-1">
-                              <MarkdownRenderer content={opt.teksOpsi} />
-                            </div>
+                              <div className="flex items-start gap-3.5 flex-1">
+                                <div
+                                  className={`w-7 h-7 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 transition-colors ${
+                                    isAnswered
+                                      ? isThisCorrect
+                                        ? "bg-emerald-600 text-white"
+                                        : isSelectedAndWrong
+                                        ? "bg-rose-600 text-white"
+                                        : "bg-slate-100 text-slate-500"
+                                      : isSelected
+                                      ? "bg-emerald-600 text-white"
+                                      : "bg-slate-100 text-slate-600 group-hover:bg-slate-200"
+                                  }`}
+                                >
+                                  {letter}
+                                </div>
+                                <div className="text-xs sm:text-sm pt-0.5 leading-relaxed flex-1">
+                                  <MarkdownRenderer content={opt.teksOpsi} />
+                                </div>
 
-                            {/* Tag (Jawaban Anda) */}
-                            {isAnswered && isSelected && (
-                              <span className="text-[11px] font-semibold text-slate-500 shrink-0 ml-1">
-                                (Jawaban Anda)
-                              </span>
-                            )}
-                          </div>
+                                {/* Tag (Jawaban Anda) */}
+                                {isAnswered && isSelected && (
+                                  <span className="text-[11px] font-semibold text-slate-500 shrink-0 ml-1">
+                                    (Jawaban Anda)
+                                  </span>
+                                )}
+                              </div>
 
-                          {/* Pill Badges */}
-                          {isAnswered && isThisCorrect && (
-                            <div className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 flex items-center gap-1 shrink-0">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                              <span>Jawaban yang benar</span>
+                              {/* Pill Badges */}
+                              {isAnswered && isThisCorrect && (
+                                <div className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 flex items-center gap-1 shrink-0">
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                  <span>{isSelected ? "Jawaban Anda Benar" : "Jawaban yang benar"}</span>
+                                </div>
+                              )}
+
+                              {isAnswered && isSelectedAndWrong && (
+                                <div className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 flex items-center gap-1 shrink-0">
+                                  <X className="w-3.5 h-3.5 text-rose-600" />
+                                  <span>Jawaban Anda Salah</span>
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* FEEDBACK & PENJELASAN SAAT TERDETEKSI SALAH / BENAR */}
+                      {isAnswered && (
+                        <div className="pt-2">
+                          {isUserWrong ? (
+                            <div className="p-4 sm:p-5 rounded-2xl bg-rose-50/90 border border-rose-300 text-slate-900 space-y-3.5 animate-in fade-in duration-200 shadow-xs">
+                              <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-rose-200">
+                                <div className="flex items-center gap-2 text-rose-800 font-extrabold text-sm sm:text-base">
+                                  <div className="w-6 h-6 rounded-lg bg-rose-600 text-white flex items-center justify-center shrink-0">
+                                    <X className="w-3.5 h-3.5" />
+                                  </div>
+                                  <span>Jawaban Terdeteksi Salah</span>
+                                </div>
+                                <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-rose-200/80 text-rose-900">
+                                  Perlu Perbaikan
+                                </span>
+                              </div>
+
+                              {/* Kunci Jawaban yang Benar */}
+                              <div className="p-3.5 rounded-xl bg-white border border-rose-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-2xs">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-bold text-slate-500">Jawaban yang Benar:</span>
+                                  <span className="px-2.5 py-0.5 rounded-lg bg-emerald-100 text-emerald-800 font-extrabold text-xs flex items-center gap-1 border border-emerald-300 shadow-2xs">
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                    <span>Opsi {correctLetter}</span>
+                                  </span>
+                                </div>
+                                <div className="text-xs sm:text-sm font-extrabold text-emerald-950 sm:text-right">
+                                  {correctOpt?.teksOpsi || currentQ.kunciJawaban || "Opsi Benar"}
+                                </div>
+                              </div>
+
+                              {/* Alasan Singkat & Konsep Materi */}
+                              <div className="p-3.5 rounded-xl bg-amber-50/80 border border-amber-200/90 space-y-1.5 shadow-2xs">
+                                <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900">
+                                  <BookOpen className="w-4 h-4 text-amber-700" />
+                                  <span>Alasan Singkat & Pembahasan:</span>
+                                </div>
+                                <div className="text-xs sm:text-sm text-slate-800 leading-relaxed font-normal bg-white/70 p-2.5 rounded-lg border border-amber-100">
+                                  <MarkdownRenderer
+                                    content={
+                                      currentQ.pembahasan ||
+                                      correctOpt?.alasanSalah ||
+                                      `Kunci jawaban yang tepat adalah opsi ${correctLetter} ("${correctOpt?.teksOpsi}"). Pilihan ini merupakan prinsip fundamental pada materi pembelajaran ini untuk memahami konsep dan menyelesaikan persoalan secara kontekstual.`
+                                    }
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="p-4 sm:p-5 rounded-2xl bg-emerald-50/90 border border-emerald-300 text-slate-900 space-y-3 animate-in fade-in duration-200 shadow-xs">
+                              <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-emerald-200">
+                                <div className="flex items-center gap-2 text-emerald-800 font-extrabold text-sm sm:text-base">
+                                  <div className="w-6 h-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                                    <CheckCircle2 className="w-4 h-4" />
+                                  </div>
+                                  <span>Jawaban Anda Benar! (Tepat Sekali)</span>
+                                </div>
+                                <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-200/80 text-emerald-900">
+                                  +Poin Penuh
+                                </span>
+                              </div>
+
+                              <div className="p-3.5 rounded-xl bg-white border border-emerald-200 space-y-1 shadow-2xs">
+                                <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-900">
+                                  <BookOpen className="w-4 h-4 text-emerald-700" />
+                                  <span>Pembahasan Konsep:</span>
+                                </div>
+                                <div className="text-xs sm:text-sm text-slate-800 leading-relaxed font-normal">
+                                  <MarkdownRenderer
+                                    content={
+                                      currentQ.pembahasan ||
+                                      `Pilihan Anda pada opsi ${correctLetter} ("${correctOpt?.teksOpsi}") sangat tepat sesuai kaidah konsep capaian pembelajaran materi ini.`
+                                    }
+                                  />
+                                </div>
+                              </div>
                             </div>
                           )}
-
-                          {isAnswered && isSelectedAndWrong && (
-                            <div className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 flex items-center gap-1 shrink-0">
-                              <X className="w-3.5 h-3.5 text-rose-600" />
-                              <span>Jawaban salah</span>
-                            </div>
-                          )}
-                        </button>
-                      );
-                    })
+                        </div>
+                      )}
+                    </>
                   ) : currentQ.tipeSoal === "isian_singkat" ? (
                     <div className="space-y-2">
                       <label className="text-xs font-bold text-slate-600 block">
@@ -702,17 +877,7 @@ export default function QuizAssessmentClient({
                 )}
 
                 {/* 2. Pembahasan Lengkap Langsung Setelah Menjawab */}
-                {answers[currentQ.id] && currentQ.pembahasan && (
-                  <div className="mt-4 p-4 sm:p-5 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 space-y-2 animate-in fade-in duration-200">
-                    <div className="flex items-center gap-2 font-bold text-xs sm:text-sm text-emerald-900">
-                      <BookOpen className="w-4 h-4 text-emerald-700" />
-                      <span>Pembahasan Soal:</span>
-                    </div>
-                    <div className="text-xs sm:text-sm text-slate-800 leading-relaxed bg-white/95 p-4 rounded-xl border border-emerald-100 shadow-2xs">
-                      <MarkdownRenderer content={currentQ.pembahasan} />
-                    </div>
-                  </div>
-                )}
+                {/* Pembahasan terpadu langsung di atas */}
 
                 {/* In-Card Navigation Desktop */}
                 <div className="pt-6 border-t border-slate-100 flex items-center justify-between gap-3">
@@ -1055,10 +1220,10 @@ export default function QuizAssessmentClient({
               </h3>
               <p className="text-xs text-slate-500 leading-relaxed">
                 Anda telah menjawab <strong className="text-slate-800">{answeredCount}</strong> dari total{" "}
-                <strong className="text-slate-800">{soalList.length}</strong> butir soal.
+                <strong className="text-slate-800">{activeQuestions.length}</strong> butir soal.
                 {!isAllAnswered && (
                   <span className="block text-amber-600 font-bold mt-1">
-                    ⚠️ Terdapat {soalList.length - answeredCount} soal yang belum dijawab.
+                    ⚠️ Terdapat {Math.max(0, activeQuestions.length - answeredCount)} soal yang belum dijawab.
                   </span>
                 )}
               </p>

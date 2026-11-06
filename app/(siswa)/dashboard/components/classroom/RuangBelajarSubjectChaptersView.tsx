@@ -74,6 +74,58 @@ export default function RuangBelajarSubjectChaptersView({
     return {};
   });
 
+  // Track opened/clicked chapters (thinksy_opened_babs)
+  const [openedBabIds, setOpenedBabIds] = useState<Set<string>>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("thinksy_opened_babs");
+        if (stored) {
+          const arr = JSON.parse(stored);
+          if (Array.isArray(arr)) {
+            return new Set<string>(arr.map(String));
+          }
+        }
+      } catch {}
+    }
+    return new Set<string>();
+  });
+
+  const handleMarkChapterOpened = (chapterId: string | number) => {
+    const strId = String(chapterId);
+    setOpenedBabIds((prev) => {
+      if (prev.has(strId)) return prev;
+      const next = new Set(prev);
+      next.add(strId);
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("thinksy_opened_babs", JSON.stringify(Array.from(next)));
+        } catch {}
+      }
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    const syncOpenedBabs = () => {
+      try {
+        const stored = localStorage.getItem("thinksy_opened_babs");
+        if (stored) {
+          const arr = JSON.parse(stored);
+          if (Array.isArray(arr)) {
+            setOpenedBabIds(new Set<string>(arr.map(String)));
+          }
+        }
+      } catch {}
+    };
+
+    window.addEventListener("storage", syncOpenedBabs);
+    window.addEventListener("focus", syncOpenedBabs);
+    return () => {
+      window.removeEventListener("storage", syncOpenedBabs);
+      window.removeEventListener("focus", syncOpenedBabs);
+    };
+  }, []);
+
   // Bab yang baru saja dibuka dari Due Soon dashboard
   const [highlightedBab, setHighlightedBab] = useState<number | null>(() => {
     if (typeof window !== "undefined") {
@@ -409,8 +461,9 @@ export default function RuangBelajarSubjectChaptersView({
           ];
 
           const progressPercent = typeof chap.progress === "number" ? chap.progress : 0;
+          const isBabOpened = openedBabIds.has(String(chap.id)) || progressPercent > 0;
           const chapterStatus: "belum" | "berjalan" | "selesai" =
-            progressPercent >= 100 ? "selesai" : progressPercent > 0 ? "berjalan" : "belum";
+            progressPercent >= 100 ? "selesai" : isBabOpened ? "berjalan" : "belum";
 
           const isSelectedFromDueSoon = chap.urutan === highlightedBab;
 
@@ -476,6 +529,7 @@ export default function RuangBelajarSubjectChaptersView({
                     <Link
                       key={m.id}
                       href={`/bab/${chap.id}`}
+                      onClick={() => handleMarkChapterOpened(chap.id)}
                       className="p-3 rounded-2xl bg-slate-50 hover:bg-blue-50/70 border border-slate-200/70 hover:border-blue-200 transition p-3.5 flex items-center justify-between gap-2 group/m cursor-pointer"
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
@@ -502,15 +556,17 @@ export default function RuangBelajarSubjectChaptersView({
                 <div className="flex items-center gap-2.5 self-end sm:self-auto">
                   <Link
                     href={`/quiz/${chap.id}`}
+                    onClick={() => handleMarkChapterOpened(chap.id)}
                     className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition cursor-pointer"
                   >
                     Kuis Bab
                   </Link>
                   <Link
                     href={`/bab/${chap.id}`}
+                    onClick={() => handleMarkChapterOpened(chap.id)}
                     className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer active:scale-98"
                   >
-                    <span>Lanjutkan Pengerjaan</span>
+                    <span>{isBabOpened ? "Lanjutkan" : "Mulai"}</span>
                     <ChevronRight className="w-4 h-4" />
                   </Link>
                 </div>

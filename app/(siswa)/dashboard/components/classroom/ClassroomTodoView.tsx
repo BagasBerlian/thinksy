@@ -11,6 +11,7 @@ import {
   ArrowRight,
   BookOpen,
   ChevronRight,
+  Lock,
 } from "lucide-react";
 import { DailyMission, UjianItem } from "../../types";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -126,7 +127,7 @@ export default function ClassroomTodoView({
                   </div>
                 </div>
                 <Link
-                  href={lastActivity.link}
+                  href={lastActivity.link || (lastActivity.id ? `/bab/${lastActivity.id}` : "/dashboard")}
                   className="inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-extrabold transition shadow-xs cursor-pointer hover:scale-105 shrink-0 self-end sm:self-center"
                 >
                   <span>{lastActivity.type === "quiz" ? t.continueQuiz : t.continueLearning}</span>
@@ -149,25 +150,103 @@ export default function ClassroomTodoView({
               </div>
             ) : (
               <div className="space-y-3">
-                {activeExams.map((exam) => (
+                {activeExams.map((exam) => {
+                  const isUjian = exam.tipe === "ujian" || (!/ulangan|formatif/i.test(exam.judul) && exam.tipe !== "ulangan");
+                  const isPerBab = !isUjian && (Boolean((exam as any).bab_id) || /bab\s*\d+/i.test(exam.judul));
+                  const isKeseluruhan = !isUjian && !isPerBab;
+
+                  const colorClass = isUjian
+                    ? "border-purple-300 bg-purple-50/20 hover:border-purple-500"
+                    : isKeseluruhan
+                    ? "border-emerald-300 bg-emerald-50/20 hover:border-emerald-500"
+                    : "border-blue-300 bg-blue-50/20 hover:border-blue-500";
+
+                  const badgeClass = isUjian
+                    ? "bg-purple-100 text-purple-800 border-purple-200"
+                    : isKeseluruhan
+                    ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+                    : "bg-blue-100 text-blue-800 border-blue-200";
+
+                  const badgeText = isUjian
+                    ? "Ujian Resmi (PTS/PAS)"
+                    : isKeseluruhan
+                    ? "Ulangan Keseluruhan Bab (1 - Akhir)"
+                    : "Ulangan Per Bab";
+
+                  const btnClass = isUjian
+                    ? "bg-purple-600 hover:bg-purple-700"
+                    : isKeseluruhan
+                    ? "bg-emerald-600 hover:bg-emerald-700"
+                    : "bg-blue-600 hover:bg-blue-700";
+
+                  return (
+                    <div
+                      key={exam.id}
+                      className={`p-4 bg-white rounded-2xl border-2 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition ${colorClass}`}
+                    >
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${badgeClass}`}>
+                            {badgeText}
+                          </span>
+                          <span className="text-[10px] font-semibold text-slate-500">
+                            {exam.mapel}
+                          </span>
+                        </div>
+                        <h3 className="font-bold text-sm text-slate-900">{exam.judul}</h3>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          {exam.durasi_menit} Menit • KKM {exam.passing_grade}
+                        </p>
+                      </div>
+
+                      <Link
+                        href={exam.id ? `/ujian/${exam.id}` : "/ujian"}
+                        className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-white text-xs font-bold shadow-xs transition self-end sm:self-center ${btnClass}`}
+                      >
+                        <span>{t.enterExamRoom}</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </Link>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Kartu Ujian Dinonaktifkan oleh Guru (Abu-Abu & Tidak Bisa Diakses) */}
+            {examsData.some((e) => e.status === "ditutup") && (
+              <div className="pt-3 space-y-2">
+                <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                  <Lock className="w-3 h-3 text-slate-400" />
+                  <span>Ujian Dinonaktifkan oleh Guru ({examsData.filter((e) => e.status === "ditutup").length})</span>
+                </div>
+                {examsData.filter((e) => e.status === "ditutup").map((exam) => (
                   <div
                     key={exam.id}
-                    className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                    className="p-4 bg-slate-100/90 rounded-2xl border-2 border-slate-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3 opacity-60 grayscale select-none"
                   >
                     <div>
-                      <h3 className="font-bold text-sm text-slate-900">{exam.judul}</h3>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 border border-slate-300 flex items-center gap-1">
+                          <Lock className="w-2.5 h-2.5" />
+                          <span>Dinonaktifkan Guru</span>
+                        </span>
+                        <span className="text-[10px] font-semibold text-slate-500">
+                          {exam.mapel}
+                        </span>
+                      </div>
+                      <h3 className="font-bold text-sm text-slate-700">{exam.judul}</h3>
                       <p className="text-xs text-slate-500 mt-0.5">
-                        {exam.mapel} • {exam.durasi_menit} Min • Passing Grade {exam.passing_grade}
+                        {exam.durasi_menit} Menit • KKM {exam.passing_grade}
                       </p>
                     </div>
 
-                    <Link
-                      href="/ujian"
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition self-end sm:self-center"
+                    <button
+                      disabled
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-200 text-slate-500 text-xs font-bold cursor-not-allowed self-end sm:self-center"
                     >
-                      <span>{t.enterExamRoom}</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </Link>
+                      <Lock className="w-3.5 h-3.5" />
+                      <span>Tidak Aktif</span>
+                    </button>
                   </div>
                 ))}
               </div>

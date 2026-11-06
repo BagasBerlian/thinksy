@@ -107,7 +107,7 @@ export async function POST(req: Request) {
     let activePertanyaan = pertanyaan || "";
     let activePembahasan = pembahasan || "";
     let activeKunci = kunciJawaban || "";
-    let activeHint = hintSokratik || "";
+    const activeHint = hintSokratik || "";
     let activeBabJudul = babJudul || "";
     let activeMapel = mapel || "";
     let activeMateriJudul = materiJudul || "";

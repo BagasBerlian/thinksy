@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import LatihanSatuSoalClient, { QuestionItem } from "@/components/sesi/LatihanSatuSoalClient";
 import { redirect } from "next/navigation";
-import { generateChapterQuestions } from "@/lib/curriculum-quiz-engine";
+import { generateChapterQuestions, shuffleOptionsForStudent, resolveSpecificHint } from "@/lib/curriculum-quiz-engine";
 
 function isValidUUID(str: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
@@ -19,7 +19,7 @@ export default async function LatihanPage({
 
   const { data: { user } } = await supabase.auth.getUser();
 
-  let sesiId = rawId;
+  const sesiId = rawId;
 
   // 1. Validasi sesi jika UUID
   let sesiRow: any = null;
@@ -82,46 +82,70 @@ export default async function LatihanPage({
     soalQuery = soalQuery.eq("bab_id", effectiveBabId);
   }
 
-  const { data: dbSoalList } = await soalQuery.order("dibuat_pada", { ascending: true }).limit(10);
+  const { data: dbSoalList } = await soalQuery.order("dibuat_pada", { ascending: true }).limit(15);
 
   const effectiveMapel = (sesiRow?.bab as any)?.mapel || "Matematika";
 
-  // Ambil soal kurikulum engine sebagai acuan lengkap (10 butir soal beserta petunjuk dan pembahasan)
+  // Ambil soal kurikulum engine sebagai acuan lengkap (15 butir soal: 10 PG, 3 Jawaban Singkat, 2 Esai)
   const curriculumQuestions = generateChapterQuestions(judulBab, effectiveMapel, 8);
 
-  const formattedSoalList: QuestionItem[] =
-    dbSoalList && dbSoalList.length > 0
-      ? dbSoalList.map((item: any, idx: number) => {
-          const matchingCurriculum = curriculumQuestions[idx];
-          return {
-            id: item.id,
-            pertanyaan: item.pertanyaan,
-            tipeSoal: item.tipe_soal as "pilihan_ganda" | "isian_singkat" | "esai",
-            poin: item.poin || 10,
-            petunjuk: matchingCurriculum?.hintSokratik || "Perhatikan kata kunci, variabel, dan rumus pokok yang digunakan pada soal ini.",
-            opsiSoal: Array.isArray(item.opsi_soal)
-              ? [...item.opsi_soal]
-                  .sort((a, b) => (a.urutan || 0) - (b.urutan || 0))
-                  .map((o: any, oIdx: number) => ({
-                    id: o.id,
-                    label: o.label || String.fromCharCode(65 + oIdx),
-                    teksOpsi: o.teks_opsi,
-                  }))
-              : undefined,
-          };
-        })
-      : curriculumQuestions.map((cq, idx) => ({
-          id: cq.id,
-          pertanyaan: cq.pertanyaan,
-          tipeSoal: cq.tipeSoal as "pilihan_ganda" | "esai",
-          poin: 10,
-          petunjuk: cq.hintSokratik || "Gunakan konsep dasar matematika pada bab ini untuk meneliti langkah perhitungan.",
-          opsiSoal: cq.opsiSoal?.map((o, oIdx) => ({
+  // Seed unik akun siswa untuk mengacak opsi A, B, C, D (Anti-Contek)
+  const studentSeed = user?.id || sesiId || "siswa-anonim";
+
+  // Pastikan tepat 15 butir soal: 10 PG, 3 Jawaban Singkat, 2 Esai (Semua Mapel)
+  const formattedSoalList: QuestionItem[] = curriculumQuestions.map((cq, idx) => {
+    const dbItem = dbSoalList?.[idx];
+    let qItem: QuestionItem;
+
+    if (dbItem && dbItem.tipe_soal === cq.tipeSoal) {
+      const rawOpsi = Array.isArray(dbItem.opsi_soal) && dbItem.opsi_soal.length > 0
+        ? [...dbItem.opsi_soal]
+            .sort((a, b) => (a.urutan || 0) - (b.urutan || 0))
+            .map((o: any, oIdx: number) => ({
+              id: o.id,
+              label: o.label || String.fromCharCode(65 + oIdx),
+              teksOpsi: o.teks_opsi,
+            }))
+        : cq.opsiSoal?.map((o, oIdx) => ({
             id: o.id,
             label: String.fromCharCode(65 + oIdx),
             teksOpsi: o.teksOpsi,
-          })),
-        }));
+          }));
+
+      qItem = {
+        id: dbItem.id,
+        pertanyaan: dbItem.pertanyaan,
+        tipeSoal: dbItem.tipe_soal as "pilihan_ganda" | "isian_singkat" | "esai",
+        poin: dbItem.poin || 10,
+        petunjuk: resolveSpecificHint(dbItem.pertanyaan, undefined, undefined, cq.hintSokratik),
+        opsiSoal: rawOpsi,
+      };
+    } else {
+      qItem = {
+        id: cq.id,
+        pertanyaan: cq.pertanyaan,
+        tipeSoal: cq.tipeSoal as "pilihan_ganda" | "isian_singkat" | "esai",
+        poin: 10,
+        petunjuk: resolveSpecificHint(cq.pertanyaan, cq.kunciJawaban, cq.pembahasan, cq.hintSokratik),
+        opsiSoal: cq.opsiSoal?.map((o, oIdx) => ({
+          id: o.id,
+          label: String.fromCharCode(65 + oIdx),
+          teksOpsi: o.teksOpsi,
+        })),
+      };
+    }
+
+    // Acak opsi A, B, C, D secara unik per akun siswa
+    if (qItem.tipeSoal === "pilihan_ganda" && qItem.opsiSoal && qItem.opsiSoal.length > 1) {
+      const shuffled = shuffleOptionsForStudent(qItem.opsiSoal, studentSeed, qItem.id);
+      qItem.opsiSoal = shuffled.map((opt, oIdx) => ({
+        ...opt,
+        label: String.fromCharCode(65 + oIdx),
+      }));
+    }
+
+    return qItem;
+  });
 
   return (
     <LatihanSatuSoalClient

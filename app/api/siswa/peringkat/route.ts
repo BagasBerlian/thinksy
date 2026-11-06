@@ -70,7 +70,7 @@ export async function GET() {
       }));
     } else {
       // 3. Fallback jika RPC tidak mengembalikan data: Query tabel profil langsung dari adminSupabase
-      let query = adminSupabase
+      const query = adminSupabase
         .from("profil")
         .select(`
           id,

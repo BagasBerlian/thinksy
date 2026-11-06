@@ -367,6 +367,7 @@ export default function TabBelajar({
   // Full list of Ulangan Harian per bab, strictly limited to the 3 subjects in the web app (Matematika, Bahasa Indonesia, Bahasa Inggris)
   const allUlanganItems = useMemo(() => {
     // Only include ulangan that belong to the 3 subjects
+    // Only include real ulangan created by teachers
     const list: UjianItem[] = ulanganList
       .filter((u) => normalizeToCoreMapel(u.mapel) !== null)
       .map((u) => ({
@@ -374,39 +375,9 @@ export default function TabBelajar({
         mapel: normalizeToCoreMapel(u.mapel)!,
       }));
 
-    const existingBabIds = new Set(list.map((u) => u.bab_id).filter(Boolean));
-
-    // Combine with allChapters for only the 3 subjects
-    allChapters.forEach((ch, idx) => {
-      const canonicalMapel = normalizeToCoreMapel(ch.mapel);
-      // Strictly ignore any non-3-mapel chapters
-      if (canonicalMapel && !existingBabIds.has(ch.id)) {
-        list.push({
-          id: `ulangan-bab-${ch.id}`,
-          judul: ch.judul.toLowerCase().startsWith("bab")
-            ? `Ulangan Harian ${ch.judul}`
-            : `Ulangan Harian: ${ch.judul}`,
-          deskripsi: ch.deskripsi || `Evaluasi formatif materi ${ch.judul} kurikulum terstandar.`,
-          mapel: canonicalMapel,
-          durasi_menit: 30,
-          passing_grade: 75,
-          waktu_mulai: new Date().toISOString(),
-          waktu_berakhir: new Date(Date.now() + 90 * 86400000).toISOString(),
-          status: "dipublikasi",
-          tipe: "ulangan",
-          token: "12345",
-          sessionStatus: "belum_mulai",
-          score: null,
-          bab_id: ch.id,
-        });
-      }
-    });
-
-    // Sort by Mapel (Matematika, Bahasa Indonesia, Bahasa Inggris) and then chapter title
+    // Sort by Mapel and title
     const mapelOrder: Record<string, number> = {
       Matematika: 1,
-      "Bahasa Indonesia": 2,
-      "Bahasa Inggris": 3,
     };
     list.sort((a, b) => {
       const orderA = mapelOrder[a.mapel] || 99;
@@ -416,7 +387,7 @@ export default function TabBelajar({
     });
 
     return list;
-  }, [ulanganList, allChapters]);
+  }, [ulanganList]);
 
   // List mapel available in Ulangan Harian (Fokus Matematika Kelas 8)
   const ulanganMapels = useMemo(() => {
@@ -480,7 +451,7 @@ export default function TabBelajar({
 
   // Due soon items: Agenda item / bab coming soon terintegrasi real time
   const dueSoonItems = useMemo(() => {
-    let allAgendas = [...(agendasData || [])];
+    const allAgendas = [...(agendasData || [])];
     if (typeof window !== "undefined") {
       try {
         const stored = localStorage.getItem("thinksy_scheduled_agendas");

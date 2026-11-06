@@ -215,9 +215,14 @@ export default function BankSoalManualPage() {
                 className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 focus:outline-none"
               >
                 <option value="Semua Bab">Semua Bab</option>
-                <option value="Aljabar">Aljabar</option>
-                <option value="Kalkulus">Kalkulus</option>
-                <option value="Geometri">Geometri</option>
+                <option value="Pola Bilangan">Bab 1: Pola Bilangan & Barisan Bilangan</option>
+                <option value="Aljabar">Bab 2: Bentuk Aljabar & PLSV/PTLSV</option>
+                <option value="Relasi & Fungsi">Bab 3: Relasi & Fungsi</option>
+                <option value="Persamaan Garis Lurus">Bab 4: Persamaan Garis Lurus (PGL)</option>
+                <option value="SPLDV">Bab 5: SPLDV</option>
+                <option value="Pythagoras">Bab 6: Teorema Pythagoras</option>
+                <option value="Bangun Ruang">Bab 7: Bangun Ruang Sisi Datar</option>
+                <option value="Statistika & Peluang">Bab 8: Statistika & Peluang</option>
               </select>
             </div>
 

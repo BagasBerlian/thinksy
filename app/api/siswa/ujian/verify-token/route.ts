@@ -24,13 +24,13 @@ export async function POST(req: Request) {
     const inputToken = String(token).trim().toUpperCase();
     const isUniversalTokenValid = inputToken === "12345";
 
-    let babId = incomingBabId || (ujianId.startsWith("ulangan-bab-") ? ujianId.replace("ulangan-bab-", "") : null);
+    const babId = incomingBabId || (ujianId.startsWith("ulangan-bab-") ? ujianId.replace("ulangan-bab-", "") : null);
     let targetUjianId = ujianId;
 
     // 1. Coba cari di database berdasarkan ID langsung
     let { data: ujian } = await adminSupabase
       .from("ujian")
-      .select("id, judul, mapel, tipe, durasi_menit, passing_grade, status, token, waktu_berakhir, bab_id")
+      .select("id, judul, deskripsi, mapel, tipe, durasi_menit, passing_grade, status, token, waktu_berakhir, bab_id")
       .eq("id", targetUjianId)
       .maybeSingle();
 
@@ -38,7 +38,7 @@ export async function POST(req: Request) {
     if (!ujian && babId) {
       const { data: ujianByBab } = await adminSupabase
         .from("ujian")
-        .select("id, judul, mapel, tipe, durasi_menit, passing_grade, status, token, waktu_berakhir, bab_id")
+        .select("id, judul, deskripsi, mapel, tipe, durasi_menit, passing_grade, status, token, waktu_berakhir, bab_id")
         .eq("bab_id", babId)
         .maybeSingle();
 
@@ -48,54 +48,29 @@ export async function POST(req: Request) {
       }
     }
 
-    // 3. Jika belum ada ujian untuk bab ini di tabel ujian, buatkan otomatis dengan token "12345"
-    if (!ujian && babId) {
-      const { data: babData } = await adminSupabase
-        .from("bab")
-        .select("id, judul, deskripsi, mapel, sekolah_id")
-        .eq("id", babId)
-        .maybeSingle();
-
-      const examTitle = judul || (babData?.judul ? (babData.judul.startsWith("Bab") ? `Ulangan Harian ${babData.judul}` : `Ulangan Harian: ${babData.judul}`) : "Ulangan Harian Siswa");
-      const examMapel = mapel || babData?.mapel || "Matematika";
-
-      const { data: newUjian } = await adminSupabase
-        .from("ujian")
-        .insert({
-          judul: examTitle,
-          deskripsi: babData?.deskripsi || `Evaluasi formatif materi ${examTitle}.`,
-          mapel: examMapel,
-          tipe: "ulangan",
-          durasi_menit: 30,
-          passing_grade: 75,
-          status: "dipublikasi",
-          token: "12345",
-          bab_id: babId,
-          sekolah_id: babData?.sekolah_id || "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
-        })
-        .select("id, judul, mapel, tipe, durasi_menit, passing_grade, status, token, waktu_berakhir, bab_id")
-        .maybeSingle();
-
-      if (newUjian) {
-        ujian = newUjian;
-        targetUjianId = newUjian.id;
-      }
+    if (!ujian) {
+      return NextResponse.json(
+        { error: "Ujian atau ulangan belum dibuat atau dipublikasikan oleh guru." },
+        { status: 404 }
+      );
     }
 
-    // 4. Fallback jika ID masih belum ditemukan di tabel ujian
-    if (!ujian) {
-      const { data: fallbackUjian } = await adminSupabase
-        .from("ujian")
-        .select("id, judul, mapel, tipe, durasi_menit, passing_grade, status, token, waktu_berakhir, bab_id")
-        .eq("status", "dipublikasi")
-        .limit(1)
-        .maybeSingle();
-
-      if (fallbackUjian) {
-        ujian = fallbackUjian;
-        targetUjianId = fallbackUjian.id;
-      } else {
-        return NextResponse.json({ error: "Ujian tidak ditemukan." }, { status: 404 });
+    // Cek apakah siswa dikeluarkan dari roster ujian oleh guru di Live Monitor
+    if (user && ujian.deskripsi) {
+      const rosterMatch = ujian.deskripsi.match(/<!-- EXAM_ROSTER:(.*?) -->/);
+      if (rosterMatch) {
+        try {
+          const rosterMeta = JSON.parse(rosterMatch[1]);
+          if (Array.isArray(rosterMeta.excluded) && rosterMeta.excluded.includes(user.id)) {
+            return NextResponse.json(
+              {
+                error:
+                  "Nama Anda belum di-invit ke sesi ujian ini oleh Guru Pengawas. Silakan hubungi Guru Pengawas untuk meng-invit Anda melalui Live Monitor.",
+              },
+              { status: 403 }
+            );
+          }
+        } catch { }
       }
     }
 

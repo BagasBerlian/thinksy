@@ -19,7 +19,7 @@ export default async function SesiPage({
   const { data: { user } } = await supabase.auth.getUser();
 
   // If the sesiId is a placeholder / demo / not a UUID, create a real sesi row
-  let sesiId = id;
+  const sesiId = id;
   if (!isValidUUID(id)) {
     if (user) {
       // Fetch user profile to get sekolah_id

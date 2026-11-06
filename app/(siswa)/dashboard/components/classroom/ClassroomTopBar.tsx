@@ -248,11 +248,11 @@ export default function ClassroomTopBar({
           </button>
 
           {isAppsMenuOpen && (
-            <div className="absolute right-0 mt-2 w-72 bg-white rounded-3xl shadow-2xl border border-slate-200 p-4 z-50 animate-in fade-in zoom-in-95 duration-150">
+            <div className="absolute right-0 mt-2 w-80 bg-white rounded-3xl shadow-2xl border border-slate-200 p-4 z-50 animate-in fade-in zoom-in-95 duration-150">
               <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-2 mb-2">
                 Aplikasi & Fitur Belajar
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <button
                   onClick={() => {
                     setIsAppsMenuOpen(false);
@@ -264,19 +264,6 @@ export default function ClassroomTopBar({
                     <FileText className="w-5 h-5" />
                   </div>
                   <span className="text-[11px] font-medium text-slate-700">{t.notes}</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setIsAppsMenuOpen(false);
-                    router.push("/?tab=matematika");
-                  }}
-                  className="flex flex-col items-center justify-center p-3 rounded-2xl hover:bg-slate-100 transition text-center cursor-pointer group"
-                >
-                  <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
-                    <BookOpen className="w-5 h-5" />
-                  </div>
-                  <span className="text-[11px] font-medium text-slate-700">{t.modules}</span>
                 </button>
 
                 <button
@@ -304,20 +291,6 @@ export default function ClassroomTopBar({
                   </div>
                   <span className="text-[11px] font-medium text-slate-700">{t.help}</span>
                 </button>
-
-                <button
-                  onClick={() => {
-                    setIsAppsMenuOpen(false);
-                    if (typeof document !== "undefined") {
-                      document.cookie = "user_role=guru; path=/; max-age=86400";
-                    }
-                    router.push("/guru");
-                  }}
-                  className="col-span-2 mt-1 py-2 px-3 rounded-xl bg-blue-50 hover:bg-blue-100/80 border border-blue-200 transition flex items-center justify-center gap-2 cursor-pointer text-xs font-bold text-[#1967D2]"
-                >
-                  <GraduationCap className="w-4 h-4 text-[#1967D2]" />
-                  <span>Buka Dashboard Guru (Pendidik)</span>
-                </button>
               </div>
             </div>
           )}
@@ -337,7 +310,9 @@ export default function ClassroomTopBar({
           >
             <Bell className="w-5 h-5" />
             {unreadNotifCount > 0 && (
-              <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-600 ring-2 ring-white" />
+              <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-[10px] font-black text-white flex items-center justify-center ring-2 ring-white animate-pulse shadow-xs">
+                {unreadNotifCount > 9 ? "9+" : unreadNotifCount}
+              </span>
             )}
           </button>
 

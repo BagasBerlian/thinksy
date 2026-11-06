@@ -16,13 +16,7 @@ import CreateClassModal, {
 } from "@/components/guru/classroom/CreateClassModal";
 import { notifyClassUpdated } from "@/lib/classroom-sync";
 import {
-  Calendar,
-  Archive,
   Settings,
-  CheckCircle2,
-  User,
-  Mail,
-  ShieldCheck,
   Check,
 } from "lucide-react";
 
@@ -160,12 +154,14 @@ export default function GuruDashboardPage() {
     if (typeof window !== "undefined") {
       try {
         const params = new URLSearchParams(window.location.search);
-        const tab = params.get("tab") as GuruClassroomViewMode;
-        if (
-          tab &&
-          ["home", "calendar", "to_review", "matematika", "archived", "settings"].includes(tab)
-        ) {
-          return tab;
+        const rawTab = params.get("tab");
+        if (rawTab) {
+          const tab = rawTab === "manajemen_siswa" ? "presensi" : rawTab === "manajemen_kelas" ? "home" : rawTab === "pengaturan" ? "settings" : rawTab;
+          if (
+            ["home", "calendar", "presensi", "to_review", "matematika", "archived", "settings"].includes(tab)
+          ) {
+            return tab as GuruClassroomViewMode;
+          }
         }
       } catch {}
     }
@@ -177,16 +173,38 @@ export default function GuruDashboardPage() {
 
   // Sync tab from URL query if present (e.g. ?tab=home or ?tab=calendar)
   useEffect(() => {
-    try {
-      const params = new URLSearchParams(window.location.search);
-      const tab = params.get("tab") as GuruClassroomViewMode;
-      if (tab) {
-        setActiveView(tab);
-        if (tab !== "home" && tab !== "calendar" && tab !== "to_review" && tab !== "archived" && tab !== "settings") {
-          setActiveClassId(tab === "matematika" ? "mat-8" : tab);
+    const syncTabFromUrl = () => {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const rawTab = params.get("tab");
+        if (rawTab) {
+          const tab = (rawTab === "manajemen_siswa" ? "presensi" : rawTab === "manajemen_kelas" ? "home" : rawTab === "pengaturan" ? "settings" : rawTab) as GuruClassroomViewMode;
+          setActiveView(tab);
+          if (tab !== "home" && tab !== "calendar" && tab !== "presensi" && tab !== "to_review" && tab !== "archived" && tab !== "settings") {
+            setActiveClassId(tab === "matematika" ? "mat-8" : tab);
+          }
+        } else {
+          setActiveView("home");
         }
-      }
-    } catch {}
+      } catch {}
+    };
+
+    syncTabFromUrl();
+
+    const handleHomeNavigate = () => {
+      setActiveView("home");
+      try {
+        window.history.pushState(null, "", "/guru");
+      } catch {}
+    };
+
+    window.addEventListener("popstate", syncTabFromUrl);
+    window.addEventListener("guru-navigate-home", handleHomeNavigate);
+
+    return () => {
+      window.removeEventListener("popstate", syncTabFromUrl);
+      window.removeEventListener("guru-navigate-home", handleHomeNavigate);
+    };
   }, []);
 
   // Simpan kelas ke localStorage saat ada perubahan
@@ -275,7 +293,6 @@ export default function GuruDashboardPage() {
           onSelectView={handleSelectView}
           pendingReviewCount={pendingReviewCount}
           classes={classes.filter((c) => !archivedClassIds.includes(c.id))}
-          archivedCount={archivedClassIds.length}
           onCreateClassClick={() => setIsCreateClassModalOpen(true)}
         />
 

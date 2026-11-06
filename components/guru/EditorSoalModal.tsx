@@ -11,9 +11,21 @@ interface EditorSoalModalProps {
   onSave?: (newQuestion: any) => void;
 }
 
+// 8 Bab Resmi Matematika SMP Kelas 8 Fase D
+const DEFAULT_MATEMATIKA_BABS = [
+  { id: "b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a11", judul: "Bab 1: Pola Bilangan & Barisan Bilangan" },
+  { id: "b2eebc99-9c0b-4ef8-bb6d-6bb9bd380a22", judul: "Bab 2: Bentuk Aljabar & PLSV/PTLSV" },
+  { id: "b3eebc99-9c0b-4ef8-bb6d-6bb9bd380a33", judul: "Bab 3: Relasi & Fungsi" },
+  { id: "b4eebc99-9c0b-4ef8-bb6d-6bb9bd380a44", judul: "Bab 4: Persamaan Garis Lurus (PGL)" },
+  { id: "b5eebc99-9c0b-4ef8-bb6d-6bb9bd380a55", judul: "Bab 5: Sistem Persamaan Linear Dua Variabel (SPLDV)" },
+  { id: "b6eebc99-9c0b-4ef8-bb6d-6bb9bd380a66", judul: "Bab 6: Teorema Pythagoras" },
+  { id: "b7eebc99-9c0b-4ef8-bb6d-6bb9bd380a77", judul: "Bab 7: Bangun Ruang Sisi Datar (BRSD)" },
+  { id: "b8eebc99-9c0b-4ef8-bb6d-6bb9bd380a88", judul: "Bab 8: Statistika & Peluang" },
+];
+
 export default function EditorSoalModal({ isOpen, onClose, onSave }: EditorSoalModalProps) {
-  const [babList, setBabList] = useState<{ id: string; judul: string }[]>([]);
-  const [bab, setBab] = useState("b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a11");
+  const [babList, setBabList] = useState<{ id: string; judul: string }[]>(DEFAULT_MATEMATIKA_BABS);
+  const [bab, setBab] = useState(DEFAULT_MATEMATIKA_BABS[0].id);
   const [kesulitan, setKesulitan] = useState("mudah");
   const [tipeSoal, setTipeSoal] = useState<"pilihan_ganda" | "isian" | "esai">("pilihan_ganda");
   const [pertanyaan, setPertanyaan] = useState("Tuliskan pertanyaan di sini... Gunakan $ untuk inline math atau $$ untuk block math.");
@@ -22,6 +34,7 @@ export default function EditorSoalModal({ isOpen, onClose, onSave }: EditorSoalM
   const [opsiC, setOpsiC] = useState("Opsi C...");
   const [opsiD, setOpsiD] = useState("Opsi D...");
   const [jawabanBenar, setJawabanBenar] = useState<"A" | "B" | "C" | "D">("A");
+  const [kunciJawabanSingkat, setKunciJawabanSingkat] = useState("");
   const [pembahasan, setPembahasan] = useState("Tuliskan pembahasan langkah-demi-langkah di sini...");
   const [isPreview, setIsPreview] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -33,25 +46,18 @@ export default function EditorSoalModal({ isOpen, onClose, onSave }: EditorSoalM
       try {
         const { createClient } = await import("@/lib/supabase/client");
         const supabase = createClient();
-        const { data } = await supabase.from("bab").select("id, judul").order("urutan", { ascending: true });
+        const { data } = await supabase.from("bab").select("id, judul, mapel").order("urutan", { ascending: true });
         if (data && data.length > 0) {
-          setBabList(data);
-          setBab(data[0].id);
-        } else {
-          setBabList([
-            { id: "b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a11", judul: "Bab 1: Pola Bilangan & Barisan Bilangan" },
-            { id: "b2eebc99-9c0b-4ef8-bb6d-6bb9bd380a22", judul: "Bab 2: Bentuk Aljabar & PLSV/PTLSV" },
-            { id: "b3eebc99-9c0b-4ef8-bb6d-6bb9bd380a33", judul: "Bab 3: Relasi & Fungsi" },
-            { id: "b4eebc99-9c0b-4ef8-bb6d-6bb9bd380a44", judul: "Bab 4: Persamaan Garis Lurus (PGL)" },
-            { id: "b5eebc99-9c0b-4ef8-bb6d-6bb9bd380a55", judul: "Bab 5: Sistem Persamaan Linear Dua Variabel (SPLDV)" },
-            { id: "b6eebc99-9c0b-4ef8-bb6d-6bb9bd380a66", judul: "Bab 6: Teorema Pythagoras" },
-          ]);
+          const mathBabs = data.filter((b: any) => !b.mapel || b.mapel.toLowerCase().includes("matematika") || b.mapel.toLowerCase().includes("mtk"));
+          if (mathBabs.length > 0) {
+            setBabList(mathBabs);
+            setBab(mathBabs[0].id);
+            return;
+          }
         }
+        setBabList(DEFAULT_MATEMATIKA_BABS);
       } catch {
-        setBabList([
-          { id: "b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a11", judul: "Bab 1: Pola Bilangan & Barisan Bilangan" },
-          { id: "b2eebc99-9c0b-4ef8-bb6d-6bb9bd380a22", judul: "Bab 2: Bentuk Aljabar & PLSV/PTLSV" },
-        ]);
+        setBabList(DEFAULT_MATEMATIKA_BABS);
       }
     }
     loadBabs();
@@ -72,11 +78,11 @@ export default function EditorSoalModal({ isOpen, onClose, onSave }: EditorSoalM
         body: JSON.stringify({
           babId: targetBabId,
           pertanyaan,
-          tipeSoal: tipeSoal === "isian" ? "esai" : tipeSoal,
+          tipeSoal: tipeSoal === "isian" ? "isian_singkat" : tipeSoal,
           tingkatSoal: kesulitan,
           statusSoal: "dipublikasi",
           sumberKonten: "manual",
-          kunciJawaban: tipeSoal === "pilihan_ganda" ? jawabanBenar : "",
+          kunciJawaban: tipeSoal === "pilihan_ganda" ? jawabanBenar : tipeSoal === "isian" ? kunciJawabanSingkat : "",
           pembahasan,
           opsiSoal:
             tipeSoal === "pilihan_ganda"
@@ -183,18 +189,22 @@ export default function EditorSoalModal({ isOpen, onClose, onSave }: EditorSoalM
               Tipe Soal *
             </label>
             <div className="grid grid-cols-3 gap-1 bg-zinc-100 p-1 border border-zinc-300">
-              {(["pilihan_ganda", "isian", "esai"] as const).map((tipe) => (
+              {[
+                { id: "pilihan_ganda", label: "Pilihan Ganda" },
+                { id: "isian", label: "Jawaban Singkat" },
+                { id: "esai", label: "Jawaban Panjang" },
+              ].map((t) => (
                 <button
-                  key={tipe}
+                  key={t.id}
                   type="button"
-                  onClick={() => setTipeSoal(tipe)}
-                  className={`py-1.5 text-xs font-bold transition cursor-pointer capitalize border ${
-                    tipeSoal === tipe
+                  onClick={() => setTipeSoal(t.id as any)}
+                  className={`py-1.5 text-xs font-bold transition cursor-pointer border ${
+                    tipeSoal === t.id
                       ? "bg-zinc-950 text-white border-zinc-950"
                       : "bg-white text-zinc-700 border-transparent hover:bg-zinc-200"
                   }`}
                 >
-                  {tipe.replace("_", " ")}
+                  {t.label}
                 </button>
               ))}
             </div>
@@ -255,6 +265,22 @@ export default function EditorSoalModal({ isOpen, onClose, onSave }: EditorSoalM
                   />
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* Input Kunci Jawaban Singkat */}
+          {tipeSoal === "isian" && (
+            <div className="space-y-1.5 pt-2 border-t border-zinc-200">
+              <label className="block text-[10px] font-bold text-zinc-600 uppercase tracking-wider">
+                Kunci Jawaban Singkat (Kata / Angka Presisi) *
+              </label>
+              <input
+                type="text"
+                value={kunciJawabanSingkat}
+                onChange={(e) => setKunciJawabanSingkat(e.target.value)}
+                placeholder="Contoh: 35 atau Fotosintesis"
+                className="w-full px-2.5 py-1.5 border border-zinc-300 text-xs text-zinc-900 focus:outline-none focus:border-zinc-950 bg-white"
+              />
             </div>
           )}
 

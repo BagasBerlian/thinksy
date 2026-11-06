@@ -18,7 +18,7 @@ export default async function ModeEksplorasiPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  let sesiId = rawId;
+  const sesiId = rawId;
 
   // Always fetch profile to get nama and sekolah_id
   const { data: profil } = user

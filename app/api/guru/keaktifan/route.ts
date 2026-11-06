@@ -79,7 +79,7 @@ export async function GET() {
       const points = Number(st.poin) || 0;
       const streak = Number(st.streak) || 0;
 
-      let statusKeaktifan: "Sangat Aktif" | "Aktif" | "Perlu Perhatian" =
+      const statusKeaktifan: "Sangat Aktif" | "Aktif" | "Perlu Perhatian" =
         points >= 100 ? "Sangat Aktif" : points > 0 ? "Aktif" : "Perlu Perhatian";
 
       return {

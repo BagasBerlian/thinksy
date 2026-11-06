@@ -12,19 +12,17 @@ function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isGitHubLoading, setIsGitHubLoading] = useState(false);
-  const [isExchangingCode, setIsExchangingCode] = useState(false);
-  
   const searchParams = useSearchParams();
   const justRegistered = searchParams.get("registered") === "1";
   const oauthError = searchParams.get("error");
   const oauthCode = searchParams.get("code");
+  const [isExchangingCode, setIsExchangingCode] = useState(() => Boolean(oauthCode));
 
   // Supabase mengirim ?code= ke /masuk alih-alih ke /api/auth/callback.
   // Exchange code harus dilakukan di browser yang sama karena PKCE verifier
   // ada di localStorage milik createBrowserClient (bukan cookies server).
   useEffect(() => {
     if (!oauthCode) return;
-    setIsExchangingCode(true);
 
     const exchangeCode = async () => {
       try {
@@ -54,7 +52,7 @@ function LoginForm() {
         }
 
         const peran = profil.peran;
-        let targetPath = peran === "guru" ? "/guru" : "/";
+        const targetPath = peran === "guru" ? "/guru" : "/";
 
         window.location.replace(targetPath);
       } catch (err: any) {

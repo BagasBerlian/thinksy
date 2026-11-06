@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET(
   req: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<any> }
 ) {
   try {
     const supabase = await createClient();
@@ -148,7 +148,7 @@ export async function GET(
 
 export async function POST(
   req: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<any> }
 ) {
   try {
     const supabase = await createClient();

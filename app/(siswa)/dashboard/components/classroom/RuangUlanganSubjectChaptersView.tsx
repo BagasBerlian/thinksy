@@ -340,7 +340,13 @@ export default function RuangUlanganSubjectChaptersView({
                     href={`/quiz/${chap.id}`}
                     className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer active:scale-98"
                   >
-                    <span>Mulai Ulangan Bab</span>
+                    <span>
+                      {chapterStatus === "berjalan"
+                        ? "Lanjutkan Ulangan Bab"
+                        : chapterStatus === "selesai"
+                        ? "Ulas Ulangan Bab"
+                        : "Mulai Ulangan Bab"}
+                    </span>
                     <ChevronRight className="w-4 h-4" />
                   </Link>
                 </div>

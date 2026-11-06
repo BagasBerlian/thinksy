@@ -158,15 +158,15 @@ export default function StudentDashboardClient({
         type: "bab",
         id: chapters[0].id,
         judul: chapters[0].judul,
-        mapel: chapters[0].mapel || "Informatika",
+        mapel: chapters[0].mapel || "Matematika",
         link: `/bab/${chapters[0].id}`,
       };
     }
     return {
       type: "bab",
       id: "bab-1",
-      judul: "Bab 1: Berpikir Komputasional: Optimasi dan Struktur Data",
-      mapel: "Informatika",
+      judul: "Bab 1: Bilangan Berpangkat & Bentuk Akar",
+      mapel: "Matematika",
       link: "/bab/bab-1",
     };
   });

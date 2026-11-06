@@ -11,7 +11,7 @@ export default async function HasilPage({
   const { sesiId } = await params;
   const adminDb = createAdminClient();
 
-  // 1. Fetch Sesi Info
+  // 1. Fetch Sesi Info (dengan fallback jika sesiId adalah babId)
   const { data: sesiData } = await adminDb
     .from("sesi")
     .select(`
@@ -30,6 +30,41 @@ export default async function HasilPage({
     `)
     .eq("id", sesiId)
     .maybeSingle();
+
+  let effectiveSesi = sesiData;
+  if (!effectiveSesi) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: fallbackSesi } = await adminDb
+        .from("sesi")
+        .select(`
+          id,
+          tipe_sesi,
+          status_sesi,
+          skor_akhir,
+          mulai_pada,
+          selesai_pada,
+          bab_id,
+          bab (
+            id,
+            judul,
+            mapel
+          )
+        `)
+        .eq("siswa_id", user.id)
+        .eq("bab_id", sesiId)
+        .order("mulai_pada", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (fallbackSesi) {
+        effectiveSesi = fallbackSesi;
+      }
+    }
+  }
+
+  const effectiveSesiId = effectiveSesi?.id || sesiId;
 
   // 2. Fetch Jawaban Data dengan alasan_salah & status override guru
   const { data: jawabanRows } = await adminDb
@@ -62,12 +97,11 @@ export default async function HasilPage({
         )
       )
     `)
-    .eq("sesi_id", sesiId)
+    .eq("sesi_id", effectiveSesiId)
     .order("dijawab_pada", { ascending: true });
 
   const reviews: QuestionReview[] = [];
   let correctCount = 0;
-  let incorrectCount = 0;
   let totalScoreSum = 0;
 
   if (jawabanRows && jawabanRows.length > 0) {
@@ -75,8 +109,6 @@ export default async function HasilPage({
       const isCorrect = Boolean(item.is_benar);
       if (isCorrect) {
         correctCount += 1;
-      } else {
-        incorrectCount += 1;
       }
 
       const effectiveScore =
@@ -92,7 +124,11 @@ export default async function HasilPage({
       let miskonsepsiText: string | undefined = undefined;
 
       if (soal?.tipe_soal === "pilihan_ganda") {
-        const selectedOpt = soal.opsi_soal?.find((o: any) => o.id === item.opsi_dipilih_id);
+        const selectedOpt =
+          soal.opsi_soal?.find((o: any) => o.id === item.opsi_dipilih_id) ||
+          soal.opsi_soal?.find(
+            (o: any) => o.teks_opsi?.trim().toLowerCase() === item.jawaban_teks?.trim().toLowerCase()
+          );
         const correctOpt = soal.opsi_soal?.find((o: any) => o.benar);
         studentAns = selectedOpt ? `${selectedOpt.label ? `[${selectedOpt.label}] ` : ""}${selectedOpt.teks_opsi}` : (item.jawaban_teks || "Tidak Dijawab");
         correctAns = correctOpt ? `${correctOpt.label ? `[${correctOpt.label}] ` : ""}${correctOpt.teks_opsi}` : (soal.kunci_jawaban || "-");
@@ -137,8 +173,8 @@ export default async function HasilPage({
     });
   }
 
-  const judulBab = (sesiData as any)?.bab?.judul || "Evaluasi Pembelajaran";
-  const mapelNama = (sesiData as any)?.bab?.mapel || "Matematika";
+  const judulBab = (effectiveSesi as any)?.bab?.judul || "Evaluasi Pembelajaran";
+  const mapelNama = (effectiveSesi as any)?.bab?.mapel || "Matematika";
 
   // Fallback if no jawaban rows
   if (reviews.length === 0) {
@@ -158,18 +194,18 @@ export default async function HasilPage({
 
   const totalQuestions = reviews.length;
   const score =
-    (sesiData as any)?.skor_akhir ??
+    (effectiveSesi as any)?.skor_akhir ??
     (totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0);
   const derivedIncorrectCount = Math.max(0, totalQuestions - correctCount);
   const poinEarned = score >= 80 ? 100 : score >= 60 ? 75 : 50;
 
-  const jenisSesi = (sesiData as any)?.tipe_sesi
-    ? String((sesiData as any).tipe_sesi).toUpperCase()
+  const jenisSesi = (effectiveSesi as any)?.tipe_sesi
+    ? String((effectiveSesi as any).tipe_sesi).toUpperCase()
     : "KUIS";
 
   return (
     <ExamResultClient
-      sesiId={sesiId}
+      sesiId={effectiveSesiId}
       judulBab={judulBab}
       jenisSesi={jenisSesi}
       score={score}

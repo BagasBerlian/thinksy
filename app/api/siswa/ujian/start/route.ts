@@ -29,17 +29,18 @@ export async function POST(req: Request) {
       "sim-karakter": "e9eebc99-9c0b-4ef8-bb6d-6bb9bd380a99",
     };
     let targetUjianId = SIMULASI_ALIAS_MAP[ujianId] || ujianId;
-    let { data: ujian, error: ujianErr } = await adminSupabase
+    const { data: initialUjian, error: ujianErr } = await adminSupabase
       .from("ujian")
-      .select("id, judul, durasi_menit, status, sekolah_id, token, bab_id, tipe")
+      .select("id, judul, deskripsi, durasi_menit, status, sekolah_id, token, bab_id, tipe")
       .eq("id", targetUjianId)
       .maybeSingle();
+    let ujian = initialUjian;
 
     if (!ujian && targetUjianId.startsWith("ulangan-bab-")) {
       const bId = targetUjianId.replace("ulangan-bab-", "");
       const { data: uBab } = await adminSupabase
         .from("ujian")
-        .select("id, judul, durasi_menit, status, sekolah_id, token, bab_id, tipe")
+        .select("id, judul, deskripsi, durasi_menit, status, sekolah_id, token, bab_id, tipe")
         .eq("bab_id", bId)
         .maybeSingle();
       if (uBab) {
@@ -50,6 +51,25 @@ export async function POST(req: Request) {
 
     if (ujianErr || !ujian) {
       return NextResponse.json({ error: "Ujian tidak ditemukan" }, { status: 404 });
+    }
+
+    // Cek apakah siswa dikeluarkan dari roster ujian oleh guru
+    if (ujian.deskripsi) {
+      const rosterMatch = ujian.deskripsi.match(/<!-- EXAM_ROSTER:(.*?) -->/);
+      if (rosterMatch) {
+        try {
+          const rosterMeta = JSON.parse(rosterMatch[1]);
+          if (Array.isArray(rosterMeta.excluded) && rosterMeta.excluded.includes(user.id)) {
+            return NextResponse.json(
+              {
+                error:
+                  "Nama Anda belum di-invit ke sesi ujian ini oleh Guru Pengawas. Silakan hubungi Guru Pengawas untuk meng-invit Anda melalui Live Monitor.",
+              },
+              { status: 403 }
+            );
+          }
+        } catch {}
+      }
     }
 
     if (ujian.status === "ditutup" && ujian.tipe !== "simulasi") {
@@ -136,6 +156,16 @@ export async function POST(req: Request) {
           status: "habis_waktu",
           remaining_seconds: 0,
           message: "Waktu pengerjaan ujian telah habis.",
+        });
+      }
+
+      if (existingSesi.status === "terkunci") {
+        return NextResponse.json({
+          session: existingSesi,
+          status: "terkunci",
+          remaining_seconds: remainingSeconds,
+          message:
+            "Sesi ujian Anda terkunci karena terdeteksi keluar dari ruang ujian resmi. Silakan hubungi Guru Pengawas untuk meng-invit ulang dan membuka kunci ujian Anda.",
         });
       }
 

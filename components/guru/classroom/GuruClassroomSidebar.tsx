@@ -1,27 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Home,
   Calendar,
   Users,
   FolderKanban,
-  Archive,
-  Settings,
   ChevronDown,
   ChevronUp,
   Plus,
   UserCheck,
+  Layers,
+  FileSpreadsheet,
 } from "lucide-react";
 
 export type GuruClassroomViewMode =
   | "home"
   | "calendar"
+  | "kelola_siswa"
   | "presensi"
+  | "ujian"
   | "to_review"
+  | "rekapan"
   | "matematika"
-  | "archived"
-  | "settings"
   | string;
 
 export interface SidebarClassItem {
@@ -32,30 +34,105 @@ export interface SidebarClassItem {
 }
 
 interface GuruClassroomSidebarProps {
-  isOpen: boolean;
-  activeView: GuruClassroomViewMode;
-  onSelectView: (view: GuruClassroomViewMode) => void;
+  isOpen?: boolean;
+  activeView?: GuruClassroomViewMode;
+  onSelectView?: (view: GuruClassroomViewMode) => void;
   pendingReviewCount?: number;
   classes?: SidebarClassItem[];
   archivedCount?: number;
   onCreateClassClick?: () => void;
   className?: string;
+  onCloseMobile?: () => void;
 }
 
 export default function GuruClassroomSidebar({
-  isOpen,
+  isOpen = true,
   activeView,
   onSelectView,
   pendingReviewCount = 2,
   classes = [
     { id: "mat-8", name: "Matematika (Kelas 8)", themeColor: "#1967D2" },
   ],
-  archivedCount = 0,
   onCreateClassClick,
+  onCloseMobile,
 }: GuruClassroomSidebarProps) {
+  const pathname = usePathname() || "";
+  const router = useRouter();
   const [isTeachingOpen, setIsTeachingOpen] = useState(true);
 
+  // Client-side query parameter inspection
+  const [queryState, setQueryState] = useState<{ view: string; classId: string }>({
+    view: "",
+    classId: "",
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const updateParams = () => {
+        const sp = new URLSearchParams(window.location.search);
+        setQueryState({
+          view: sp.get("view") || sp.get("tab") || "",
+          classId: sp.get("class") || "",
+        });
+      };
+      updateParams();
+      window.addEventListener("popstate", updateParams);
+      return () => window.removeEventListener("popstate", updateParams);
+    }
+  }, []);
+
   if (!isOpen) return null;
+
+  // Active status determinations
+  const isKelolaSiswa =
+    activeView === "kelola_siswa" || pathname.startsWith("/guru/siswa");
+  const isUjian =
+    activeView === "ujian" || pathname.startsWith("/guru/ujian");
+  const isPresensi =
+    activeView === "presensi" ||
+    (pathname === "/guru" && queryState.view === "presensi");
+  const isCalendar =
+    activeView === "calendar" ||
+    (pathname === "/guru" && queryState.view === "calendar");
+  const isToReview =
+    activeView === "to_review" ||
+    (pathname === "/guru" && queryState.view === "to_review");
+  const isRekapan =
+    activeView === "rekapan" || pathname.startsWith("/guru/rekapan");
+
+  const isClassSelected = (clsId: string) =>
+    activeView === clsId ||
+    (activeView === "matematika" && clsId === "mat-8") ||
+    (pathname === "/guru" && queryState.classId === clsId) ||
+    (pathname === "/guru" && queryState.view === clsId);
+
+  const isAnySpecific =
+    isKelolaSiswa ||
+    isUjian ||
+    isPresensi ||
+    isCalendar ||
+    isToReview ||
+    isRekapan ||
+    classes.some((c) => isClassSelected(c.id));
+
+  const isHome =
+    activeView === "home" ||
+    (!isAnySpecific && (pathname === "/guru" || pathname === "/guru/"));
+
+  const handleNavigate = (view: GuruClassroomViewMode, targetHref: string) => {
+    if (onCloseMobile) onCloseMobile();
+
+    if (pathname === "/guru" && onSelectView) {
+      onSelectView(view);
+      if (targetHref.includes("?") || targetHref !== "/guru") {
+        try {
+          window.history.pushState(null, "", targetHref);
+        } catch {}
+      }
+    } else {
+      router.push(targetHref);
+    }
+  };
 
   return (
     <aside className="fixed top-16 left-0 bottom-0 w-68 sm:w-72 bg-white border-r border-slate-200/80 z-30 flex flex-col py-3 select-none overflow-y-auto">
@@ -63,16 +140,16 @@ export default function GuruClassroomSidebar({
         {/* 1. Home */}
         <button
           type="button"
-          onClick={() => onSelectView("home")}
+          onClick={() => handleNavigate("home", "/guru")}
           className={`w-full flex items-center gap-4 px-6 py-3 rounded-r-full mr-3 text-sm font-medium transition cursor-pointer text-left ${
-            activeView === "home"
+            isHome
               ? "bg-[#D3E3FD] text-[#041E49] font-semibold"
               : "text-[#444746] hover:bg-slate-100/80"
           }`}
         >
           <Home
             className={`w-5 h-5 shrink-0 ${
-              activeView === "home" ? "text-[#041E49]" : "text-[#444746]"
+              isHome ? "text-[#041E49]" : "text-[#444746]"
             }`}
           />
           <span>Home</span>
@@ -81,27 +158,50 @@ export default function GuruClassroomSidebar({
         {/* 2. Calendar */}
         <button
           type="button"
-          onClick={() => onSelectView("calendar")}
+          onClick={() => handleNavigate("calendar", "/guru?view=calendar")}
           className={`w-full flex items-center gap-4 px-6 py-3 rounded-r-full mr-3 text-sm font-medium transition cursor-pointer text-left ${
-            activeView === "calendar"
+            isCalendar
               ? "bg-[#D3E3FD] text-[#041E49] font-semibold"
               : "text-[#444746] hover:bg-slate-100/80"
           }`}
         >
           <Calendar
             className={`w-5 h-5 shrink-0 ${
-              activeView === "calendar" ? "text-[#041E49]" : "text-[#444746]"
+              isCalendar ? "text-[#041E49]" : "text-[#444746]"
             }`}
           />
           <span>Calendar</span>
         </button>
 
-        {/* 3. Presensi & Siswa (Menu Mandiri Terpisah dari Teaching) */}
+        {/* 3. Kelola Siswa (Realtime Badge) */}
         <button
           type="button"
-          onClick={() => onSelectView("presensi")}
+          onClick={() => handleNavigate("kelola_siswa", "/guru/siswa")}
           className={`w-full flex items-center justify-between px-6 py-3 rounded-r-full mr-3 text-sm font-medium transition cursor-pointer text-left ${
-            activeView === "presensi"
+            isKelolaSiswa
+              ? "bg-[#D3E3FD] text-[#041E49] font-semibold"
+              : "text-[#444746] hover:bg-slate-100/80"
+          }`}
+        >
+          <div className="flex items-center gap-4 min-w-0">
+            <Users
+              className={`w-5 h-5 shrink-0 ${
+                isKelolaSiswa ? "text-[#041E49]" : "text-[#444746]"
+              }`}
+            />
+            <span className="truncate">Kelola Siswa</span>
+          </div>
+          <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#E8F0FE] text-[#1967D2] shrink-0">
+            Realtime
+          </span>
+        </button>
+
+        {/* 4. Presensi Siswa (Harian Badge) */}
+        <button
+          type="button"
+          onClick={() => handleNavigate("presensi", "/guru?view=presensi")}
+          className={`w-full flex items-center justify-between px-6 py-3 rounded-r-full mr-3 text-sm font-medium transition cursor-pointer text-left ${
+            isPresensi
               ? "bg-[#D3E3FD] text-[#041E49] font-semibold"
               : "text-[#444746] hover:bg-slate-100/80"
           }`}
@@ -109,17 +209,40 @@ export default function GuruClassroomSidebar({
           <div className="flex items-center gap-4 min-w-0">
             <UserCheck
               className={`w-5 h-5 shrink-0 ${
-                activeView === "presensi" ? "text-[#041E49]" : "text-[#444746]"
+                isPresensi ? "text-[#041E49]" : "text-[#444746]"
               }`}
             />
-            <span className="truncate">Presensi & Siswa</span>
+            <span className="truncate">Presensi Siswa</span>
           </div>
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 shrink-0">
+          <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#E6F4EA] text-[#137333] shrink-0">
             Harian
           </span>
         </button>
 
-        {/* 4. Teaching Section (Accordion - Khusus Kelas Mengajar) */}
+        {/* 5. Ruang Ujian & CBT (Kelola Badge) */}
+        <button
+          type="button"
+          onClick={() => handleNavigate("ujian", "/guru/ujian")}
+          className={`w-full flex items-center justify-between px-6 py-3 rounded-r-full mr-3 text-sm font-medium transition cursor-pointer text-left ${
+            isUjian
+              ? "bg-[#D3E3FD] text-[#041E49] font-semibold"
+              : "text-[#444746] hover:bg-slate-100/80"
+          }`}
+        >
+          <div className="flex items-center gap-4 min-w-0">
+            <Layers
+              className={`w-5 h-5 shrink-0 ${
+                isUjian ? "text-[#041E49]" : "text-[#444746]"
+              }`}
+            />
+            <span className="truncate">Ruang Ujian & CBT</span>
+          </div>
+          <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#FCE8E6] text-[#C5221F] shrink-0">
+            Kelola
+          </span>
+        </button>
+
+        {/* 6. Teaching Section (Accordion) */}
         <div className="pt-2">
           <button
             type="button"
@@ -143,9 +266,9 @@ export default function GuruClassroomSidebar({
               {/* To review */}
               <button
                 type="button"
-                onClick={() => onSelectView("to_review")}
+                onClick={() => handleNavigate("to_review", "/guru?view=to_review")}
                 className={`w-full flex items-center justify-between pl-12 pr-6 py-2.5 rounded-r-full mr-3 text-sm transition cursor-pointer text-left ${
-                  activeView === "to_review"
+                  isToReview
                     ? "bg-[#D3E3FD] text-[#041E49] font-semibold"
                     : "text-[#444746] hover:bg-slate-100/80 font-medium"
                 }`}
@@ -153,9 +276,7 @@ export default function GuruClassroomSidebar({
                 <div className="flex items-center gap-4 min-w-0">
                   <FolderKanban
                     className={`w-5 h-5 shrink-0 ${
-                      activeView === "to_review"
-                        ? "text-[#041E49]"
-                        : "text-[#444746]"
+                      isToReview ? "text-[#041E49]" : "text-[#444746]"
                     }`}
                   />
                   <span>To review</span>
@@ -163,9 +284,9 @@ export default function GuruClassroomSidebar({
                 {typeof pendingReviewCount === "number" && pendingReviewCount > 0 && (
                   <span
                     className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
-                      activeView === "to_review"
+                      isToReview
                         ? "bg-[#0B57D0] text-white"
-                        : "bg-blue-100 text-[#0B57D0]"
+                        : "bg-[#D3E3FD] text-[#041E49]"
                     }`}
                   >
                     {pendingReviewCount}
@@ -173,18 +294,16 @@ export default function GuruClassroomSidebar({
                 )}
               </button>
 
-              {/* Dynamic Class Items */}
+              {/* Class: Matematika (Kelas 8) & Dynamic Classes */}
               {classes.map((cls) => {
-                const isSelected =
-                  activeView === cls.id ||
-                  (activeView === "matematika" && cls.id === "mat-8");
-                const initial = cls.name.charAt(0).toUpperCase() || "K";
+                const isSelected = isClassSelected(cls.id);
+                const initial = cls.name.charAt(0).toUpperCase() || "M";
 
                 return (
                   <button
                     key={cls.id}
                     type="button"
-                    onClick={() => onSelectView(cls.id)}
+                    onClick={() => handleNavigate(cls.id, `/guru?class=${cls.id}`)}
                     className={`w-full flex items-center gap-3.5 pl-12 pr-6 py-2.5 rounded-r-full mr-3 text-sm transition cursor-pointer text-left ${
                       isSelected
                         ? "bg-[#D3E3FD] text-[#041E49] font-semibold"
@@ -192,7 +311,7 @@ export default function GuruClassroomSidebar({
                     }`}
                   >
                     <div
-                      className="w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 text-white"
+                      className="w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 text-white shadow-xs"
                       style={{
                         backgroundColor: cls.themeColor || "#1967D2",
                       }}
@@ -204,66 +323,46 @@ export default function GuruClassroomSidebar({
                 );
               })}
 
-              {/* Quick "Buat Kelas Baru" button under Teaching */}
-              {onCreateClassClick && (
-                <button
-                  type="button"
-                  onClick={onCreateClassClick}
-                  className="w-full flex items-center gap-3 pl-12 pr-6 py-2 rounded-r-full mr-3 text-xs font-semibold text-[#0B57D0] hover:bg-blue-50/70 transition cursor-pointer text-left"
-                >
-                  <Plus className="w-4 h-4 shrink-0 text-[#0B57D0]" />
-                  <span>Buat Kelas Baru</span>
-                </button>
-              )}
+              {/* + Buat Kelas Baru */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (onCreateClassClick) {
+                    onCreateClassClick();
+                  } else {
+                    router.push("/guru?action=create_class");
+                  }
+                }}
+                className="w-full flex items-center gap-3 pl-12 pr-6 py-2.5 rounded-r-full mr-3 text-xs font-semibold text-[#0B57D0] hover:bg-blue-50/70 transition cursor-pointer text-left"
+              >
+                <Plus className="w-4 h-4 shrink-0 text-[#0B57D0]" />
+                <span>Buat Kelas Baru</span>
+              </button>
             </div>
           )}
         </div>
-      </div>
 
-      {/* Divider */}
-      <div className="my-4 border-t border-slate-200" />
-
-      {/* 4. Bottom Items: Archived classes & Settings */}
-      <div className="space-y-1 mt-auto pb-4">
+        {/* 7. Rekapan (Buku Raport & Rekap Nilai Tahunan Siswa Terintegrasi Supabase) */}
         <button
           type="button"
-          onClick={() => onSelectView("archived")}
-          className={`w-full flex items-center justify-between px-6 py-2.5 rounded-r-full mr-3 text-sm font-medium transition cursor-pointer text-left ${
-            activeView === "archived"
+          onClick={() => handleNavigate("rekapan", "/guru/rekapan")}
+          className={`w-full flex items-center justify-between px-6 py-3 rounded-r-full mr-3 text-sm font-medium transition cursor-pointer text-left ${
+            isRekapan
               ? "bg-[#D3E3FD] text-[#041E49] font-semibold"
               : "text-[#444746] hover:bg-slate-100/80"
           }`}
         >
-          <div className="flex items-center gap-4">
-            <Archive
+          <div className="flex items-center gap-4 min-w-0">
+            <FileSpreadsheet
               className={`w-5 h-5 shrink-0 ${
-                activeView === "archived" ? "text-[#041E49]" : "text-[#444746]"
+                isRekapan ? "text-[#041E49]" : "text-[#444746]"
               }`}
             />
-            <span>Archived classes</span>
+            <span className="truncate">Rekapan</span>
           </div>
-          {archivedCount > 0 && (
-            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
-              {archivedCount}
-            </span>
-          )}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onSelectView("settings")}
-          className={`w-full flex items-center gap-4 px-6 py-2.5 rounded-r-full mr-3 text-sm font-medium transition cursor-pointer text-left ${
-            activeView === "settings"
-              ? "bg-[#D3E3FD] text-[#041E49] font-semibold"
-              : "text-[#444746] hover:bg-slate-100/80"
-          }`}
-        >
-          <Settings
-            className={`w-5 h-5 shrink-0 ${
-              activeView === "settings" ? "text-[#041E49]" : "text-[#444746]"
-            }`}
-          />
-          <span>Settings</span>
+          <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 shrink-0">
+            Nilai & Absen
+          </span>
         </button>
       </div>
     </aside>

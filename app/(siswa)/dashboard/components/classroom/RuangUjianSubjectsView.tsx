@@ -19,6 +19,7 @@ import {
   X,
   ShieldCheck,
   ChevronRight,
+  Lock,
 } from "lucide-react";
 
 interface RuangUjianSubjectsViewProps {
@@ -54,17 +55,17 @@ const OFFICIAL_EXAM_SUBJECTS: OfficialExamSubject[] = [
   {
     id: "e5eebc99-9c0b-4ef8-bb6d-6bb9bd380a55",
     key: "matematika",
-    name: "Matematika",
+    name: "Ujian Resmi Matematika #1",
     code: "MTK-PTS8",
     curriculum: "Kurikulum Merdeka • Fase D",
-    desc: "Asesmen sumatif resmi mata pelajaran Matematika mencakup Aljabar, Teorema Pythagoras, dan Relasi Fungsi.",
+    desc: "Asesmen sumatif resmi terstandar CBT Matematika Kelas 8 (Part 1 - Semester 1) materi Aljabar, Teorema Pythagoras, dan Relasi Fungsi.",
     durasi: 90,
     kkm: 75,
     totalSoal: 35,
     icon: BookOpen,
     defaultToken: "MTK-PTS26",
-    badgeColor: "bg-blue-50 text-blue-700 border-blue-200",
-    accentBorder: "hover:border-blue-300",
+    badgeColor: "bg-purple-50 text-purple-700 border-purple-200",
+    accentBorder: "hover:border-purple-300",
   },
 ];
 
@@ -243,25 +244,38 @@ export default function RuangUjianSubjectsView({
       <div className="flex items-center justify-between pb-1">
         <div>
           <h2 className="text-base sm:text-lg font-extrabold text-slate-900">
-            Daftar Mata Pelajaran Ujian Resmi (3 Mapel)
+            Daftar Mata Pelajaran Ujian Resmi (Matematika)
           </h2>
           <p className="text-xs text-slate-500 font-normal">
             Klik tombol mata pelajaran untuk memasukkan token dan membuka lembar soal ujian.
           </p>
         </div>
         <span className="text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
-          3 Mapel Aktif
+          Matematika Kelas 8 Aktif
         </span>
       </div>
 
-      {/* 4. EXACTLY 3 SUBJECT CARDS (Matematika, Bahasa Indonesia, Bahasa Inggris) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+      {/* 4. SUBJECT CARDS BERTAHAP PER MAPEL (Contoh: Matematika Kelas 8) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {OFFICIAL_EXAM_SUBJECTS.map((subj) => {
           const Icon = subj.icon;
+          const matchedExam = examsData.find(
+            (ex) =>
+              ex.mapel?.toLowerCase().includes(subj.name.toLowerCase()) ||
+              ex.id === subj.id
+          );
+          const isClosed = matchedExam?.status === "ditutup";
+          const effectiveDurasi = matchedExam?.durasi_menit || subj.durasi;
+          const effectiveKkm = matchedExam?.passing_grade || subj.kkm;
+
           return (
             <div
               key={subj.key}
-              className={`bg-white rounded-3xl border border-slate-200/90 shadow-2xs ${subj.accentBorder} transition-all duration-200 p-6 flex flex-col justify-between space-y-5 hover:shadow-md group`}
+              className={`rounded-3xl border-2 transition-all duration-200 p-6 flex flex-col justify-between space-y-5 shadow-2xs ${
+                isClosed
+                  ? "bg-slate-100/90 border-slate-300 opacity-60 grayscale cursor-not-allowed select-none"
+                  : `bg-white border-slate-200/90 ${subj.accentBorder} hover:shadow-md group`
+              }`}
             >
               <div className="space-y-4">
                 {/* Subject Header */}
@@ -269,9 +283,16 @@ export default function RuangUjianSubjectsView({
                   <div className="w-12 h-12 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center shrink-0 group-hover:scale-105 transition">
                     <Icon className="w-6 h-6 text-slate-700" />
                   </div>
-                  <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${subj.badgeColor}`}>
-                    {subj.code}
-                  </span>
+                  {isClosed ? (
+                    <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-slate-200 text-slate-700 border border-slate-300 flex items-center gap-1">
+                      <Lock className="w-3 h-3 text-slate-500" />
+                      <span>Dinonaktifkan Guru</span>
+                    </span>
+                  ) : (
+                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${subj.badgeColor}`}>
+                      {subj.code}
+                    </span>
+                  )}
                 </div>
 
                 <div>
@@ -290,11 +311,11 @@ export default function RuangUjianSubjectsView({
                 <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2 text-xs">
                   <div className="flex items-center justify-between text-slate-700">
                     <span className="text-slate-500">Durasi Ujian:</span>
-                    <strong className="font-bold text-slate-900">{subj.durasi} Menit</strong>
+                    <strong className="font-bold text-slate-900">{effectiveDurasi} Menit</strong>
                   </div>
                   <div className="flex items-center justify-between text-slate-700">
                     <span className="text-slate-500">Passing Grade:</span>
-                    <strong className="font-bold text-emerald-700">KKM {subj.kkm}</strong>
+                    <strong className="font-bold text-emerald-700">KKM {effectiveKkm}</strong>
                   </div>
                   <div className="flex items-center justify-between text-slate-700">
                     <span className="text-slate-500">Alokasi Soal:</span>
@@ -303,16 +324,27 @@ export default function RuangUjianSubjectsView({
                 </div>
               </div>
 
-              {/* Action Button: Opens Token Modal directly */}
-              <button
-                type="button"
-                onClick={() => handleOpenTokenModal(subj)}
-                className="w-full py-3 px-4 rounded-xl bg-slate-900 hover:bg-blue-600 text-white font-bold text-xs transition cursor-pointer shadow-xs flex items-center justify-center gap-2 group-hover:bg-blue-600"
-              >
-                <KeyRound className="w-3.5 h-3.5 text-blue-300" />
-                <span>Mulai Ujian {subj.name}</span>
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
+              {/* Action Button */}
+              {isClosed ? (
+                <button
+                  type="button"
+                  disabled
+                  className="w-full py-3 px-4 rounded-xl bg-slate-200 text-slate-500 font-bold text-xs flex items-center justify-center gap-2 cursor-not-allowed select-none"
+                >
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>Ujian Tidak Aktif (Dinonaktifkan Guru)</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => handleOpenTokenModal(subj)}
+                  className="w-full py-3 px-4 rounded-xl bg-slate-900 hover:bg-blue-600 text-white font-bold text-xs transition cursor-pointer shadow-xs flex items-center justify-center gap-2 group-hover:bg-blue-600"
+                >
+                  <KeyRound className="w-3.5 h-3.5 text-blue-300" />
+                  <span>Mulai Ujian {subj.name}</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
           );
         })}

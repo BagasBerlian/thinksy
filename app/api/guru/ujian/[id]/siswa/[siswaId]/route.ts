@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET(
   req: Request,
-  { params }: { params: Promise<{ id: string; siswaId: string }> }
+  { params }: { params: Promise<any> }
 ) {
   try {
     const { id: ujianId, siswaId } = await params;

@@ -108,8 +108,14 @@ export async function GET(req: Request) {
 
       const avgScore = scoreCount > 0 ? Math.round(totalScore / scoreCount) : Math.max(70, 88 - idx);
 
-      // Format real session attempts for this student
-      const examAttempts = sessions.map((ses: any) => {
+      // Format real session attempts for this student (prioritaskan sesi selesai)
+      const relevantSessions = sessions
+        .filter((ses: any) => ses.status_sesi === "selesai" || ses.skor_akhir !== null)
+        .sort((a: any, b: any) => new Date(b.selesai_pada || 0).getTime() - new Date(a.selesai_pada || 0).getTime());
+
+      const attemptsSource = relevantSessions.length > 0 ? relevantSessions : sessions;
+
+      const examAttempts = attemptsSource.map((ses: any) => {
         const u = {
           judul: ses.bab?.judul || (filterMapel ? `Sesi ${filterMapel}` : "Sesi Pembelajaran Terpadu"),
           mapel: ses.bab?.mapel || filterMapel || "Matematika",

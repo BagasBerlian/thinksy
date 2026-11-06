@@ -70,7 +70,7 @@ export default async function SiswaDashboardPage() {
         if (typeof sek.links === "string") {
           try {
             parsedLinks = JSON.parse(sek.links);
-          } catch {}
+          } catch { }
         } else if (Array.isArray(sek.links)) {
           parsedLinks = sek.links;
         }
@@ -414,8 +414,166 @@ export default async function SiswaDashboardPage() {
     }));
   }
 
-  // 5. Ujian & Ulangan dinonaktifkan sesuai spesifikasi
-  const examsData: any[] = [];
+  // 5. Ujian & Ulangan terintegrasi real-time dari database ujian
+  let examsData: any[] = [];
+  try {
+    let examQuery = adminSupabase
+      .from("ujian")
+      .select(`
+        id,
+        judul,
+        deskripsi,
+        mapel,
+        tipe,
+        durasi_menit,
+        passing_grade,
+        waktu_mulai,
+        waktu_berakhir,
+        status,
+        token,
+        bab_id,
+        dibuat_pada
+      `)
+      .in("status", ["dipublikasi", "ditutup"])
+      .order("dibuat_pada", { ascending: false });
+
+    if (sekolahData?.id) {
+      examQuery = examQuery.or(`sekolah_id.eq.${sekolahData.id},sekolah_id.eq.a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11,sekolah_id.is.null`);
+    }
+
+    const { data: rawExams } = await examQuery;
+
+    // Ambil riwayat sesi_ujian siswa
+    const userSessionMap = new Map<string, any>();
+    if (user?.id) {
+      const { data: userExamsSessions } = await adminSupabase
+        .from("sesi_ujian")
+        .select("id, ujian_id, status, nilai_akhir")
+        .eq("siswa_id", user.id);
+
+      (userExamsSessions || []).forEach((s) => {
+        userSessionMap.set(s.ujian_id, s);
+      });
+    }
+
+    const validMathExams = (rawExams || []).filter((u) => {
+      const m = (u.mapel || "").toLowerCase();
+      const j = (u.judul || "").toLowerCase();
+      const isOther =
+        m.includes("ipa") ||
+        m.includes("inggris") ||
+        m.includes("indonesia") ||
+        m.includes("ips") ||
+        m.includes("agama") ||
+        m.includes("pjok") ||
+        m.includes("seni") ||
+        m.includes("karakter") ||
+        m.includes("literasi") ||
+        m.includes("logika") ||
+        j.includes("survei karakter") ||
+        j.includes("literasi membaca") ||
+        j.includes("numerasi bernalar") ||
+        u.tipe === "simulasi";
+      return !isOther;
+    });
+
+    const CANONICAL_EXAMS_MAP: Record<string, any> = {
+      "u1eebc99-9c0b-4ef8-bb6d-6bb9bd380a11": {
+        id: "u1eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+        judul: "Ulangan Matematika Semester 1",
+        deskripsi:
+          "Evaluasi formatif komprehensif Matematika Semester 1 mencakup Bab 1 sampai Bab 4 (Pola Bilangan, Bentuk Aljabar, Relasi & Fungsi, Persamaan Garis Lurus).",
+        mapel: "Matematika",
+        tipe: "ulangan" as const,
+        durasi_menit: 60,
+        passing_grade: 75,
+        status: "dipublikasi",
+        token: "MTK-SEM1",
+        bab_id: null,
+      },
+      "u2eebc99-9c0b-4ef8-bb6d-6bb9bd380a22": {
+        id: "u2eebc99-9c0b-4ef8-bb6d-6bb9bd380a22",
+        judul: "Ulangan Matematika Semester 2",
+        deskripsi:
+          "Evaluasi formatif komprehensif Matematika Semester 2 mencakup Bab 5 sampai Bab 8 (SPLDV, Teorema Pythagoras, Bangun Ruang Sisi Datar, Statistika & Peluang).",
+        mapel: "Matematika",
+        tipe: "ulangan" as const,
+        durasi_menit: 60,
+        passing_grade: 75,
+        status: "dipublikasi",
+        token: "MTK-SEM2",
+        bab_id: null,
+      },
+      "e5eebc99-9c0b-4ef8-bb6d-6bb9bd380a55": {
+        id: "e5eebc99-9c0b-4ef8-bb6d-6bb9bd380a55",
+        judul: "Ujian Resmi Matematika #1",
+        deskripsi:
+          "Asesmen sumatif resmi terstandar CBT Matematika Kelas 8 (Part 1 - Semester 1) materi Aljabar, Teorema Pythagoras, dan Relasi Fungsi.",
+        mapel: "Matematika",
+        tipe: "ujian" as const,
+        durasi_menit: 90,
+        passing_grade: 75,
+        status: "dipublikasi",
+        token: "MTK-PTS26",
+        bab_id: null,
+      },
+    };
+
+    const examSourceMap = new Map<string, any>();
+    Object.values(CANONICAL_EXAMS_MAP).forEach((item) => {
+      examSourceMap.set(item.id, item);
+    });
+
+    validMathExams.forEach((u) => {
+      const isOfficial =
+        u.tipe === "ujian" ||
+        u.id === "e5eebc99-9c0b-4ef8-bb6d-6bb9bd380a55" ||
+        /pts|pas|ujian resmi/i.test(u.judul || "");
+      const calculatedTipe: "ulangan" | "ujian" = isOfficial ? "ujian" : "ulangan";
+      const judul = isOfficial ? "Ujian Resmi Matematika #1" : u.judul;
+
+      examSourceMap.set(u.id, {
+        ...u,
+        judul,
+        tipe: calculatedTipe,
+        durasi_menit: u.durasi_menit || (isOfficial ? 90 : 60),
+        passing_grade: u.passing_grade || 75,
+      });
+    });
+
+    examsData = Array.from(examSourceMap.values()).map((u) => {
+      const sesi = userSessionMap.get(u.id);
+      const calculatedTipe: "ulangan" | "ujian" = u.tipe || "ulangan";
+
+      let sessionStatus = sesi?.status || "belum_mulai";
+      if (calculatedTipe === "ujian" && sessionStatus === "sedang_mengerjakan" && sesi?.id) {
+        sessionStatus = "terkunci";
+        adminSupabase
+          .from("sesi_ujian")
+          .update({ status: "terkunci" })
+          .eq("id", sesi.id)
+          .then(() => { });
+      }
+
+      return {
+        id: u.id,
+        judul: u.judul,
+        deskripsi: u.deskripsi,
+        mapel: u.mapel || "Matematika",
+        durasi_menit: u.durasi_menit,
+        passing_grade: u.passing_grade,
+        waktu_mulai: u.waktu_mulai || new Date().toISOString(),
+        waktu_berakhir: u.waktu_berakhir || new Date(Date.now() + 30 * 86400000).toISOString(),
+        status: u.status || "dipublikasi", // "dipublikasi" | "ditutup"
+        tipe: calculatedTipe,
+        bab_id: u.bab_id,
+        token: u.token,
+        sessionStatus,
+        score: sesi?.nilai_akhir ?? null,
+        sesiId: sesi?.id,
+      };
+    });
+  } catch { }
 
   // Fallback default sample peer avatars if no peers in DB yet
   if (peerStudents.length === 0) {

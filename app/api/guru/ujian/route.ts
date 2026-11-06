@@ -48,11 +48,18 @@ export async function GET() {
       query = query.or(`sekolah_id.eq.${profil.sekolah_id},sekolah_id.eq.a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11`);
     }
 
-    const { data: exams, error } = await query;
+    const { data: rawExams, error } = await query;
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    // Ulangan & ujian hanya seputar Matematika yang ada di class
+    const exams = (rawExams || []).filter((e) => {
+      const m = (e.mapel || "").toLowerCase();
+      const isOther = /ipa|inggris|indonesia|ips|agama|pjok|seni|karakter|literasi/i.test(m);
+      return !isOther && (m.includes("matematika") || m === "" || !e.mapel);
+    });
 
     // Ambil statistik pengerjaan untuk setiap ujian
     const examIds = (exams || []).map((e) => e.id);
@@ -122,7 +129,6 @@ export async function POST(req: Request) {
     const {
       judul,
       deskripsi,
-      mapel = "Matematika",
       tipe = "ulangan",
       token,
       kelasId,
@@ -134,7 +140,11 @@ export async function POST(req: Request) {
       acakSoal = false,
       acakOpsi = false,
       soalIds = [],
+      soalList = [],
     } = body;
+
+    // Ulangan & Ujian sementara dikunci khusus seputar Matematika yang ada di class
+    const mapel = "Matematika";
 
     if (!judul) {
       return NextResponse.json({ error: "Judul ujian wajib diisi" }, { status: 400 });
@@ -174,8 +184,59 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Gagal membuat ujian: " + insertErr?.message }, { status: 500 });
     }
 
-    // 2. Hubungkan soal ke tabel ujian_soal
-    if (soalIds && soalIds.length > 0) {
+    // 2. Hubungkan atau simpan soal ke tabel ujian_soal
+    if (soalList && Array.isArray(soalList) && soalList.length > 0) {
+      for (let idx = 0; idx < soalList.length; idx++) {
+        const item = soalList[idx];
+        let targetSoalId = item.id;
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetSoalId || "");
+
+        if (!isUuid && item.pertanyaan) {
+          const tipeSoal = item.tipeSoal || (item.opsi && item.opsi.length > 0 ? "pilihan_ganda" : "esai");
+          const kunci = item.kunciJawaban || (tipeSoal === "pilihan_ganda" ? (item.opsi?.find((o: any) => o.benar)?.teks || "") : "");
+
+          const { data: insertedSoal } = await adminSupabase
+            .from("soal")
+            .insert({
+              bab_id: babId || null,
+              pertanyaan: item.pertanyaan,
+              tipe_soal: tipeSoal,
+              tingkat_soal: "sedang",
+              sumber_konten: "guru_dashboard",
+              status_soal: "dipublikasi",
+              kunci_jawaban: kunci,
+              pembahasan: item.pembahasan || "",
+              pembuat_id: user.id,
+            })
+            .select("id")
+            .single();
+
+          if (insertedSoal?.id) {
+            targetSoalId = insertedSoal.id;
+            if (tipeSoal === "pilihan_ganda" && Array.isArray(item.opsi)) {
+              const opsiPayload = item.opsi.map((op: any, oi: number) => ({
+                soal_id: insertedSoal.id,
+                teks_opsi: op.teks || op.teksOpsi || "",
+                benar: Boolean(op.benar),
+                urutan: oi + 1,
+                label: String.fromCharCode(65 + oi),
+                alasan_salah: op.alasanSalah || op.alasan_salah || null,
+              }));
+              await adminSupabase.from("opsi_soal").insert(opsiPayload);
+            }
+          }
+        }
+
+        if (targetSoalId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetSoalId)) {
+          await adminSupabase.from("ujian_soal").insert({
+            ujian_id: newUjian.id,
+            soal_id: targetSoalId,
+            urutan: idx + 1,
+            poin_bobot: 10,
+          });
+        }
+      }
+    } else if (soalIds && soalIds.length > 0) {
       const ujianSoalPayload = soalIds.map((soalId: string, idx: number) => ({
         ujian_id: newUjian.id,
         soal_id: soalId,

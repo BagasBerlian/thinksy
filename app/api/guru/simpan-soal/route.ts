@@ -32,7 +32,75 @@ export async function POST(req: Request) {
       kunciJawaban,
       pembahasan,
       opsiSoal = [],
+      daftarSoal,
+      soalList,
     } = body;
+
+    const batch = (daftarSoal || soalList) as any[];
+
+    // 2. Batch Mode: Menyimpan seluruh paket (misal 15 butir soal standar per bab)
+    if (Array.isArray(batch) && batch.length > 0) {
+      if (!babId) {
+        return NextResponse.json(
+          { error: "Bab ID wajib diisi untuk penyimpanan paket soal." },
+          { status: 400 }
+        );
+      }
+
+      let savedCount = 0;
+      for (let i = 0; i < batch.length; i++) {
+        const item = batch[i];
+        const itemTipe = item.tipeSoal || item.tipe_soal || (i < 10 ? "pilihan_ganda" : i < 13 ? "isian_singkat" : "esai");
+        const itemTingkat = item.tingkatSoal || item.tingkat_soal || (i < 6 ? "mudah" : i < 12 ? "sedang" : "sulit");
+        const itemTanya = item.pertanyaan || "";
+        const itemKunci = item.kunciJawaban || item.kunci_jawaban || "";
+        const itemBahas = item.pembahasan || "";
+        const itemOpsi = item.opsiSoal || item.opsi || [];
+
+        if (!itemTanya) continue;
+
+        const soalPayload: Record<string, any> = {
+          bab_id: babId,
+          pertanyaan: itemTanya,
+          tipe_soal: itemTipe,
+          tingkat_soal: itemTingkat,
+          sumber_konten: sumberKonten,
+          status_soal: statusSoal || "dipublikasi",
+          kunci_jawaban: itemKunci,
+          pembahasan: itemBahas,
+          pembuat_id: user.id,
+        };
+
+        if (materiId) {
+          soalPayload.materi_id = materiId;
+        }
+
+        const { data: inserted, error: insErr } = await adminDb
+          .from("soal")
+          .insert(soalPayload)
+          .select("id")
+          .single();
+
+        if (inserted && !insErr) {
+          savedCount++;
+          if (itemTipe === "pilihan_ganda" && Array.isArray(itemOpsi) && itemOpsi.length > 0) {
+            const opsiPayload = itemOpsi.map((o: any, idx: number) => ({
+              soal_id: inserted.id,
+              teks_opsi: o.teksOpsi || o.teks || "",
+              benar: Boolean(o.benar),
+              urutan: idx + 1,
+            }));
+            await adminDb.from("opsi_soal").insert(opsiPayload);
+          }
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        savedCount,
+        message: `Berhasil menyimpan ${savedCount} butir soal ke Bank Soal!`,
+      });
+    }
 
     if (!babId || !pertanyaan) {
       return NextResponse.json(

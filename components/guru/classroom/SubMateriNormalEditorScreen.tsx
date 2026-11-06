@@ -92,7 +92,7 @@ function formatHeading(text: string, start: number, end: number, level: 1 | 2 | 
 
 function formatBold(text: string, start: number, end: number) {
   if (start !== end) {
-    let selected = text.substring(start, end);
+    const selected = text.substring(start, end);
 
     // 1. If text immediately outside the selection is already **
     const before2 = text.substring(Math.max(0, start - 2), start);
@@ -157,7 +157,7 @@ function formatBold(text: string, start: number, end: number) {
 
 function formatItalic(text: string, start: number, end: number) {
   if (start !== end) {
-    let selected = text.substring(start, end);
+    const selected = text.substring(start, end);
 
     const before1 = text.substring(Math.max(0, start - 1), start);
     const after1 = text.substring(end, end + 1);

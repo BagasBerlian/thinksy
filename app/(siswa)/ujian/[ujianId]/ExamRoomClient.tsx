@@ -109,6 +109,10 @@ export default function ExamRoomClient({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
+  const isUjianResmi =
+    ujian.tipe === "ujian" ||
+    (!/ulangan|formatif/i.test(ujian.judul || "") && ujian.tipe !== "ulangan");
+
   // Session state
   const [session, setSession] = useState<SesiData | null>(initialSession);
   const [isExamStarted, setIsExamStarted] = useState(
@@ -117,6 +121,8 @@ export default function ExamRoomClient({
   const [isCompleted, setIsCompleted] = useState(
     initialSession?.status === "selesai" || initialSession?.status === "habis_waktu"
   );
+  const [isExitWarningOpen, setIsExitWarningOpen] = useState(false);
+  const [isExiting, setIsExiting] = useState(false);
   const [reviewFilter, setReviewFilter] = useState<"semua" | "benar" | "parsial" | "salah">("semua");
   const [finalResult, setFinalResult] = useState<{
     nilaiAkhir: number;
@@ -365,6 +371,69 @@ export default function ExamRoomClient({
     return () => clearInterval(saveInterval);
   }, [isExamStarted, isCompleted, session?.id, answers]);
 
+  // 3. Official Exam Security: Lock exam if student exits the screen (tab switch, window blur, unload)
+  useEffect(() => {
+    if (!isUjianResmi || !isExamStarted || isCompleted) return;
+
+    const lockSessionDueToScreenExit = () => {
+      try {
+        saveDraftAnswers();
+        navigator.sendBeacon("/api/siswa/ujian/lock", JSON.stringify({ ujianId: ujian.id }));
+        fetch("/api/siswa/ujian/lock", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ujianId: ujian.id }),
+        }).catch(() => {});
+      } catch {}
+      setSession((prev) => (prev ? { ...prev, status: "terkunci" } : null));
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        lockSessionDueToScreenExit();
+      }
+    };
+
+    const handleWindowBlur = () => {
+      lockSessionDueToScreenExit();
+    };
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      lockSessionDueToScreenExit();
+      e.preventDefault();
+      e.returnValue = "";
+    };
+
+    const handlePopState = () => {
+      lockSessionDueToScreenExit();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("blur", handleWindowBlur);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("blur", handleWindowBlur);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [isUjianResmi, isExamStarted, isCompleted, ujian.id]);
+
+  const handleConfirmExitAndLock = async () => {
+    try {
+      setIsExiting(true);
+      await saveDraftAnswers();
+      await fetch("/api/siswa/ujian/lock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ujianId: ujian.id }),
+      });
+    } catch {}
+    router.push("/ujian");
+  };
+
   // Start Exam Action
   const handleStartExam = async () => {
     try {
@@ -376,6 +445,16 @@ export default function ExamRoomClient({
       });
 
       const data = await res.json();
+      if (!res.ok || data.error) {
+        if (data.isLocked || data.status === "terkunci") {
+          setSession((prev) => (prev ? { ...prev, status: "terkunci" } : null));
+          alert(data.error || "Sesi ujian resmi Anda terkunci. Hubungi Guru di Dashboard Guru.");
+          return;
+        }
+        alert(data.error || "Gagal memulai ujian.");
+        return;
+      }
+
       if (data.session) {
         setSession(data.session);
         setRemainingSeconds(data.remaining_seconds);
@@ -558,6 +637,49 @@ export default function ExamRoomClient({
     const ans = answers[k];
     return Boolean(ans?.opsiId || (ans?.jawabanEsai && ans.jawabanEsai.trim().length > 0));
   }).length;
+
+  // Lockout view for locked official exams
+  if (isUjianResmi && session?.status === "terkunci") {
+    return (
+      <main className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-3xl p-8 border border-red-200 shadow-xl text-center space-y-5">
+          <div className="w-16 h-16 rounded-2xl bg-red-50 border border-red-200 text-red-600 flex items-center justify-center mx-auto text-3xl shadow-inner">
+            <Lock className="w-8 h-8" />
+          </div>
+          <div className="space-y-2">
+            <span className="inline-block px-3 py-1 rounded-full bg-red-50 text-red-600 border border-red-200 text-xs font-black uppercase tracking-wider">
+              Ujian Resmi Terkunci
+            </span>
+            <h2 className="text-xl font-black text-[#0F172A]">
+              Sesi Ujian Resmi Terkunci
+            </h2>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Anda terdeteksi keluar dari ruang ujian resmi <strong>&quot;{ujian.judul}&quot;</strong>. Demi menjaga standar pengawasan CBT, Anda tidak dapat melanjutkan pengerjaan sendiri.
+            </p>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-left space-y-2 text-xs">
+            <div className="flex items-center gap-2 font-bold text-amber-900">
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+              <span>Instruksi untuk Siswa:</span>
+            </div>
+            <p className="text-amber-800 leading-relaxed">
+              Silakan hubungi <strong>Guru Pengawas</strong> di kelas/ruang ujian. Pengawas dapat menghapus nama dan meng-invit kembali Anda melalui <strong>Dashboard Guru (Live Monitor)</strong> untuk membuka kembali akses pengerjaan ujian Anda.
+            </p>
+          </div>
+
+          <div className="pt-2">
+            <Link
+              href="/ujian"
+              className="block w-full py-3 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-white font-bold text-xs transition cursor-pointer"
+            >
+              ← Kembali ke Ruang Ujian
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   // ==========================================
   // VIEW 1: LOBBY / PRE-EXAM BRIEFING
@@ -1347,7 +1469,9 @@ export default function ExamRoomClient({
                                   >
                                     {letter}
                                   </span>
-                                  <span className="leading-relaxed">{opsi.teks_opsi}</span>
+                                  <div className="leading-relaxed">
+                                    <MarkdownRenderer content={opsi.teks_opsi} isCompact />
+                                  </div>
                                 </div>
                                 {badge}
                               </div>
@@ -1565,6 +1689,19 @@ export default function ExamRoomClient({
             </div>
 
 
+            {/* Tombol Keluar Ujian Resmi */}
+            {isUjianResmi && (
+              <button
+                type="button"
+                onClick={() => setIsExitWarningOpen(true)}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-red-50 hover:text-red-700 hover:border-red-200 text-slate-600 text-xs font-bold transition border border-slate-200 cursor-pointer"
+                title="Keluar dari Ruang Ujian Resmi"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Keluar</span>
+              </button>
+            )}
+
             {/* Fullscreen Toggle Button */}
             <button
               type="button"
@@ -1697,11 +1834,11 @@ export default function ExamRoomClient({
                               {letter}
                             </div>
                             <div
-                              className={`text-sm sm:text-base leading-snug flex-1 pt-1 ${
+                              className={`text-sm sm:text-base leading-snug flex-1 pt-0.5 ${
                                 isSelected ? "text-indigo-950 font-bold" : "text-slate-800 font-medium"
                               }`}
                             >
-                              {opsi.teks_opsi}
+                              <MarkdownRenderer content={opsi.teks_opsi} isCompact />
                             </div>
                             {isSelected && (
                               <div className="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs ml-auto self-center animate-in zoom-in-50 duration-150">
@@ -1715,16 +1852,33 @@ export default function ExamRoomClient({
                   </div>
                 ) : (
                   <div className="space-y-2 pt-2 flex-1">
-                    <label className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">
-                      Jawaban Esai Anda:
-                    </label>
-                    <textarea
-                      rows={6}
-                      value={answers[currentQuestion.id]?.jawabanEsai || ""}
-                      onChange={(e) => handleEssayChange(currentQuestion.id, e.target.value)}
-                      placeholder="Tuliskan jawaban lengkap dan langkah penyelesaian Anda di sini..."
-                      className="w-full p-4 rounded-2xl bg-slate-50 border border-slate-200 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
-                    />
+                    {currentQuestion.tipe_soal === "isian_singkat" ? (
+                      <div className="space-y-2">
+                        <label className="text-xs font-extrabold text-amber-600 uppercase tracking-wider">
+                          Jawaban Singkat (Kata / Angka):
+                        </label>
+                        <input
+                          type="text"
+                          value={answers[currentQuestion.id]?.jawabanEsai || ""}
+                          onChange={(e) => handleEssayChange(currentQuestion.id, e.target.value)}
+                          placeholder="Ketikkan jawaban singkat Anda di sini..."
+                          className="w-full p-4 rounded-2xl bg-slate-50 border border-slate-200 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
+                        />
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <label className="text-xs font-extrabold text-purple-600 uppercase tracking-wider">
+                          Jawaban Panjang (Esai) / Langkah Pengerjaan:
+                        </label>
+                        <textarea
+                          rows={6}
+                          value={answers[currentQuestion.id]?.jawabanEsai || ""}
+                          onChange={(e) => handleEssayChange(currentQuestion.id, e.target.value)}
+                          placeholder="Tuliskan jawaban lengkap dan langkah penyelesaian Anda di sini..."
+                          className="w-full p-4 rounded-2xl bg-slate-50 border border-slate-200 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -2279,6 +2433,50 @@ export default function ExamRoomClient({
         </div>
       )}
 
+
+      {/* Modal Peringatan Keluar Ujian Resmi */}
+      {isExitWarningOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-red-200 shadow-2xl max-w-md w-full p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="w-12 h-12 rounded-2xl bg-red-100 border border-red-300 text-red-600 flex items-center justify-center mx-auto text-2xl">
+              ⚠️
+            </div>
+            <div className="text-center space-y-1.5">
+              <h3 className="text-base font-black text-slate-900">
+                Peringatan: Ujian Akan Terkunci!
+              </h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Anda sedang mengerjakan ujian resmi <strong>{ujian.judul}</strong>. Jika Anda keluar dari ruang ujian, sesi pengerjaan Anda akan <strong>OTOMATIS TERKUNCI</strong> dan Anda <strong>TIDAK DAPAT melanjutkan pengerjaan</strong> tanpa izin & reset oleh Guru di Dashboard Guru.
+              </p>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200 text-xs text-red-800 font-semibold space-y-1">
+              <div>• Jawaban yang telah diisi akan tersimpan otomatis.</div>
+              <div>• Status ujian menjadi Terkunci (Perlu Reset Guru).</div>
+            </div>
+
+            <div className="pt-2 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                disabled={isExiting}
+                onClick={() => setIsExitWarningOpen(false)}
+                className="flex-1 py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition cursor-pointer"
+              >
+                Batal (Lanjut)
+              </button>
+              <button
+                type="button"
+                disabled={isExiting}
+                onClick={handleConfirmExitAndLock}
+                className="flex-1 py-2.5 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                {isExiting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Lock className="w-3.5 h-3.5" />}
+                <span>Ya, Keluar & Kunci</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </main>
   );

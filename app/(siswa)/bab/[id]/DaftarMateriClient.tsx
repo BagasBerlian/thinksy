@@ -216,6 +216,20 @@ export default function DaftarMateriClient({
     };
   }, [babId, urutanBab, judulBab]);
 
+  // Mark this bab as opened in thinksy_opened_babs
+  useEffect(() => {
+    if (typeof window === "undefined" || !babId) return;
+    try {
+      const raw = localStorage.getItem("thinksy_opened_babs");
+      const list: string[] = raw ? JSON.parse(raw) : [];
+      const babKey = String(babId);
+      if (!list.includes(babKey)) {
+        list.push(babKey);
+        localStorage.setItem("thinksy_opened_babs", JSON.stringify(list));
+      }
+    } catch {}
+  }, [babId]);
+
   // Derive Effective Content & Meta
   const effectiveJudulBab = customBabConfig?.judul || judulBab;
   const effectiveDeskripsiBab = customBabConfig?.deskripsi || deskripsiBab;
@@ -546,7 +560,7 @@ export default function DaftarMateriClient({
         }
         const rect = range.getBoundingClientRect();
         setSelectionPosition({
-          x: Math.max(120, Math.min(window.innerWidth - 140, rect.left + rect.width / 2)),
+          x: Math.max(160, Math.min(window.innerWidth - 160, rect.left + rect.width / 2)),
           y: Math.max(70, rect.top - 12),
         });
       } catch {
@@ -558,16 +572,89 @@ export default function DaftarMateriClient({
   };
 
   const handleApplyHighlight = (color: "yellow" | "green" | "pink" | "blue") => {
-    if (!selectedText) return;
+    const selection = window.getSelection();
+    let range: Range | null = null;
+    if (selection && !selection.isCollapsed && selection.rangeCount > 0) {
+      range = selection.getRangeAt(0);
+    } else if (savedRangeRef.current) {
+      range = savedRangeRef.current;
+    }
+
+    const selectedContent = (range ? range.toString() : selectedText).trim();
+    if (!selectedContent) {
+      setSelectionPosition(null);
+      return;
+    }
+
+    const colorClasses = {
+      yellow: "bg-yellow-200/90 dark:bg-yellow-400/30 text-yellow-950 dark:text-yellow-100",
+      green: "bg-emerald-200/90 dark:bg-emerald-400/30 text-emerald-950 dark:text-emerald-100",
+      pink: "bg-pink-200/90 dark:bg-pink-400/30 text-pink-950 dark:text-pink-100",
+      blue: "bg-sky-200/90 dark:bg-sky-400/30 text-sky-950 dark:text-sky-100",
+    }[color];
+
+    try {
+      if (range) {
+        const mark = document.createElement("mark");
+        mark.className = `${colorClasses} rounded-xs px-0.5 py-0.5 transition cursor-pointer hover:opacity-85 font-medium`;
+        mark.setAttribute("data-thinksy-highlight", color);
+        mark.setAttribute("title", `Stabilo (${color}) - Klik untuk menghapus`);
+        mark.onclick = (e) => {
+          e.stopPropagation();
+          const parent = mark.parentNode;
+          if (parent) {
+            while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
+            parent.removeChild(mark);
+            setHighlights((prev) => prev.filter((h) => h.text !== selectedContent));
+            showToast("Stabilo dihapus.");
+          }
+        };
+        mark.appendChild(range.extractContents());
+        range.insertNode(mark);
+      }
+    } catch (err) {
+      console.warn("Direct extractContents note for highlight:", err);
+    }
+
     const newHl: TextHighlight = {
       id: `hl-${Date.now()}`,
-      text: selectedText,
+      text: selectedContent,
       color,
       createdAt: new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
     };
-    setHighlights((prev) => [newHl, ...prev]);
+
+    setHighlights((prev) => {
+      const updated = [newHl, ...prev];
+      try {
+        localStorage.setItem(`thinksy_highlights_${babId}`, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    if (selection) selection.removeAllRanges();
+    savedRangeRef.current = null;
+    setSelectedText("");
     setSelectionPosition(null);
     showToast(`✨ Teks berhasil ditandai dengan stabilo ${color}!`);
+  };
+
+  const handleAskThinksySelectedText = () => {
+    const textToExplain = selectedText.trim();
+    if (!textToExplain) {
+      setSelectionPosition(null);
+      return;
+    }
+
+    setSelectionPosition(null);
+    if (typeof window !== "undefined") {
+      window.getSelection()?.removeAllRanges();
+    }
+    savedRangeRef.current = null;
+
+    showToast("✨ Thinksy AI sedang menyiapkan penjelasan...");
+
+    const question = `Tolong jelaskan maksud konsep atau bacaan ini dengan bahasa yang ringkas, runtut, dan mudah dipahami siswa: "${textToExplain}"`;
+    handleAskAi(question);
   };
 
   const handleMakeNoteFromHighlight = () => {
@@ -700,9 +787,7 @@ export default function DaftarMateriClient({
             : "bg-white/95 border-slate-100 text-slate-900 shadow-2xs"
         }`}
       >
-        <div className={`mx-auto flex items-center justify-between px-3 sm:px-6 py-2.5 gap-2.5 sm:gap-4 transition-all ${
-          viewMode === "pdf" ? "max-w-4xl" : "max-w-7xl"
-        }`}>
+        <div className="w-full flex items-center justify-between px-3 sm:px-6 md:px-8 lg:px-10 py-2.5 gap-2.5 sm:gap-4 transition-all">
           {/* Left: Back Link + Mode Switcher Tabs (Sejajar dengan Card Pembelajaran) */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <Link
@@ -841,9 +926,7 @@ export default function DaftarMateriClient({
       {/* ===================================================================== */}
       {/* 2. VIEW SELECTION RENDERING                                          */}
       {/* ===================================================================== */}
-      <div className={`mx-auto px-3 sm:px-6 pt-6 transition-all ${
-        viewMode === "pdf" ? "max-w-4xl" : "max-w-7xl"
-      }`}>
+      <div className="w-full px-3 sm:px-6 md:px-8 lg:px-10 pt-6 transition-all">
         {/* ------------------------------------------------------------------- */}
         {/* VIEW A: MODE DOKUMEN PDF LENGKAP (CONTINUOUS TEXTBOOK READING VIEW) */}
         {/* ------------------------------------------------------------------- */}
@@ -874,7 +957,7 @@ export default function DaftarMateriClient({
                     {effectiveJudulBab}
                   </h1>
 
-                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed max-w-3xl font-normal">
+                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed font-normal">
                     {effectiveDeskripsiBab ||
                       "Buku teks modul ajar komprehensif memuat apersepsi kontekstual, konsep materi terperinci, formulasi ilmiah/matematis, contoh soal bertahap, dan rangkuman intisari."}
                   </p>
@@ -984,66 +1067,63 @@ export default function DaftarMateriClient({
               <div className="p-5 sm:p-6 rounded-2xl border border-blue-200/80 bg-linear-to-r from-blue-50/70 via-indigo-50/40 to-slate-50 dark:from-slate-900 dark:via-blue-950/20 dark:to-slate-900 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-5 transition-all">
                 <div className="space-y-2 text-left max-w-xl">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-600 text-white text-[11px] font-bold shadow-2xs">
-                      <Sparkles className="w-3 h-3 text-amber-300" />
-                      <span>Kuis Keseluruhan Bab</span>
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-600 text-white text-[11px] font-bold shadow-2xs">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                      <span>Ulangan Bab {urutanBab}</span>
                     </span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-100 text-blue-900 border border-blue-300/60 dark:bg-blue-950 dark:text-blue-200">
-                      Mencakup Seluruh 3 Sub-Bab
+                    <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-blue-100 text-blue-900 border border-blue-300/60 dark:bg-blue-950 dark:text-blue-200">
+                      15 Soal Terpadu
+                    </span>
+                    <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300">
+                      Mencakup 3 Sub-Bab
                     </span>
                     {effectiveListMateri.every((m) => readMateriIds.has(m.id)) ? (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-300">
-                        ✓ 3 Sub-Bab Lengkap
+                      <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                        <Check className="w-3 h-3 text-emerald-600" />
+                        <span>3 Sub-Bab Lengkap</span>
                       </span>
                     ) : (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-300">
+                      <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-300">
                         {effectiveListMateri.filter((m) => readMateriIds.has(m.id)).length}/3 Sub-Bab Dipelajari
                       </span>
                     )}
                   </div>
 
                   <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-                    Kuis Keseluruhan Bab {urutanBab}: {effectiveJudulBab}
+                    Ulangan Harian Bab {urutanBab}: {effectiveJudulBab.replace(/^Bab\s*\d+\s*:\s*/i, "").trim() || effectiveJudulBab}
                   </h3>
                   <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 font-normal leading-relaxed">
-                    Evaluasi akhir komprehensif untuk menguji seluruh materi dari Sub-bab 1, Sub-bab 2, dan Sub-bab 3 secara terpadu.
+                    Evaluasi terstandar Kurikulum Merdeka untuk Bab {urutanBab} memadukan pemahaman konsep, penalaran singkat, dan pemecahan masalah mendalam.
                   </p>
 
-                  {/* Checklist Ringkas Status 3 Sub-Bab */}
-                  <div className="pt-1 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-                    {effectiveListMateri.slice(0, 3).map((sub, sIdx) => {
-                      const isDone = readMateriIds.has(sub.id);
-                      return (
-                        <span
-                          key={sub.id}
-                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[11px] transition ${
-                            isDone
-                              ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300"
-                              : "bg-white text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400"
-                          }`}
-                        >
-                          {isDone ? <Check className="w-3 h-3 text-emerald-600" /> : <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />}
-                          <span>Sub-Bab {sIdx + 1}</span>
-                        </span>
-                      );
-                    })}
+                  {/* Komposisi Soal Sesuai Rencana: 10 Pilihan Ganda, 3 Isian Singkat, 2 Esai */}
+                  <div className="pt-1 flex flex-wrap items-center gap-2 text-[11px] font-bold">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 shadow-2xs">
+                      <span className="w-2 h-2 rounded-full bg-blue-500" />
+                      <span>10 Pilihan Ganda</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 shadow-2xs">
+                      <span className="w-2 h-2 rounded-full bg-indigo-500" />
+                      <span>3 Isian Singkat</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 shadow-2xs">
+                      <span className="w-2 h-2 rounded-full bg-amber-500" />
+                      <span>2 Esai & Penalaran</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[10px]">
+                      <span>KKM 75 • 30 Menit</span>
+                    </span>
                   </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2.5 shrink-0 w-full md:w-auto">
-                  <Link
-                    href={`/sesi/${babId}`}
-                    className="flex-1 md:flex-initial px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-2xs cursor-pointer"
-                  >
-                    <span>Latihan Soal Keseluruhan</span>
-                  </Link>
-
+                {/* HANYA 1 BUTTON SESUAI PERINTAH */}
+                <div className="shrink-0 w-full md:w-auto">
                   <Link
                     href={`/quiz/${babId}?mode=inclass&babId=${babId}`}
-                    className="flex-1 md:flex-initial px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs transition hover:shadow-sm cursor-pointer"
+                    className="w-full md:w-auto px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs hover:shadow-md transition active:scale-98 cursor-pointer"
                   >
                     <Sparkles className="w-4 h-4 text-amber-300" />
-                    <span>Mulai Kuis Keseluruhan Bab →</span>
+                    <span>Mulai Ulangan Bab (15 Soal) →</span>
                   </Link>
                 </div>
               </div>
@@ -1189,11 +1269,11 @@ export default function DaftarMateriClient({
       </div>
 
       {/* ===================================================================== */}
-      {/* 3. FLOATING SELECTION: GARIS BAWAHI OTOMATIS & SIMPAN                */}
+      {/* 3. FLOATING SELECTION: STABILO, GARIS BAWAH & TANYA THINKSY AI        */}
       {/* ===================================================================== */}
       {selectionPosition && (
         <div
-          className="fixed z-50 transform -translate-x-1/2 -translate-y-full bg-[#0F172A] text-white px-2 py-1.5 rounded-xl shadow-2xl flex items-center gap-1.5 border border-slate-700 animate-in fade-in zoom-in-95 duration-150"
+          className="fixed z-50 transform -translate-x-1/2 -translate-y-full bg-[#0F172A] text-white px-2.5 py-1.5 rounded-2xl shadow-2xl flex items-center gap-1.5 sm:gap-2 border border-slate-700 backdrop-blur-md animate-in fade-in zoom-in-95 duration-150 select-none"
           style={{
             left: `${selectionPosition.x}px`,
             top: `${selectionPosition.y}px`,
@@ -1203,6 +1283,70 @@ export default function DaftarMateriClient({
             e.stopPropagation();
           }}
         >
+          {/* Stabilo Colors */}
+          <div className="flex items-center gap-1.5 pr-1.5 sm:pr-2 border-r border-slate-700/80">
+            <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider hidden md:inline mr-0.5">
+              Stabilo:
+            </span>
+            <button
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleApplyHighlight("yellow");
+              }}
+              className="w-5 h-5 rounded-md bg-yellow-400 hover:scale-120 active:scale-95 transition shadow-xs cursor-pointer border border-yellow-300/40"
+              title="Stabilo Kuning"
+            />
+            <button
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleApplyHighlight("green");
+              }}
+              className="w-5 h-5 rounded-md bg-emerald-400 hover:scale-120 active:scale-95 transition shadow-xs cursor-pointer border border-emerald-300/40"
+              title="Stabilo Hijau"
+            />
+            <button
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleApplyHighlight("pink");
+              }}
+              className="w-5 h-5 rounded-md bg-pink-400 hover:scale-120 active:scale-95 transition shadow-xs cursor-pointer border border-pink-300/40"
+              title="Stabilo Pink"
+            />
+            <button
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleApplyHighlight("blue");
+              }}
+              className="w-5 h-5 rounded-md bg-sky-400 hover:scale-120 active:scale-95 transition shadow-xs cursor-pointer border border-sky-300/40"
+              title="Stabilo Biru"
+            />
+          </div>
+
+          {/* Garis Bawahi */}
           <button
             type="button"
             onMouseDown={(e) => {
@@ -1214,13 +1358,33 @@ export default function DaftarMateriClient({
               e.stopPropagation();
               handleApplyUnderline();
             }}
-            className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-sm active:scale-95"
+            className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-xs active:scale-95"
             title="Garis bawahi tulisan yang sedang diblok dan simpan otomatis"
           >
-            <Underline className="w-3.5 h-3.5" />
-            <span>Garis Bawahi</span>
+            <Underline className="w-3.5 h-3.5 text-blue-400" />
+            <span className="hidden sm:inline">Garis Bawah</span>
           </button>
 
+          {/* Tanya Thinksy AI */}
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleAskThinksySelectedText();
+            }}
+            className="px-3 py-1.5 rounded-lg bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-black flex items-center gap-1.5 shadow-md hover:shadow-lg transition cursor-pointer active:scale-95"
+            title="Tanya Thinksy AI untuk menjelaskan bagian ini secara otomatis"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-300 shrink-0 animate-pulse" />
+            <span>Tanya Thinksy</span>
+          </button>
+
+          {/* Batal */}
           <button
             type="button"
             onMouseDown={(e) => {
@@ -1398,7 +1562,7 @@ export default function DaftarMateriClient({
                 className="flex-1 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-md transition"
               >
                 <CheckCircle2 className="w-4 h-4 text-emerald-200" />
-                <span>Mulai Kuis (10 Soal)</span>
+                <span>Mulai Ulangan Bab (15 Soal)</span>
               </Link>
             </div>
           </div>

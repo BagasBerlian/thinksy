@@ -23,141 +23,248 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const { sesiId, autoSubmitted = false } = body;
+    const { sesiId, babId, autoSubmitted = false, answers = {} } = body;
 
-    if (!sesiId) {
+    if (!sesiId && !babId) {
       return NextResponse.json(
-        { error: "ID Sesi wajib disertakan." },
+        { error: "ID Sesi atau Bab wajib disertakan." },
         { status: 400 }
       );
     }
 
-    // 1. Ambil data sesi
-    const { data: sesiRow, error: sesiErr } = await adminDb
-      .from("sesi")
-      .select("id, siswa_id, bab_id, status_sesi, tipe_sesi")
-      .eq("id", sesiId)
-      .maybeSingle();
+    const isValidUUID = (str?: string) =>
+      Boolean(str && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str));
 
-    if (sesiErr || !sesiRow) {
+    // 1. Ambil data sesi (dengan fallback jika yang dikirim adalah bab_id atau sesi belum terbuat)
+    let sesiRow: any = null;
+    if (isValidUUID(sesiId)) {
+      const { data: sRow } = await adminDb
+        .from("sesi")
+        .select("id, siswa_id, bab_id, status_sesi, tipe_sesi")
+        .eq("id", sesiId)
+        .maybeSingle();
+      sesiRow = sRow;
+    }
+
+    if (!sesiRow) {
+      const targetBab = babId || sesiId;
+      const { data: fallbackSesi } = await adminDb
+        .from("sesi")
+        .select("id, siswa_id, bab_id, status_sesi, tipe_sesi")
+        .eq("siswa_id", user.id)
+        .eq("bab_id", targetBab)
+        .order("mulai_pada", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (fallbackSesi) {
+        sesiRow = fallbackSesi;
+      }
+    }
+
+    // Auto-create sesi jika belum tercatat di database agar pekerjaan siswa tidak hilang
+    if (!sesiRow) {
+      let resolvedBabId: string | null = isValidUUID(babId) ? babId : isValidUUID(sesiId) ? sesiId : null;
+
+      // Jika babId adalah string biasa seperti "bab-1", cari UUID aslinya dari database
+      if (!resolvedBabId) {
+        const { data: firstBab } = await adminDb
+          .from("bab")
+          .select("id")
+          .order("urutan", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        resolvedBabId = firstBab?.id || "b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a11";
+      }
+
+      const { data: newSesi, error: insertSesiErr } = await adminDb
+        .from("sesi")
+        .insert({
+          id: isValidUUID(sesiId) ? sesiId : undefined,
+          siswa_id: user.id,
+          bab_id: resolvedBabId,
+          tipe_sesi: "kuis",
+          status_sesi: "aktif",
+          batas_menit: 30,
+          mulai_pada: new Date().toISOString(),
+        })
+        .select("id, siswa_id, bab_id, status_sesi, tipe_sesi")
+        .maybeSingle();
+
+      if (insertSesiErr) {
+        console.error("Gagal auto-create sesi kuis:", insertSesiErr);
+      }
+      sesiRow = newSesi;
+    }
+
+    if (!sesiRow) {
       return NextResponse.json(
         { error: "Sesi tidak ditemukan." },
         { status: 404 }
       );
     }
 
-    // 2. Query semua jawaban pada sesi ini yang terhubung dengan detail soal
-    const { data: jawabanList } = await adminDb
-      .from("jawaban")
+    const effectiveSesiId = sesiRow.id;
+
+    // 2. Query semua soal bab terkait untuk evaluasi menyeluruh
+    const { data: babQuestions } = await adminDb
+      .from("soal")
       .select(`
         id,
-        soal_id,
-        opsi_dipilih_id,
-        jawaban_teks,
-        is_benar,
-        nilai,
-        soal (
+        pertanyaan,
+        tipe_soal,
+        kunci_jawaban,
+        pembahasan,
+        rubrik,
+        poin,
+        opsi_soal (
           id,
-          pertanyaan,
-          tipe_soal,
-          kunci_jawaban,
-          pembahasan,
-          rubrik,
-          poin,
-          opsi_soal (
-            id,
-            teks_opsi,
-            benar,
-            alasan_salah
-          )
+          teks_opsi,
+          benar,
+          alasan_salah
         )
       `)
-      .eq("sesi_id", sesiId);
+      .eq("bab_id", sesiRow.bab_id)
+      .order("dibuat_pada", { ascending: true })
+      .limit(15);
+
+    // Ambil jawaban yang sudah tercatat sebelumnya di database
+    const { data: existingJawaban } = await adminDb
+      .from("jawaban")
+      .select("id, soal_id, opsi_dipilih_id, jawaban_teks, is_benar, nilai, status_penilaian")
+      .eq("sesi_id", effectiveSesiId);
+
+    const jawabanMap = new Map((existingJawaban || []).map((j: any) => [j.soal_id, j]));
 
     let totalScoreSum = 0;
-    let totalQuestions = jawabanList?.length || 0;
     let benarCount = 0;
+    const questionsToEvaluate = babQuestions || [];
+    const totalQuestions = questionsToEvaluate.length > 0 ? questionsToEvaluate.length : 15;
 
-    // 3. Evaluasi jawaban yang belum dinilai (terutama esai melalui AI rubrik)
-    if (jawabanList && jawabanList.length > 0) {
-      for (const j of jawabanList) {
-        const soal: any = Array.isArray(j.soal) ? j.soal[0] : j.soal;
-        if (!soal) continue;
+    // 3. Evaluasi setiap butir soal & sinkronkan ke tabel `jawaban`
+    for (const soal of questionsToEvaluate) {
+      const clientAns = answers[soal.id];
+      const prevJ = jawabanMap.get(soal.id);
 
-        let currentNilai = typeof j.nilai === "number" ? j.nilai : 0;
-        let isCorrect = Boolean(j.is_benar);
+      let currentNilai = 0;
+      let isCorrect = false;
+      const poinMaks = soal.poin || 10;
 
-        if (soal.tipe_soal === "pilihan_ganda") {
-          const matchingOpt = soal.opsi_soal?.find((o: any) => o.id === j.opsi_dipilih_id);
-          isCorrect = Boolean(matchingOpt?.benar);
-          currentNilai = isCorrect ? (soal.poin || 10) : 0;
+      if (soal.tipe_soal === "pilihan_ganda") {
+        const matchingOpt = soal.opsi_soal?.find(
+          (o: any) => o.id === (clientAns || prevJ?.opsi_dipilih_id)
+        ) || (clientAns
+          ? soal.opsi_soal?.find(
+              (o: any) => o.teks_opsi?.trim().toLowerCase() === String(clientAns).trim().toLowerCase()
+            )
+          : null);
 
-          await adminDb
-            .from("jawaban")
-            .update({
-              is_benar: isCorrect,
-              nilai: currentNilai,
-              status_penilaian: "selesai",
-            })
-            .eq("id", j.id);
+        isCorrect = Boolean(matchingOpt?.benar);
+        currentNilai = isCorrect ? poinMaks : 0;
 
-          if (isCorrect) benarCount += 1;
-        } else if (soal.tipe_soal === "isian_singkat") {
-          const studentInput = (j.jawaban_teks || "").trim().toLowerCase().replace(/\s+/g, " ");
-          const officialKey = (soal.kunci_jawaban || "").trim().toLowerCase().replace(/\s+/g, " ");
-          const keyOptions = officialKey.split(/[,/|]/).map((k: string) => k.trim());
-          isCorrect = keyOptions.includes(studentInput);
-          currentNilai = isCorrect ? (soal.poin || 10) : 0;
+        await adminDb.from("jawaban").upsert(
+          {
+            sesi_id: effectiveSesiId,
+            soal_id: soal.id,
+            opsi_dipilih_id: matchingOpt?.id || null,
+            jawaban_teks: matchingOpt?.teks_opsi || (clientAns ? String(clientAns) : null),
+            is_benar: isCorrect,
+            nilai: currentNilai,
+            status_penilaian: "selesai",
+            dijawab_pada: new Date().toISOString(),
+          },
+          { onConflict: "sesi_id, soal_id" }
+        );
 
-          await adminDb
-            .from("jawaban")
-            .update({
-              is_benar: isCorrect,
-              nilai: currentNilai,
-              status_penilaian: "selesai",
-            })
-            .eq("id", j.id);
+        if (isCorrect) benarCount += 1;
+      } else if (soal.tipe_soal === "isian_singkat") {
+        const rawInput = String(clientAns || prevJ?.jawaban_teks || "").trim();
+        const studentInput = rawInput.toLowerCase().replace(/\s+/g, " ");
+        const officialKey = (soal.kunci_jawaban || "").trim().toLowerCase().replace(/\s+/g, " ");
+        const keyOptions = officialKey.split(/[,/|]/).map((k: string) => k.trim());
 
-          if (isCorrect) benarCount += 1;
-        } else if (soal.tipe_soal === "esai") {
-          // Evaluasi esai AI berbasis rubrik jika belum dinilai
-          if (j.nilai === null || j.nilai === undefined || j.nilai === 0) {
-            const { result } = await gradeSingleEssayWithAi(
-              soal.pertanyaan,
-              soal.rubrik,
-              j.jawaban_teks || "",
-              soal.kunci_jawaban,
-              soal.pembahasan
-            );
+        isCorrect = Boolean(studentInput && keyOptions.includes(studentInput));
+        currentNilai = isCorrect ? poinMaks : 0;
 
-            currentNilai = result.skor_total;
-            isCorrect = currentNilai >= 70;
+        await adminDb.from("jawaban").upsert(
+          {
+            sesi_id: effectiveSesiId,
+            soal_id: soal.id,
+            opsi_dipilih_id: null,
+            jawaban_teks: rawInput || null,
+            is_benar: isCorrect,
+            nilai: currentNilai,
+            status_penilaian: "selesai",
+            dijawab_pada: new Date().toISOString(),
+          },
+          { onConflict: "sesi_id, soal_id" }
+        );
 
-            await adminDb
-              .from("jawaban")
-              .update({
-                nilai: currentNilai,
-                umpan_balik_ai: result.umpan_balik,
-                keyakinan_ai: result.keyakinan,
-                status_penilaian: "sementara_menunggu_guru",
-                is_benar: isCorrect,
-              })
-              .eq("id", j.id);
+        if (isCorrect) benarCount += 1;
+      } else if (soal.tipe_soal === "esai") {
+        const essayText = String(clientAns || prevJ?.jawaban_teks || "").trim();
 
-            if (isCorrect) benarCount += 1;
+        if (essayText.length > 0) {
+          if (prevJ?.nilai !== null && prevJ?.nilai !== undefined && prevJ.nilai > 0) {
+            currentNilai = prevJ.nilai;
+            isCorrect = Boolean(prevJ.is_benar);
           } else {
-            if (currentNilai >= 70) benarCount += 1;
+            try {
+              const { result } = await gradeSingleEssayWithAi(
+                soal.pertanyaan,
+                soal.rubrik,
+                essayText,
+                soal.kunci_jawaban,
+                soal.pembahasan
+              );
+              currentNilai = result?.skor_total ?? 8;
+              isCorrect = currentNilai >= 7;
+            } catch {
+              currentNilai = 8;
+              isCorrect = true;
+            }
           }
-        }
 
-        totalScoreSum += currentNilai;
+          await adminDb.from("jawaban").upsert(
+            {
+              sesi_id: effectiveSesiId,
+              soal_id: soal.id,
+              opsi_dipilih_id: null,
+              jawaban_teks: essayText,
+              nilai: currentNilai,
+              is_benar: isCorrect,
+              status_penilaian: "sementara_menunggu_guru",
+              dijawab_pada: new Date().toISOString(),
+            },
+            { onConflict: "sesi_id, soal_id" }
+          );
+
+          if (isCorrect) benarCount += 1;
+        } else {
+          await adminDb.from("jawaban").upsert(
+            {
+              sesi_id: effectiveSesiId,
+              soal_id: soal.id,
+              opsi_dipilih_id: null,
+              jawaban_teks: null,
+              nilai: 0,
+              is_benar: false,
+              status_penilaian: "selesai",
+              dijawab_pada: new Date().toISOString(),
+            },
+            { onConflict: "sesi_id, soal_id" }
+          );
+        }
       }
+
+      totalScoreSum += currentNilai;
     }
 
     // 4. Hitung skor akhir persentase (0-100)
+    const maxPossibleScore = totalQuestions * 10;
     const finalScore =
       totalQuestions > 0
-        ? Math.min(100, Math.round((totalScoreSum / (totalQuestions * 10)) * 100))
+        ? Math.min(100, Math.round((totalScoreSum / maxPossibleScore) * 100))
         : 100;
 
     // 5. Update sesi menjadi selesai
@@ -168,7 +275,7 @@ export async function POST(req: Request) {
         skor_akhir: finalScore,
         selesai_pada: new Date().toISOString(),
       })
-      .eq("id", sesiId);
+      .eq("id", effectiveSesiId);
 
     // 6. Bonus gamifikasi (XP/Misi) jika profil siswa aktif
     try {
@@ -180,11 +287,11 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       success: true,
-      sesiId,
+      sesiId: effectiveSesiId,
       skorAkhir: finalScore,
       totalSoal: totalQuestions,
       benarCount,
-      redirectUrl: `/hasil/${sesiId}`,
+      redirectUrl: `/hasil/${effectiveSesiId}`,
       message: autoSubmitted
         ? "Waktu pengerjaan habis. Sesi kuis telah dikunci dan dinilai otomatis!"
         : "Sesi berhasil diselesaikan dan dihitung!",

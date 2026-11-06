@@ -146,7 +146,7 @@ export async function GET(req: Request) {
       .maybeSingle();
 
     // 4. Ambil jawaban tersimpan (draft) jika ada sesi
-    let savedAnswers: Record<string, { opsiId?: string; jawabanEsai?: string }> = {};
+    const savedAnswers: Record<string, { opsiId?: string; jawabanEsai?: string }> = {};
 
     if (sesiSiswa) {
       const { data: jawabanList } = await adminSupabase

@@ -160,14 +160,14 @@ export interface UjianItem {
   mapel: string;
   durasi_menit: number;
   passing_grade: number;
-  waktu_mulai: string;
-  waktu_berakhir: string;
+  waktu_mulai?: string;
+  waktu_berakhir?: string;
   status: string; // 'draft' | 'dipublikasi' | 'ditutup'
   tipe: "ulangan" | "ujian";
   bab_id?: string | null;
   token?: string;
   score?: number | null;
-  sessionStatus?: "belum_mulai" | "sedang_mengerjakan" | "selesai" | "habis_waktu";
+  sessionStatus?: "belum_mulai" | "sedang_mengerjakan" | "terkunci" | "selesai" | "habis_waktu";
   sesiId?: string;
 }
 

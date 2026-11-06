@@ -30,14 +30,31 @@ export async function POST(req: Request) {
       );
     }
 
-    // 2. Verifikasi kepemilikan sesi
-    const { data: sesi, error: sesiErr } = await adminDb
+    // 2. Verifikasi kepemilikan sesi (dengan fallback jika sesiId adalah babId)
+    let sesi: any = null;
+    const { data: sData } = await adminDb
       .from("sesi")
-      .select("id, siswa_id, tipe_sesi, status_sesi")
+      .select("id, siswa_id, tipe_sesi, status_sesi, bab_id")
       .eq("id", sesiId)
       .maybeSingle();
 
-    if (sesiErr || !sesi) {
+    sesi = sData;
+
+    if (!sesi) {
+      const { data: fallbackSesi } = await adminDb
+        .from("sesi")
+        .select("id, siswa_id, tipe_sesi, status_sesi, bab_id")
+        .eq("siswa_id", user.id)
+        .eq("bab_id", sesiId)
+        .order("mulai_pada", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (fallbackSesi) {
+        sesi = fallbackSesi;
+      }
+    }
+
+    if (!sesi) {
       return NextResponse.json(
         { error: "Sesi tidak ditemukan." },
         { status: 404 }
@@ -146,15 +163,16 @@ export async function POST(req: Request) {
     }
 
     // 5. Simpan ke tabel `jawaban` (Upsert per sesi_id & soal_id jika UUID valid)
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(soalId);
-    if (isUuid) {
+    const isSoalUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(soalId);
+    const isOpsiUuid = opsiId ? /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(opsiId) : false;
+    if (isSoalUuid) {
       await adminDb
         .from("jawaban")
         .upsert(
           {
-            sesi_id: sesiId,
+            sesi_id: sesi.id,
             soal_id: soalId,
-            opsi_dipilih_id: opsiId || null,
+            opsi_dipilih_id: isOpsiUuid ? opsiId : null,
             jawaban_teks: jawabanTeks || (selectedOption?.teks_opsi ?? null),
             is_benar: isBenar,
             nilai: calculatedNilai,

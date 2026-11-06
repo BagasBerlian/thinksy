@@ -88,11 +88,14 @@ export default function DaftarSoalGuruPage() {
         });
         if (babsMap.size === 0) {
           setAvailableBabs([
-            { id: "bab-1", judul: "Bab 1: Bilangan Berpangkat & Bentuk Akar" },
-            { id: "bab-2", judul: "Bab 2: Teorema Pythagoras" },
-            { id: "bab-3", judul: "Bab 3: Persamaan Linear Satu Variabel" },
-            { id: "bab-4", judul: "Bab 4: Relasi dan Fungsi" },
-            { id: "bab-5", judul: "Bab 5: Persamaan Garis Lurus" },
+            { id: "b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a11", judul: "Bab 1: Pola Bilangan & Barisan Bilangan" },
+            { id: "b2eebc99-9c0b-4ef8-bb6d-6bb9bd380a22", judul: "Bab 2: Bentuk Aljabar & PLSV/PTLSV" },
+            { id: "b3eebc99-9c0b-4ef8-bb6d-6bb9bd380a33", judul: "Bab 3: Relasi & Fungsi" },
+            { id: "b4eebc99-9c0b-4ef8-bb6d-6bb9bd380a44", judul: "Bab 4: Persamaan Garis Lurus (PGL)" },
+            { id: "b5eebc99-9c0b-4ef8-bb6d-6bb9bd380a55", judul: "Bab 5: Sistem Persamaan Linear Dua Variabel (SPLDV)" },
+            { id: "b6eebc99-9c0b-4ef8-bb6d-6bb9bd380a66", judul: "Bab 6: Teorema Pythagoras" },
+            { id: "b7eebc99-9c0b-4ef8-bb6d-6bb9bd380a77", judul: "Bab 7: Bangun Ruang Sisi Datar (BRSD)" },
+            { id: "b8eebc99-9c0b-4ef8-bb6d-6bb9bd380a88", judul: "Bab 8: Statistika & Peluang" },
           ]);
         } else {
           setAvailableBabs(

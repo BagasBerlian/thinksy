@@ -310,8 +310,6 @@ export function useDueSoonItems() {
   const [items, setItems] = useState<DueSoonItem[]>(() => getAllDueSoonItems());
 
   useEffect(() => {
-    setItems(getAllDueSoonItems());
-
     const handleSync = () => {
       setItems(getAllDueSoonItems());
     };

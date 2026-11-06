@@ -86,14 +86,14 @@ export default function ClassroomProfileView({
       ? studentName
       : profileState.nama_lengkap || studentName || "Siswa Thinksy";
 
-  const displayName = useMemo(() => {
-    if (!rawDisplayName || !rawDisplayName.trim()) return "Siswa Thinksy";
-    return rawDisplayName
-      .trim()
-      .split(/\s+/)
-      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-      .join(" ");
-  }, [rawDisplayName]);
+  const displayName =
+    !rawDisplayName || !rawDisplayName.trim()
+      ? "Siswa Thinksy"
+      : rawDisplayName
+          .trim()
+          .split(/\s+/)
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+          .join(" ");
 
   const displayClass = profileState.nama_kelas || studentClass;
   const displayNisn = profileState.nisn || "0089247182";
@@ -134,7 +134,7 @@ export default function ClassroomProfileView({
   // 1. SINKRONISASI REAL-TIME AGENDA JADWAL & BAB COMING SOON DARI GURU
   // =========================================================================
   const [scheduledAgendas, setScheduledAgendas] = useState<any[]>(() => {
-    let list = [...(agendasData || [])];
+    const list = [...(agendasData || [])];
     if (typeof window !== "undefined") {
       try {
         const stored = localStorage.getItem("thinksy_scheduled_agendas");
@@ -152,7 +152,7 @@ export default function ClassroomProfileView({
 
   useEffect(() => {
     const handleUpdate = () => {
-      let list = [...(agendasData || [])];
+      const list = [...(agendasData || [])];
       try {
         const stored = localStorage.getItem("thinksy_scheduled_agendas");
         if (stored) {

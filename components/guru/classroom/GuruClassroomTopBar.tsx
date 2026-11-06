@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -16,13 +16,10 @@ import {
   Mail,
   User,
   CheckCircle2,
-  Calendar,
-  X,
-  Sparkles,
 } from "lucide-react";
 import LanguageToggle from "@/components/layout/LanguageToggle";
-import { useLanguage } from "@/hooks/useLanguage";
 import { logoutAction } from "@/app/(auth)/actions";
+import TeacherHelpModal from "@/components/guru/TeacherHelpModal";
 
 interface GuruClassroomTopBarProps {
   onToggleSidebar: () => void;
@@ -48,11 +45,11 @@ export default function GuruClassroomTopBar({
   onOpenHelp,
 }: GuruClassroomTopBarProps) {
   const router = useRouter();
-  const { t } = useLanguage();
 
   const [isAppsMenuOpen, setIsAppsMenuOpen] = useState(false);
   const [isPlusMenuOpen, setIsPlusMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
 
   const appsMenuRef = useRef<HTMLDivElement>(null);
   const plusMenuRef = useRef<HTMLDivElement>(null);
@@ -181,6 +178,22 @@ export default function GuruClassroomTopBar({
                 <FileText className="w-4 h-4 text-slate-500 shrink-0" />
                 <span>Generator Soal AI</span>
               </button>
+
+              {/* 4. Buat Ruang Ujian Baru */}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsPlusMenuOpen(false);
+                  router.push("/guru/ujian/create");
+                }}
+                className="w-full px-4 py-2.5 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition cursor-pointer"
+              >
+                <Layers className="w-4 h-4 text-rose-500 shrink-0" />
+                <div>
+                  <div className="font-bold">Buat Ruang Ujian Baru</div>
+                  <div className="text-[10px] text-slate-400 font-normal">Ulangan Harian & Ujian CBT</div>
+                </div>
+              </button>
             </div>
           )}
         </div>
@@ -210,7 +223,11 @@ export default function GuruClassroomTopBar({
                   type="button"
                   onClick={() => {
                     setIsAppsMenuOpen(false);
-                    router.push("/guru");
+                    if (typeof window !== "undefined" && window.location.pathname === "/guru") {
+                      window.dispatchEvent(new CustomEvent("guru-navigate-home"));
+                    } else {
+                      router.push("/guru");
+                    }
                   }}
                   className="flex flex-col items-center justify-center p-3 rounded-2xl hover:bg-slate-100 transition text-center cursor-pointer group"
                 >
@@ -224,34 +241,53 @@ export default function GuruClassroomTopBar({
                   type="button"
                   onClick={() => {
                     setIsAppsMenuOpen(false);
-                    router.push("/guru/soal");
+                    router.push("/guru/siswa");
                   }}
                   className="flex flex-col items-center justify-center p-3 rounded-2xl hover:bg-slate-100 transition text-center cursor-pointer group"
                 >
-                  <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
-                    <FileText className="w-5 h-5" />
+                  <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
+                    <User className="w-5 h-5" />
                   </div>
-                  <span className="text-[11px] font-medium text-slate-700">Bank Soal</span>
+                  <span className="text-[11px] font-medium text-slate-700">Kelola Siswa</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => {
                     setIsAppsMenuOpen(false);
-                    router.push("/guru/penilaian");
+                    if (typeof window !== "undefined" && window.location.pathname === "/guru") {
+                      window.location.search = "?view=presensi";
+                    } else {
+                      router.push("/guru?view=presensi");
+                    }
                   }}
                   className="flex flex-col items-center justify-center p-3 rounded-2xl hover:bg-slate-100 transition text-center cursor-pointer group"
                 >
                   <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
-                    <Layers className="w-5 h-5" />
+                    <CheckCircle2 className="w-5 h-5" />
                   </div>
-                  <span className="text-[11px] font-medium text-slate-700">Penilaian</span>
+                  <span className="text-[11px] font-medium text-slate-700">Presensi Siswa</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => {
                     setIsAppsMenuOpen(false);
+                    router.push("/guru/ujian");
+                  }}
+                  className="flex flex-col items-center justify-center p-3 rounded-2xl hover:bg-slate-100 transition text-center cursor-pointer group"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-600 flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
+                    <Layers className="w-5 h-5" />
+                  </div>
+                  <span className="text-[11px] font-medium text-slate-700">Ruang Ujian</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAppsMenuOpen(false);
+                    setIsHelpModalOpen(true);
                     if (onOpenHelp) onOpenHelp();
                   }}
                   className="flex flex-col items-center justify-center p-3 rounded-2xl hover:bg-slate-100 transition text-center cursor-pointer group"
@@ -259,7 +295,7 @@ export default function GuruClassroomTopBar({
                   <div className="w-10 h-10 rounded-xl bg-slate-500/10 text-slate-600 flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
                     <HelpCircle className="w-5 h-5" />
                   </div>
-                  <span className="text-[11px] font-medium text-slate-700">{t.help}</span>
+                  <span className="text-[11px] font-medium text-slate-700">Help Center</span>
                 </button>
 
                 <button
@@ -384,6 +420,12 @@ export default function GuruClassroomTopBar({
           )}
         </div>
       </div>
+
+      {/* Modal Pusat Bantuan Guru */}
+      <TeacherHelpModal
+        isOpen={isHelpModalOpen}
+        onClose={() => setIsHelpModalOpen(false)}
+      />
     </header>
   );
 }
